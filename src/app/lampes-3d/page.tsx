@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { LampesFilterDropdown } from "@/components/collection/LampesFilterDropdown";
 import { products } from "@/data/products";
 
 export const metadata: Metadata = {
@@ -9,44 +10,54 @@ export const metadata: Metadata = {
     "Découvrez les lampes 3D personnalisées Michket pour anniversaire, mariage, naissance, famille, métiers, sport et soutenance.",
 };
 
+const PRODUCTS_PER_PAGE = 8;
+
 const occasions = [
   {
     id: "anniversaire",
+    slug: "anniversaire",
     label: "Anniversaire",
     image: "/images/products/lampes/anniv.jpeg",
   },
   {
     id: "mariage",
+    slug: "mariage",
     label: "Mariage",
     image: "/images/products/lampes/mariage.jpeg",
   },
   {
     id: "naissance",
+    slug: "naissance",
     label: "Nouveau-né",
     image: "/images/products/lampes/nouveau nee.jpeg",
   },
   {
     id: "maman",
+    slug: "maman",
     label: "Maman & Famille",
     image: "/images/products/lampes/maman.jpeg",
   },
   {
     id: "metiers",
+    slug: "medecine",
     label: "Médecine",
     image: "/images/products/lampes/medecine.jpeg",
   },
   {
     id: "sport",
+    slug: "football",
     label: "Football",
     image: "/images/products/lampes/football.jpeg",
   },
   {
     id: "soutenance",
+    slug: "soutenance",
     label: "Soutenance",
     image: "/images/products/lampes/soutenance.jpeg",
   },
   {
     id: "5eme",
+    slug: "5eme",
     label: "5ème année",
     image: "/images/products/lampes/5eme.jpeg",
   },
@@ -62,28 +73,73 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
+function catalogHref(category?: string, page = 1) {
+  const params = new URLSearchParams();
+
+  if (category) params.set("categorie", category);
+  if (page > 1) params.set("page", String(page));
+
+  const query = params.toString();
+
+  return query ? `/lampes-3d?${query}#produits` : "/lampes-3d#produits";
+}
+
 type Lampes3DPageProps = {
   searchParams: Promise<{
     occasion?: string;
+    categorie?: string;
+    page?: string;
   }>;
 };
 
 export default async function Lampes3DPage({
   searchParams,
 }: Lampes3DPageProps) {
-  const { occasion } = await searchParams;
+  const { occasion, categorie, page } = await searchParams;
 
+  /*
+   * `occasion` reste réservé à la première section pour le moment.
+   * Plus tard, ses cartes pourront pointer vers des pages dédiées :
+   * /lampes-3d/anniversaire, /lampes-3d/mariage, etc.
+   */
   const activeOccasion =
     occasion && occasionLabels[occasion] ? occasion : undefined;
 
-  const lampProducts = products.filter(
-    (product) =>
-      product.category === "lampes-3d" &&
-      (!activeOccasion || product.occasion?.includes(activeOccasion)),
+  /*
+   * Le filtre du catalogue est volontairement séparé de la première section.
+   * Ainsi, la collection affiche toutes les lampes par défaut.
+   */
+  const selectedCategory =
+    categorie && occasionLabels[categorie] ? categorie : undefined;
+
+  const allLampProducts = products.filter(
+    (product) => product.category === "lampes-3d",
   );
 
-  const activeLabel = activeOccasion
-    ? occasionLabels[activeOccasion]
+  const filteredProducts = selectedCategory
+    ? allLampProducts.filter((product) =>
+        product.occasion?.includes(selectedCategory),
+      )
+    : allLampProducts;
+
+  const requestedPage = Number.parseInt(page ?? "1", 10);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE),
+  );
+
+  const currentPage = Number.isFinite(requestedPage)
+    ? Math.min(Math.max(requestedPage, 1), totalPages)
+    : 1;
+
+  const start = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const visibleProducts = filteredProducts.slice(
+    start,
+    start + PRODUCTS_PER_PAGE,
+  );
+
+  const selectedCategoryLabel = selectedCategory
+    ? occasionLabels[selectedCategory]
     : "Toutes les lampes";
 
   return (
@@ -98,10 +154,12 @@ export default async function Lampes3DPage({
       >
         <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-9">
           <div>
-            {/* Intro compact */}
             <div className="mx-auto max-w-[760px] text-center">
               <div className="flex items-center justify-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
-                <Link href="/" className="transition-colors hover:text-[#ECAB1C]">
+                <Link
+                  href="/"
+                  className="transition-colors hover:text-[#ECAB1C]"
+                >
                   Accueil
                 </Link>
                 <span>/</span>
@@ -109,43 +167,28 @@ export default async function Lampes3DPage({
               </div>
 
               <h1 className="mt-2.5 font-body text-[27px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[34px] lg:text-[39px]">
-                Lampes 3D <span className="text-[#8A6A20]">personnalisées</span>
+                Lampes 3D{" "}
+                <span className="text-[#8A6A20]">personnalisées</span>
               </h1>
 
               <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-5 text-[#2A1B16]/48 sm:block">
-                Choisissez une occasion et accédez directement aux modèles disponibles.
+                Choisissez une occasion et découvrez l’univers qui correspond
+                à votre cadeau.
               </p>
-
-              <Link
-                href="/lampes-3d#produits"
-                className={`mx-auto mt-4 hidden min-h-10 w-fit items-center border-b text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors sm:inline-flex ${
-                  !activeOccasion
-                    ? "border-[#ECAB1C] text-[#2A1B16]"
-                    : "border-[#2A1B16]/20 text-[#2A1B16]/55 hover:border-[#ECAB1C] hover:text-[#2A1B16]"
-                }`}
-              >
-                Voir toutes les lampes
-              </Link>
             </div>
 
-            {/* Catégories — visuelles, sans texte inutile */}
+            {/* Une seule ligne, scrollable sur toutes les tailles si nécessaire */}
             <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-2.5 sm:gap-3 lg:justify-center">
                 {occasions.map((item) => {
-                  const isActive = activeOccasion === item.id;
-
                   return (
                     <Link
                       key={item.id}
-                      href={`/lampes-3d?occasion=${item.id}#produits`}
+                      href={`/lampes-3d/${item.slug}`}
                       className="group w-[138px] flex-none snap-start sm:w-[170px] lg:w-[175px]"
                     >
                       <article
-                        className={`relative overflow-hidden rounded-[12px] border bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)] ${
-                          isActive
-                            ? "border-[#ECAB1C] ring-1 ring-[#ECAB1C]/20"
-                            : "border-white/10 hover:border-[#ECAB1C]/40"
-                        }`}
+                        className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]"
                       >
                         <div className="relative aspect-[4/3] overflow-hidden">
                           <Image
@@ -153,7 +196,7 @@ export default async function Lampes3DPage({
                             alt={`Lampe 3D ${item.label}`}
                             fill
                             className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                            sizes="(max-width: 1023px) 170px, 22vw"
+                            sizes="(max-width: 1023px) 170px, 175px"
                           />
 
                           <div
@@ -167,11 +210,7 @@ export default async function Lampes3DPage({
                             </span>
 
                             <span
-                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all ${
-                                isActive
-                                  ? "bg-[#ECAB1C] text-[#2A1B16]"
-                                  : "bg-white/14 text-white backdrop-blur-sm group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
-                              }`}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/14 text-white backdrop-blur-sm transition-all group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
                               aria-hidden="true"
                             >
                               <svg
@@ -200,45 +239,51 @@ export default async function Lampes3DPage({
         </div>
       </section>
 
-      {/* ───────────────── PRODUCTS ───────────────── */}
+      {/* ───────────────── FULL CATALOG ───────────────── */}
       <section
         id="produits"
         className="scroll-mt-24 py-7 sm:py-9 lg:py-11"
         style={{
-          background:
-            "linear-gradient(180deg, #F8F3EB 0%, #F3ECE3 100%)",
+          background: "linear-gradient(180deg, #F8F3EB 0%, #F3ECE3 100%)",
         }}
       >
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-          {/* Header catalogue */}
-          <div className="mb-5 text-center sm:mb-7">
-            <div className="mx-auto">
-              <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
-                Collection disponible
-              </p>
+          {/* Titre catalogue toujours centré */}
+          <div className="mx-auto mb-5 max-w-[680px] text-center sm:mb-7">
+            <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
+              Collection disponible
+            </p>
 
-              <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
-                {activeLabel}
-              </h2>
+            <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
+              Une lumière unique pour chaque histoire
+            </h2>
 
-              <p className="mt-1 text-[10px] text-[#2A1B16]/40 sm:text-[11px]">
-                {lampProducts.length} produit{lampProducts.length > 1 ? "s" : ""}
-              </p>
-            </div>
-
-            {activeOccasion && (
-              <Link
-                href="/lampes-3d#produits"
-                className="mt-3 inline-flex text-[9px] font-semibold uppercase tracking-[0.08em] text-[#2A1B16]/45 underline decoration-[#ECAB1C]/60 underline-offset-4 transition-colors hover:text-[#2A1B16] sm:text-[10px]"
-              >
-                Tout afficher
-              </Link>
-            )}
+            <p className="mt-1.5 text-[10px] font-medium text-[#2A1B16]/42 sm:text-[11px]">
+              {selectedCategoryLabel}
+            </p>
           </div>
 
-          {lampProducts.length > 0 ? (
+          {/* Barre catalogue : nombre de produits + filtre compact */}
+          <div className="mb-5 flex items-center justify-between gap-3 border-y border-[#2A1B16]/[0.08] py-3 sm:mb-6 sm:py-3.5">
+            <p className="text-[10px] font-medium text-[#2A1B16]/45 sm:text-[11px]">
+              {filteredProducts.length} produit
+              {filteredProducts.length > 1 ? "s" : ""}
+            </p>
+
+            <LampesFilterDropdown
+              selectedCategory={selectedCategory}
+              selectedCategoryLabel={selectedCategoryLabel}
+              options={occasions.map((item) => ({
+                id: item.id,
+                label: item.label,
+              }))}
+            />
+          </div>
+
+          {/* Grille produits */}
+          {visibleProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
-              {lampProducts.map((product, index) => {
+              {visibleProducts.map((product, index) => {
                 const image = product.images[0];
                 const hasDiscount =
                   typeof product.compareAtPrice === "number" &&
@@ -265,7 +310,7 @@ export default async function Lampes3DPage({
                         src={image.src}
                         alt={image.alt}
                         fill
-                        priority={index < 2}
+                        priority={index < 2 && currentPage === 1}
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                         sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
                       />
@@ -362,38 +407,128 @@ export default async function Lampes3DPage({
               <p className="font-body text-base font-semibold">
                 Aucun produit dans cette catégorie pour le moment.
               </p>
+
               <Link
-                href="/lampes-3d#produits"
+                href={catalogHref()}
                 className="mt-4 inline-flex border-b border-[#ECAB1C] pb-1 text-[9px] font-bold uppercase tracking-[0.09em]"
               >
                 Voir toutes les lampes
               </Link>
             </div>
           )}
-        </div>
-      </section>
 
-      {/* ───────────────── SMALL TRUST BAR ───────────────── */}
-      <section className="border-t border-[#2A1B16]/[0.07] bg-[#EFE6DB]">
-        <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-px bg-[#2A1B16]/[0.06] sm:grid-cols-4">
-          {[
-            ["Personnalisable", "Selon le modèle"],
-            ["Finition soignée", "Préparée avec attention"],
-            ["Livraison Algérie", "À travers le pays"],
-            ["Besoin d’aide ?", "Équipe à votre écoute"],
-          ].map(([title, description]) => (
-            <div
-              key={title}
-              className="bg-[#F5EEE6] px-4 py-4 text-center sm:px-5 sm:py-5"
+          {/* ───────────────── PAGINATION ───────────────── */}
+          {filteredProducts.length > 0 && (
+            <nav
+              className="mt-8 flex items-center justify-center gap-1.5 sm:mt-10"
+              aria-label="Pagination des lampes 3D"
             >
-              <p className="text-[10px] font-semibold text-[#2A1B16] sm:text-[11px]">
-                {title}
-              </p>
-              <p className="mt-0.5 hidden text-[9px] text-[#2A1B16]/38 sm:block sm:text-[10px]">
-                {description}
-              </p>
-            </div>
-          ))}
+              {currentPage > 1 ? (
+                <Link
+                  href={catalogHref(selectedCategory, currentPage - 1)}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[#2A1B16]/60 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10"
+                  aria-label="Page précédente"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 18l-6-6 6-6"
+                    />
+                  </svg>
+                </Link>
+              ) : (
+                <span
+                  className="flex h-9 min-w-9 cursor-not-allowed items-center justify-center rounded-[8px] border border-[#2A1B16]/[0.06] bg-white/40 px-2 text-[#2A1B16]/20 sm:h-10 sm:min-w-10"
+                  aria-hidden="true"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 18l-6-6 6-6"
+                    />
+                  </svg>
+                </span>
+              )}
+
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                (pageNumber) =>
+                  pageNumber === currentPage ? (
+                    <span
+                      key={pageNumber}
+                      className="flex h-9 min-w-9 items-center justify-center rounded-[8px] bg-[#2A1B16] px-2 text-[10px] font-bold text-white shadow-[0_7px_18px_rgba(42,27,22,0.14)] sm:h-10 sm:min-w-10 sm:text-[11px]"
+                      aria-current="page"
+                    >
+                      {pageNumber}
+                    </span>
+                  ) : (
+                    <Link
+                      key={pageNumber}
+                      href={catalogHref(selectedCategory, pageNumber)}
+                      className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[10px] font-semibold text-[#2A1B16]/55 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10 sm:text-[11px]"
+                    >
+                      {pageNumber}
+                    </Link>
+                  ),
+              )}
+
+              {currentPage < totalPages ? (
+                <Link
+                  href={catalogHref(selectedCategory, currentPage + 1)}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[#2A1B16]/60 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10"
+                  aria-label="Page suivante"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 6l6 6-6 6"
+                    />
+                  </svg>
+                </Link>
+              ) : (
+                <span
+                  className="flex h-9 min-w-9 cursor-not-allowed items-center justify-center rounded-[8px] border border-[#2A1B16]/[0.06] bg-white/40 px-2 text-[#2A1B16]/20 sm:h-10 sm:min-w-10"
+                  aria-hidden="true"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 6l6 6-6 6"
+                    />
+                  </svg>
+                </span>
+              )}
+            </nav>
+          )}
         </div>
       </section>
     </main>

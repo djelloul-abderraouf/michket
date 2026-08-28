@@ -201,6 +201,26 @@ export function Header() {
     };
   }, [mobileNavOpen, searchOpen]);
 
+  /* ── Fermer automatiquement la navigation mobile après un clic sur un lien ── */
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const handleMobileNavLinkClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest("a[href]");
+
+      if (!link) return;
+
+      setMobileNavOpen(false);
+    };
+
+    document.addEventListener("click", handleMobileNavLinkClick);
+
+    return () => {
+      document.removeEventListener("click", handleMobileNavLinkClick);
+    };
+  }, [mobileNavOpen]);
+
   /* ── Mega-menu timer helpers ── */
   const clearMegaTimers = useCallback(() => {
     if (megaOpenTimeoutRef.current) {
