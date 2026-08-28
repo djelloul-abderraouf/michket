@@ -79,7 +79,7 @@ export default async function Lampes3DPage({
   const lampProducts = products.filter(
     (product) =>
       product.category === "lampes-3d" &&
-      (!activeOccasion || product.occasion === activeOccasion),
+      (!activeOccasion || product.occasion?.includes(activeOccasion)),
   );
 
   const activeLabel = activeOccasion
