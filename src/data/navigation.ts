@@ -76,11 +76,11 @@ export const mainNav: NavItemWithMega[] = [
             { label: "Toutes les lampes", href: "/lampes-3d" },
             {
               label: "Lampes anniversaire",
-              href: "/lampes-3d?occasion=anniversaire",
+              href: "/lampes-3d/anniversaire",
             },
             {
               label: "Lampes naissance",
-              href: "/lampes-3d?occasion=naissance",
+              href: "/lampes-3d/naissance",
             },
             {
               label: "Lampes couple",
@@ -88,7 +88,7 @@ export const mainNav: NavItemWithMega[] = [
             },
             {
               label: "Lampes maman",
-              href: "/lampes-3d?occasion=maman",
+              href: "/lampes-3d/maman",
             },
           ],
         },
@@ -132,49 +132,49 @@ export const mainNav: NavItemWithMega[] = [
       categories: [
         {
           label: "Anniversaire",
-          href: "/lampes-3d?occasion=anniversaire",
+          href: "/lampes-3d/anniversaire",
           image: "/images/products/lampes/anniv.jpeg",
           objectPosition: "center",
         },
         {
           label: "Mariage",
-          href: "/lampes-3d?occasion=mariage",
+          href: "/lampes-3d/mariage",
           image: "/images/products/lampes/mariage.jpeg",
           objectPosition: "center",
         },
         {
           label: "Nouveau-né",
-          href: "/lampes-3d?occasion=naissance",
+          href: "/lampes-3d/naissance",
           image: "/images/products/lampes/nouveau%20nee.jpeg",
           objectPosition: "center",
         },
         {
           label: "Maman & Famille",
-          href: "/lampes-3d?occasion=maman",
+          href: "/lampes-3d/maman",
           image: "/images/products/lampes/maman.jpeg",
           objectPosition: "center",
         },
         {
           label: "Médecine",
-          href: "/lampes-3d?occasion=metiers",
+          href: "/lampes-3d/medecine",
           image: "/images/products/lampes/medecine.jpeg",
           objectPosition: "center",
         },
         {
           label: "Football",
-          href: "/lampes-3d?occasion=sport",
+          href: "/lampes-3d/football",
           image: "/images/products/lampes/football.jpeg",
           objectPosition: "center",
         },
         {
           label: "Soutenance",
-          href: "/lampes-3d?occasion=soutenance",
+          href: "/lampes-3d/soutenance",
           image: "/images/products/lampes/soutenance.jpeg",
           objectPosition: "center",
         },
         {
           label: "5ème année",
-          href: "/lampes-3d?occasion=5eme",
+          href: "/lampes-3d/5eme",
           image: "/images/products/lampes/5eme.jpeg",
           objectPosition: "center",
         },
@@ -185,23 +185,23 @@ export const mainNav: NavItemWithMega[] = [
           items: [
             {
               label: "Anniversaire",
-              href: "/lampes-3d?occasion=anniversaire",
+              href: "/lampes-3d/anniversaire",
             },
-            { label: "Mariage", href: "/lampes-3d?occasion=mariage" },
-            { label: "Nouveau-né", href: "/lampes-3d?occasion=naissance" },
+            { label: "Mariage", href: "/lampes-3d/mariage" },
+            { label: "Nouveau-né", href: "/lampes-3d/naissance" },
             {
               label: "Maman & Famille",
-              href: "/lampes-3d?occasion=maman",
+              href: "/lampes-3d/maman",
             },
             {
               label: "Diplôme & Soutenance",
-              href: "/lampes-3d?occasion=soutenance",
+              href: "/lampes-3d/soutenance",
             },
             {
               label: "Football & Sport",
-              href: "/lampes-3d?occasion=sport",
+              href: "/lampes-3d/football",
             },
-            { label: "Métiers", href: "/lampes-3d?occasion=metiers" },
+            { label: "Métiers", href: "/lampes-3d/medecine" },
           ],
         },
         {

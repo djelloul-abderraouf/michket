@@ -178,25 +178,25 @@ export default async function Lampes3DPage({
             </div>
 
             {/* Une seule ligne, scrollable sur toutes les tailles si nécessaire */}
-            <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-2.5 sm:gap-3 lg:justify-center">
+            <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-start">
                 {occasions.map((item) => {
                   return (
                     <Link
                       key={item.id}
                       href={`/lampes-3d/${item.slug}`}
-                      className="group w-[138px] flex-none snap-start sm:w-[170px] lg:w-[175px]"
+                      className="group w-[166px] flex-none snap-start sm:w-[205px] lg:w-[220px]"
                     >
                       <article
                         className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]"
                       >
-                        <div className="relative aspect-[4/3] overflow-hidden">
+                        <div className="relative aspect-[5/4] overflow-hidden">
                           <Image
                             src={item.image}
                             alt={`Lampe 3D ${item.label}`}
                             fill
                             className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                            sizes="(max-width: 1023px) 170px, 175px"
+                            sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
                           />
 
                           <div

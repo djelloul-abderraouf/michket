@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CategoryHeroCarousel } from "@/components/collection/CategoryHeroCarousel";
 import { products } from "@/data/products";
 
 const categories = {
@@ -13,6 +14,11 @@ const categories = {
     description:
       "Découvrez les lampes 3D personnalisées pensées pour célébrer un anniversaire avec une création unique.",
     image: "/images/products/lampes/anniv.jpeg",
+    heroImages: [
+      "/images/category-hero/anniversaire/anniversaire-hero.png",
+      "/images/category-hero/anniversaire/anniversaire-hero2.png",
+    
+    ],
   },
   mariage: {
     productOccasion: "mariage",
@@ -22,6 +28,10 @@ const categories = {
     description:
       "Prénoms, dates et messages prennent vie dans une lampe personnalisée pensée pour les mariages.",
     image: "/images/products/lampes/mariage.jpeg",
+    heroImages: [
+      "/images/category-hero/mariage/mariage-hero.png",
+      
+    ],
   },
   naissance: {
     productOccasion: "naissance",
@@ -31,6 +41,10 @@ const categories = {
     description:
       "Des lampes personnalisées avec prénom et détails de naissance pour créer un souvenir tendre.",
     image: "/images/products/lampes/nouveau nee.jpeg",
+    heroImages: [
+      "/images/category-hero/naissance/naissance-hero.png",
+    
+    ],
   },
   maman: {
     productOccasion: "maman",
@@ -40,6 +54,10 @@ const categories = {
     description:
       "Des créations personnalisées à offrir à maman et à la famille pour marquer les liens les plus précieux.",
     image: "/images/products/lampes/maman.jpeg",
+    heroImages: [
+      "/images/category-hero/maman/maman-hero.png",
+      
+    ],
   },
   medecine: {
     productOccasion: "metiers",
@@ -49,6 +67,10 @@ const categories = {
     description:
       "Des lampes personnalisées pensées pour les métiers de la santé, les réussites et les parcours professionnels.",
     image: "/images/products/lampes/medecine.jpeg",
+    heroImages: [
+      "/images/category-hero/medecine/medecine-hero.png",
+    
+    ],
   },
   football: {
     productOccasion: "sport",
@@ -58,6 +80,10 @@ const categories = {
     description:
       "Découvrez les modèles football personnalisables pour offrir un cadeau à l’image d’une passion.",
     image: "/images/products/lampes/football.jpeg",
+    heroImages: [
+      "/images/category-hero/football/foot-hero.png",
+    
+    ],
   },
   soutenance: {
     productOccasion: "soutenance",
@@ -67,6 +93,10 @@ const categories = {
     description:
       "Des lampes personnalisées pour féliciter une soutenance et garder un souvenir de cette réussite.",
     image: "/images/products/lampes/soutenance.jpeg",
+    heroImages: [
+      "/images/category-hero/soutenance/soutenance-hero.png",
+    
+    ],
   },
   "5eme": {
     productOccasion: "5eme",
@@ -76,6 +106,10 @@ const categories = {
     description:
       "Découvrez les créations personnalisées pensées pour marquer la 5ème année et les moments importants du parcours.",
     image: "/images/products/lampes/5eme.jpeg",
+    heroImages: [
+      "/images/category-hero/5eme/5eme-hero.png",
+   
+    ],
   },
 } as const;
 
@@ -145,9 +179,15 @@ export default async function LampesCategoryPage({
       productMatchesCategory(product.occasion, category.productOccasion),
   );
 
+  // Images du grand carrousel choisies manuellement pour chaque catégorie.
+  // Elles sont totalement indépendantes des images de products.ts.
+  const heroSlides = category.heroImages.map((src, index) => ({
+    src,
+    alt: `Lampe 3D ${category.label} - visuel ${index + 1}`,
+  }));
+
   return (
     <main className="bg-[#F8F3EB] text-[#2A1B16]">
-      {/* ───────────────── CATEGORY INTRO ───────────────── */}
       <section
         className="relative overflow-hidden border-b border-[#2A1B16]/[0.08]"
         style={{
@@ -204,25 +244,11 @@ export default async function LampesCategoryPage({
           </div>
 
           <div className="order-1 mx-auto w-full max-w-[680px] lg:order-2">
-            <div className="relative aspect-[16/8.5] overflow-hidden rounded-[14px] border border-[#2A1B16]/[0.08] bg-[#EDE4D9] shadow-[0_16px_38px_rgba(42,27,22,0.09)]">
-              <Image
-                src={category.image}
-                alt={`Lampe 3D ${category.label}`}
-                fill
-                priority
-                className="object-cover"
-                sizes="(max-width: 1023px) 100vw, 56vw"
-              />
-              <div
-                className="absolute inset-0 bg-gradient-to-t from-[#21130F]/30 via-transparent to-transparent"
-                aria-hidden="true"
-              />
-            </div>
+            <CategoryHeroCarousel slides={heroSlides} />
           </div>
         </div>
       </section>
 
-      {/* ───────────────── PRODUCTS ───────────────── */}
       <section
         id="produits"
         className="scroll-mt-24 py-7 sm:py-9 lg:py-11"
@@ -387,7 +413,6 @@ export default async function LampesCategoryPage({
         </div>
       </section>
 
-      {/* ───────────────── OTHER CATEGORIES ───────────────── */}
       <section className="border-t border-[#2A1B16]/[0.07] bg-[#EFE7DD] py-7 sm:py-9">
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
           <div className="mb-4 text-center">
