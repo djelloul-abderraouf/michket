@@ -11,11 +11,11 @@ export const siteConfig = {
   url: "https://michket.com", // OWNER_INPUT_REQUIRED: real domain
   locale: "fr-FR",
   currency: "EUR",
-  currencySymbol: "€",
+  currencySymbol: "DA",
 
   announcement: {
     enabled: true,
-    text: "Livraison offerte à partir de 100€ d'achat",
+    text: "Livraison offerte à partir de 100DA d'achat",
     // OWNER_INPUT_REQUIRED: real free-shipping threshold
     link: "/meilleures-ventes",
     linkText: "Voir les offres",
@@ -59,7 +59,7 @@ export const siteConfig = {
 
   trust: {
     items: [
-      { icon: "truck", text: "Livraison offerte dès 100€" },
+      { icon: "truck", text: "Livraison offerte dès 100DA" },
       { icon: "shield", text: "Paiement 100% sécurisé" },
       { icon: "star", text: "Fabrication artisanale" },
       { icon: "refresh", text: "Satisfait ou remboursé" },
