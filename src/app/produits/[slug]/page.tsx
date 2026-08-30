@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/product/ProductDetail";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import { products } from "@/data/products";
+import { getAlgeriaLocations } from "@/lib/algeria";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -16,7 +17,10 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = products.find((p) => p.slug === slug);
-  if (!product) return { title: "Produit non trouvé | Michket" };
+
+  if (!product) {
+    return { title: "Produit non trouvé | Michket" };
+  }
 
   return {
     title: `${product.title} | Michket`,
@@ -37,15 +41,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  // Get related products (same category, excluding current)
+  const [wilayas] = await Promise.all([getAlgeriaLocations()]);
+
   const relatedProducts = products
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 
   return (
     <>
-      <ProductJsonLd product={product} url={`https://michket.com/produits/${product.slug}`} />
-      <ProductDetail product={product} relatedProducts={relatedProducts} />
+      <ProductJsonLd
+        product={product}
+        url={`https://seashell-armadillo-282520.hostingersite.com/produits/${product.slug}`}
+      />
+      <ProductDetail
+        product={product}
+        relatedProducts={relatedProducts}
+        wilayas={wilayas}
+      />
     </>
   );
 }

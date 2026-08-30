@@ -1,7 +1,11 @@
 /**
- * Occasion-based shopping data for Michket.
- * Product counts are retained as optional catalogue metadata but are not
- * displayed in the OccasionBar until real production counts are confirmed.
+ * Chaque vignette utilise directement `href`.
+ *
+ * Pour une catégorie :
+ *   href: "/lampes-3d/anniversaire"
+ *
+ * Pour un produit précis :
+ *   href: "/produits/slug-du-produit"
  */
 
 export interface Occasion {
@@ -18,69 +22,59 @@ export const occasions: Occasion[] = [
     label: "Anniversaire",
     href: "/lampes-3d/anniversaire",
     image: "/images/products/lampes/anniv.jpeg",
-    productCount: 24,
   },
   {
     id: "mariage",
     label: "Mariage",
-    href: "/occasions/mariage",
+    href: "/lampes-3d/mariage",
     image: "/images/products/lampes/mariage.jpeg",
-    productCount: 18,
   },
   {
     id: "naissance",
     label: "Naissance",
-    href: "/occasions/naissance",
+    href: "/lampes-3d/naissance",
     image: "/images/products/lampes/nouveau nee.jpeg",
-    productCount: 15,
   },
   {
     id: "bac",
     label: "BAC",
-    href: "/occasions/bac",
+    href: "/trophees",
     image: "/images/products/trophees/trophebac.jpeg",
-    productCount: 22,
   },
   {
     id: "soutenance",
     label: "Soutenance",
-    href: "/occasions/soutenance",
+    href: "/lampes-3d/soutenance",
     image: "/images/products/trophees/soutenance2.jpeg",
-    productCount: 12,
   },
   {
     id: "maman",
     label: "Fête des mères",
-    href: "/occasions/maman",
+    href: "/lampes-3d/maman",
     image: "/images/products/lampes/maman.jpeg",
-    productCount: 20,
   },
   {
     id: "sport",
     label: "Football / Sport",
-    href: "/occasions/sport",
+    href: "/lampes-3d/football",
     image: "/images/products/lampes/football.jpeg",
-    productCount: 14,
   },
   {
     id: "remerciement",
     label: "Remerciement",
-    href: "/occasions/remerciement",
+    href: "/trophees",
     image: "/images/products/trophees/remerciement.jpeg",
-    productCount: 16,
   },
   {
     id: "couple",
     label: "Couple",
-    href: "/occasions/couple",
+    href: "/neon-led",
     image: "/images/products/neon-led/OIP (1).webp",
-    productCount: 10,
   },
   {
     id: "metiers",
     label: "Métiers",
-    href: "/occasions/metiers",
+    href: "/lampes-3d/medecine",
     image: "/images/products/lampes/medecine.jpeg",
-    productCount: 8,
   },
 ];
