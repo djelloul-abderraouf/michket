@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryHeroCarousel } from "@/components/collection/CategoryHeroCarousel";
 import { products } from "@/data/products";
+import { ScrollToTop } from "@/components/navigation/ScrollToTop";
 
 const categories = {
   anniversaire: {
@@ -188,6 +189,7 @@ export default async function LampesCategoryPage({
 
   return (
     <main id="top" className="bg-[#F8F3EB] text-[#2A1B16]">
+      <ScrollToTop trigger={occasion} />
       <section
         className="relative overflow-hidden border-b border-[#2A1B16]/[0.08]"
         style={{
