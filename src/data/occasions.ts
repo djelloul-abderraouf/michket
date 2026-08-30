@@ -16,7 +16,7 @@ export const occasions: Occasion[] = [
   {
     id: "anniversaire",
     label: "Anniversaire",
-    href: "/occasions/anniversaire",
+    href: "/lampes-3d/anniversaire",
     image: "/images/products/lampes/anniv.jpeg",
     productCount: 24,
   },

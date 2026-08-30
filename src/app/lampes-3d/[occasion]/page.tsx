@@ -187,7 +187,7 @@ export default async function LampesCategoryPage({
   }));
 
   return (
-    <main className="bg-[#F8F3EB] text-[#2A1B16]">
+    <main id="top" className="bg-[#F8F3EB] text-[#2A1B16]">
       <section
         className="relative overflow-hidden border-b border-[#2A1B16]/[0.08]"
         style={{

@@ -2,6 +2,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { occasions } from "@/data/occasions";
 
+const occasionRoutes: Record<string, string> = {
+  anniversaire: "/lampes-3d/anniversaire",
+  mariage: "/lampes-3d/mariage",
+  naissance: "/lampes-3d/naissance",
+  soutenance: "/lampes-3d/soutenance",
+  maman: "/lampes-3d/maman",
+  sport: "/lampes-3d/football",
+  metiers: "/lampes-3d/medecine",
+};
+
+function getOccasionHref(occasion: (typeof occasions)[number]) {
+  return occasionRoutes[occasion.id] ?? occasion.href;
+}
+
 export function OccasionBar() {
   return (
     <section
@@ -41,6 +55,7 @@ export function OccasionBar() {
         <div className="mt-5 flex justify-center px-4 sm:mt-6 sm:px-6 lg:px-10">
           <Link
             href="/occasions"
+            scroll
             className="
               group
               inline-flex
@@ -95,7 +110,8 @@ function OccasionCard({
 }) {
   return (
     <Link
-      href={occasion.href}
+      href={getOccasionHref(occasion)}
+      scroll
       className="
         group
         relative
