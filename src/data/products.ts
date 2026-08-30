@@ -37,7 +37,7 @@ export const products: Product[] = [
     description: "Lampe personnalisée en acrylic LED 3D avec motif étoile. Idéale pour un cadeau d'anniversaire mémorable.",
     price: 49.90,
     compareAtPrice: 69.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/anniv.jpeg", alt: "Lampe LED 3D personnalisée anniversaire" },
     ],
@@ -56,7 +56,7 @@ export const products: Product[] = [
     description: "Lampe personnalisée pour célébrer votre amour. Gravure de vos prénoms et date de mariage.",
     price: 54.90,
     compareAtPrice: 74.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/mariage.jpeg", alt: "Lampe LED 3D personnalisée mariage" },
     ],
@@ -75,7 +75,7 @@ export const products: Product[] = [
     description: "Lampe de naissance personnalisée avec le prénom et la date de naissance de bébé.",
     price: 44.90,
     compareAtPrice: 59.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/nouveau nee.jpeg", alt: "Lampe LED 3D naissance personnalisée" },
     ],
@@ -94,7 +94,7 @@ export const products: Product[] = [
     description: "Offrez à maman une lampe personnalisée avec les prénoms de la famille.",
     price: 49.90,
     compareAtPrice: 64.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/maman.jpeg", alt: "Lampe LED 3D personnalisée maman" },
     ],
@@ -113,7 +113,7 @@ export const products: Product[] = [
     description: "Lampe personnalisée pour hommage à un médecin. Motif stéthoscope et prénom gravé.",
     price: 52.90,
     compareAtPrice: 69.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/medecine.jpeg", alt: "Lampe LED 3D médecin personnalisée" },
     ],
@@ -132,7 +132,7 @@ export const products: Product[] = [
     description: "Lampe personnalisée pour les amateurs de football. Motif ballon et numéro personnalisé.",
     price: 47.90,
     compareAtPrice: 62.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/football.jpeg", alt: "Lampe LED 3D football personnalisée" },
     ],
@@ -151,7 +151,7 @@ export const products: Product[] = [
     description: "Lampe de soutenance personnalisée pour célébrer l'obtention du diplôme.",
     price: 49.90,
     compareAtPrice: 64.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/soutenance.jpeg", alt: "Lampe LED 3D soutenance personnalisée" },
     ],
@@ -169,7 +169,7 @@ export const products: Product[] = [
     description: "Lampe commémorative pour les 5 ans de mariage ou événement spécial.",
     price: 52.90,
     compareAtPrice: 69.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/lampes/5eme.jpeg", alt: "Lampe LED 3D 5ème anniversaire" },
     ],
@@ -187,7 +187,7 @@ export const products: Product[] = [
     description: "Trophée gravé pour célébrer l'obtention du BAC. Personnalisation avec nom, spécialité et mention.",
     price: 39.90,
     compareAtPrice: 54.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/trophees/trophebac.jpeg", alt: "Trophée personnalisé BAC" },
     ],
@@ -206,7 +206,7 @@ export const products: Product[] = [
     description: "Trophée de mérite personnalisé pour récompenser l'excellence.",
     price: 42.90,
     compareAtPrice: 59.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/trophees/bem.jpeg", alt: "Trophée personnalisé BEM" },
     ],
@@ -224,7 +224,7 @@ export const products: Product[] = [
     description: "Trophée de soutenance gravé avec le nom de l'étudiant et le sujet de thèse.",
     price: 44.90,
     compareAtPrice: 62.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/trophees/soutenance2.jpeg", alt: "Trophée personnalisé soutenance" },
     ],
@@ -243,7 +243,7 @@ export const products: Product[] = [
     description: "Trophée de remerciement pour exprimer votre gratitude avec un message personnalisé.",
     price: 37.90,
     compareAtPrice: 49.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/trophees/remerciement.jpeg", alt: "Trophée remerciement personnalisé" },
     ],
@@ -261,7 +261,7 @@ export const products: Product[] = [
     description: "Carte du monde en bois découpé au laser, multicolore. Décoration murale premium pour salon ou bureau.",
     price: 89.90,
     compareAtPrice: 119.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/cartes-du-monde/carte.jpg", alt: "Carte du monde en bois multicolore" },
     ],
@@ -280,7 +280,7 @@ export const products: Product[] = [
     description: "Néon LED sur mesure avec votre prénom. Idéal pour chambre, salon ou bureau.",
     price: 59.90,
     compareAtPrice: 79.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/neon-led/OIP.webp", alt: "Néon LED prénom personnalisé" },
     ],
@@ -299,7 +299,7 @@ export const products: Product[] = [
     description: "Néon LED personnalisé avec les prénoms de votre couple. Parfait pour la chambre ou l'entrée.",
     price: 64.90,
     compareAtPrice: 84.90,
-    currency: "EUR",
+    currency: "DA",
     images: [
       { src: "/images/products/neon-led/OIP (1).webp", alt: "Néon LED couple personnalisé" },
     ],
