@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -37,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className="h-full antialiased">
+    <html lang="fr" className="h-full antialiased" data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -56,17 +54,9 @@ export default function RootLayout({
         className="min-h-full flex flex-col"
       >
         <Providers>
-          <a href="#main-content" className="skip-link">
-            Aller au contenu principal
-          </a>
-
-          <Header />
-
           <main id="main-content" className="flex-1">
             {children}
           </main>
-
-          <Footer />
         </Providers>
       </body>
     </html>

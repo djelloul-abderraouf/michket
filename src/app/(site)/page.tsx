@@ -6,6 +6,7 @@ import { FeaturedProducts } from "@/components/home/FeaturedProducts";
 import { BeforeAfterSection } from "@/components/home/BeforeAfterSection";
 import { USPSection } from "@/components/home/USPSection";
 import { Testimonials } from "@/components/home/Testimonials";
+import { CrmHomeLogin } from "@/components/crm/CrmHomeLogin";
 
 import { OrganizationJsonLd } from "@/components/seo/OrganizationJsonLd";
 
@@ -21,6 +22,7 @@ export default function HomePage() {
       <BeforeAfterSection />
       <Testimonials />
       <USPSection />
+      <CrmHomeLogin />
       
     </>
   );
