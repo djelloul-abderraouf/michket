@@ -409,6 +409,12 @@ export function Header() {
             </Link>
 
             <div className="z-10 ml-auto flex items-center gap-1">
+              <Link
+                href="/crm/login"
+                className="flex h-10 items-center justify-center px-3 text-xs font-semibold uppercase tracking-wider transition-colors hover:text-michket-gold"
+              >
+                Connexion
+              </Link>
               <button
                 type="button"
                 onClick={openSearch}
@@ -489,6 +495,12 @@ export function Header() {
             />
 
             <div className="flex items-center gap-2" onMouseEnter={handleMegaClose}>
+              <Link
+                href="/crm/login"
+                className="flex h-10 items-center justify-center px-4 text-xs font-semibold uppercase tracking-wider transition-colors hover:text-michket-gold"
+              >
+                Connexion
+              </Link>
               <button
                 type="button"
                 onClick={openSearch}

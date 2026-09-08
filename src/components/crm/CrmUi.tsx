@@ -210,17 +210,24 @@ export function CrmPopup({
   onClose,
   title,
   children,
+  size = "default",
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: "default" | "large";
 }) {
   if (!isOpen) return null;
 
+  const sizeClasses = {
+    default: "max-w-lg",
+    large: "max-w-2xl",
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+      <div className={`w-full ${sizeClasses[size]} rounded-lg bg-white shadow-xl`}>
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
           <h3 className="text-base font-bold tracking-[0]">{title}</h3>
           <button
@@ -236,13 +243,13 @@ export function CrmPopup({
   );
 }
 
-export function ViewToggle({
+export function ViewToggle<T extends string>({
   view,
   onViewChange,
   type = "kanban",
 }: {
-  view: "list" | "kanban" | "grid";
-  onViewChange: (view: "list" | "kanban" | "grid") => void;
+  view: T;
+  onViewChange: (view: T) => void;
   type?: "kanban" | "grid";
 }) {
   const isList = view === "list";
@@ -251,7 +258,7 @@ export function ViewToggle({
   return (
     <div className="flex items-center gap-1 rounded-lg border border-black/10 bg-black/5 p-1">
       <button
-        onClick={() => onViewChange("list")}
+        onClick={() => onViewChange("list" as T)}
         className={cx(
           "rounded-md p-2 transition",
           isList
@@ -263,7 +270,7 @@ export function ViewToggle({
         <List className="h-4 w-4" />
       </button>
       <button
-        onClick={() => onViewChange(type === "kanban" ? "kanban" : "grid")}
+        onClick={() => onViewChange((type === "kanban" ? "kanban" : "grid") as T)}
         className={cx(
           "rounded-md p-2 transition",
           isSecondary

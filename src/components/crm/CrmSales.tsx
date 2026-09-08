@@ -71,7 +71,7 @@ export function CrmSales({
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold tracking-[0]">Pipeline des ventes</h2>
         <div className="flex items-center gap-3">
-          <ViewToggle view={view} onViewChange={setView} />
+          <ViewToggle view={view} onViewChange={setView} type="kanban" />
           <CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle affaire" />
         </div>
       </div>
@@ -135,7 +135,7 @@ export function CrmSales({
             const stageValue = stageDeals.reduce((sum, deal) => sum + deal.estimatedAmount, 0);
 
             return (
-              <div key={stage} className="min-w-[320px] flex-shrink-0 rounded-xl border border-black/10 bg-white shadow-sm">
+              <div key={stage} className="min-w-[320px] w-[320px] flex-shrink-0 rounded-xl border border-black/10 bg-white shadow-sm flex flex-col h-full">
                 <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 bg-gradient-to-r from-black/5 to-transparent sticky top-0 bg-white z-10">
                   <div>
                     <h2 className="text-sm font-bold tracking-[0]">
@@ -147,7 +147,7 @@ export function CrmSales({
                     {stageDeals.length}
                   </span>
                 </div>
-                <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+                <div className="p-4 space-y-3 overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                   {stageDeals.length === 0 ? (
                     <p className="text-center text-sm text-black/40 py-8">
                       Aucune affaire
@@ -160,49 +160,51 @@ export function CrmSales({
                           setSelectedDeal(deal);
                           setIsDrawerOpen(true);
                         }}
-                        className={`border-l-4 ${stageColors[deal.stage]} cursor-pointer hover:shadow-md transition`}
+                        className={`border-l-4 ${stageColors[deal.stage]} cursor-pointer hover:shadow-md transition-shadow`}
                       >
                         <div className="flex items-start justify-between gap-2 mb-3">
-                          <h3 className="font-bold text-sm leading-tight flex-1">
+                          <h3 className="font-bold text-sm leading-tight flex-1 break-words">
                             {deal.title}
                           </h3>
-                          <CrmBadge
-                            variant={
-                              stage === "gagnee"
-                                ? "success"
-                                : stage === "perdue"
-                                ? "danger"
-                                : "default"
-                            }
-                          >
-                            {dealStageLabels[stage]}
-                          </CrmBadge>
+                          <div className="shrink-0">
+                            <CrmBadge
+                              variant={
+                                stage === "gagnee"
+                                  ? "success"
+                                  : stage === "perdue"
+                                  ? "danger"
+                                  : "default"
+                              }
+                            >
+                              {dealStageLabels[stage]}
+                            </CrmBadge>
+                          </div>
                         </div>
 
                         <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-black/60">Montant estimé</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-black/60">Montant</span>
                             <span className="font-bold">{dzd.format(deal.estimatedAmount)}</span>
                           </div>
                           {deal.contactId && (
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center">
                               <span className="text-black/60">Contact</span>
-                              <span className="font-medium">{deal.contactId}</span>
+                              <span className="font-medium text-right truncate">{deal.contactId}</span>
                             </div>
                           )}
-                          <div className="flex justify-between text-xs text-black/50">
+                          <div className="flex justify-between items-center text-xs text-black/50 pt-2 border-t border-black/5">
                             <span>Créé le</span>
                             <span>{formatDate(deal.createdAt)}</span>
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-black/10">
+                        <div className="mt-3 pt-3 border-t border-black/10">
                           <select
                             value={deal.stage}
                             onChange={(event) =>
                               onStage(deal, event.target.value as Deal["stage"])
                             }
-                            className="h-9 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+                            className="h-9 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold bg-white"
                           >
                             {dealStages.map((item) => (
                               <option key={item} value={item}>
@@ -212,14 +214,14 @@ export function CrmSales({
                           </select>
                         </div>
 
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-2 space-y-2">
                           {(stage === "qualification" || stage === "negociation") && (
-                            <CrmButton variant="ghost" size="sm">
+                            <CrmButton variant="ghost" size="sm" className="w-full">
                               Créer devis
                             </CrmButton>
                           )}
                           {stage === "gagnee" && (
-                            <CrmButton variant="success" size="sm">
+                            <CrmButton variant="success" size="sm" className="w-full">
                               Générer commande
                             </CrmButton>
                           )}

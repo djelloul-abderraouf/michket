@@ -156,18 +156,22 @@ export function CrmOrders(props: {
               .filter((status) => status !== "retour_echec")
               .map((status) => {
                 const columnOrders = props.orders.filter((order) => order.status === status);
+                const columnValue = columnOrders.reduce((sum, order) => sum + order.total, 0);
 
                 return (
-                  <div key={status} className="min-w-[320px] flex-shrink-0 rounded-xl border border-black/10 bg-white shadow-sm">
+                  <div key={status} className="min-w-[320px] w-[320px] flex-shrink-0 rounded-xl border border-black/10 bg-white shadow-sm flex flex-col h-full">
                     <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 bg-gradient-to-r from-black/5 to-transparent sticky top-0 bg-white z-10">
-                      <h2 className="text-sm font-bold tracking-[0]">
-                        {orderStatusLabels[status]}
-                      </h2>
+                      <div>
+                        <h2 className="text-sm font-bold tracking-[0]">
+                          {orderStatusLabels[status]}
+                        </h2>
+                        <p className="text-xs text-black/55">{dzd.format(columnValue)}</p>
+                      </div>
                       <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-black px-2 py-0.5 text-xs font-bold text-white">
                         {columnOrders.length}
                       </span>
                     </div>
-                    <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+                    <div className="p-4 space-y-3 overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                       {columnOrders.length === 0 ? (
                         <p className="text-center text-sm text-black/40 py-8">
                           Aucune commande
@@ -180,33 +184,44 @@ export function CrmOrders(props: {
                               props.onSelect(order.id);
                               setIsDrawerOpen(true);
                             }}
-                            hoverable
                             className={cx(
-                              "border-l-4 cursor-pointer transition-all hover:shadow-md",
+                              "border-l-4 cursor-pointer hover:shadow-md transition-shadow",
                               statusTone[order.status].border,
                               statusTone[order.status].bg,
                             )}
                           >
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start justify-between gap-2 mb-3">
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mb-1">
                                   <p className="font-bold text-sm leading-tight">{order.id}</p>
-                                  <CrmBadge variant={statusTone[order.status].badge as any}>
-                                    {orderStatusLabels[order.status]}
-                                  </CrmBadge>
+                                  <div className="shrink-0">
+                                    <CrmBadge variant={statusTone[order.status].badge as any}>
+                                      {orderStatusLabels[order.status]}
+                                    </CrmBadge>
+                                  </div>
                                 </div>
-                                <p className="mt-2 text-sm font-semibold text-black">{order.clientName}</p>
-                                <p className="mt-1 text-xs text-black/60">
-                                  <MapPin className="inline h-3 w-3 mr-1" />{order.wilaya} | <Phone className="inline h-3 w-3 mr-1" />{order.phone}
-                                </p>
-                                <p className="mt-1 text-xs text-black/50 font-medium">
-                                  {productSummary(order)}
-                                </p>
+                                <p className="text-sm font-semibold text-black truncate">{order.clientName}</p>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right shrink-0">
                                 <p className="text-sm font-bold text-black">{dzd.format(order.total)}</p>
                                 <p className="text-xs text-black/40">{formatDate(order.createdAt)}</p>
                               </div>
+                            </div>
+
+                            <div className="space-y-1 text-sm mb-3">
+                              <div className="flex items-center gap-2 text-black/70">
+                                <MapPin className="h-3 w-3" />{order.wilaya}
+                              </div>
+                              <div className="flex items-center gap-2 text-black/70">
+                                <Phone className="h-3 w-3" />{order.phone}
+                              </div>
+                            </div>
+
+                            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-2">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-black/60 mb-1">Contenu</p>
+                              <p className="text-xs text-black/70">
+                                {productSummary(order)}
+                              </p>
                             </div>
                           </CrmCard>
                         ))

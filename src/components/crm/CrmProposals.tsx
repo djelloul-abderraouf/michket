@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { demoDeals, demoProposals, demoProducts } from "@/lib/crm/demo-data";
 import type { Proposal, Deal } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, CrmAddButton, CrmPopup } from "./CrmUi";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
 
 const proposalStatusConfig: Record<Proposal["status"], { variant: any; label: string }> = {
   brouillon: { variant: "default" as const, label: "Brouillon" },
@@ -10,9 +10,19 @@ const proposalStatusConfig: Record<Proposal["status"], { variant: any; label: st
   refusee: { variant: "danger" as const, label: "Refusée" },
 };
 
+const proposalStages: Proposal["status"][] = ["brouillon", "envoyee", "acceptee", "refusee"];
+
+const stageColors: Record<Proposal["status"], string> = {
+  brouillon: "border-l-stone-400 bg-stone-50",
+  envoyee: "border-l-amber-400 bg-amber-50",
+  acceptee: "border-l-emerald-500 bg-emerald-50",
+  refusee: "border-l-rose-500 bg-rose-50",
+};
+
 export function CrmProposals() {
   const [proposals, setProposals] = useState<Proposal[]>(demoProposals);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [view, setView] = useState<"list" | "kanban">("list");
   const [selectedDeal, setSelectedDeal] = useState<string>("");
   const [newProposal, setNewProposal] = useState({
     dealId: "",
@@ -141,76 +151,149 @@ export function CrmProposals() {
       {/* Proposals List */}
       <CrmPanel
         title="Propositions commerciales"
-        actions={<CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouveau devis" />}
+        actions={
+          <div className="flex items-center gap-3">
+            <ViewToggle view={view} onViewChange={setView} type="kanban" />
+            <CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouveau devis" />
+          </div>
+        }
       >
+        {view === "list" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
+                  <th className="px-4 py-3">Affaire</th>
+                  <th className="px-4 py-3">Statut</th>
+                  <th className="px-4 py-3">Total</th>
+                  <th className="px-4 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proposals.map((proposal) => {
+                  const deal = demoDeals.find((d) => d.id === proposal.dealId);
+                  return (
+                    <tr
+                      key={proposal.id}
+                      className="border-b border-black/5 transition hover:bg-black/[0.02]"
+                    >
+                      <td className="px-4 py-3 text-sm font-bold">{deal?.title || "Affaire inconnue"}</td>
+                      <td className="px-4 py-3">
+                        <CrmBadge variant={proposalStatusConfig[proposal.status].variant}>
+                          {proposalStatusConfig[proposal.status].label}
+                        </CrmBadge>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-bold">{dzd.format(proposal.total)}</td>
+                      <td className="px-4 py-3 text-sm text-black/60">{formatDate(proposal.createdAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {proposalStages.map((status) => {
+              const statusProposals = proposals.filter((p) => p.status === status);
+              const statusValue = statusProposals.reduce((sum, p) => sum + p.total, 0);
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {proposals.map((proposal) => {
-            const deal = demoDeals.find((d) => d.id === proposal.dealId);
-            return (
-              <CrmCard key={proposal.id} className="p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-bold text-base">{deal?.title || "Affaire inconnue"}</h3>
-                      <CrmBadge variant={proposalStatusConfig[proposal.status].variant}>
-                        {proposalStatusConfig[proposal.status].label}
-                      </CrmBadge>
+              return (
+                <div key={status} className="min-w-[320px] w-[320px] flex-shrink-0 rounded-xl border border-black/10 bg-white shadow-sm flex flex-col h-full">
+                  <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 bg-gradient-to-r from-black/5 to-transparent sticky top-0 bg-white z-10">
+                    <div>
+                      <h2 className="text-sm font-bold tracking-[0]">
+                        {proposalStatusConfig[status].label}
+                      </h2>
+                      <p className="text-xs text-black/55">{dzd.format(statusValue)}</p>
                     </div>
-                    <p className="text-xs text-black/50">{formatDate(proposal.createdAt)}</p>
+                    <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-black px-2 py-0.5 text-xs font-bold text-white">
+                      {statusProposals.length}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-black">{dzd.format(proposal.total)}</p>
-                  </div>
-                </div>
+                  <div className="p-4 space-y-3 overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+                    {statusProposals.length === 0 ? (
+                      <p className="text-center text-sm text-black/40 py-8">
+                        Aucune proposition
+                      </p>
+                    ) : (
+                      statusProposals.map((proposal) => {
+                        const deal = demoDeals.find((d) => d.id === proposal.dealId);
+                        return (
+                          <CrmCard
+                            key={proposal.id}
+                            className={`border-l-4 ${stageColors[proposal.status]} cursor-pointer hover:shadow-md transition-shadow`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <h3 className="font-bold text-sm leading-tight flex-1 break-words">
+                                {deal?.title || "Affaire inconnue"}
+                              </h3>
+                              <div className="shrink-0">
+                                <CrmBadge variant={proposalStatusConfig[proposal.status].variant}>
+                                  {proposalStatusConfig[proposal.status].label}
+                                </CrmBadge>
+                              </div>
+                            </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="rounded-lg border border-black/10 bg-black/[0.02] p-3">
-                    <p className="text-xs font-medium text-black/60 mb-2">Contenu du devis</p>
-                    <div className="space-y-1">
-                      {proposal.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span className="text-black/70">
-                            {item.quantity}x {item.productName}
-                          </span>
-                          <span className="font-medium">{dzd.format(item.unitPrice * item.quantity)}</span>
-                        </div>
-                      ))}
-                    </div>
+                            <div className="space-y-2 text-sm mb-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-black/60">Total</span>
+                                <span className="font-bold">{dzd.format(proposal.total)}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs text-black/50 pt-2 border-t border-black/5">
+                                <span>Créé le</span>
+                                <span>{formatDate(proposal.createdAt)}</span>
+                              </div>
+                            </div>
+
+                            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-2 mb-3">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-black/60 mb-1">Contenu</p>
+                              <div className="space-y-1">
+                                {proposal.items.slice(0, 2).map((item, index) => (
+                                  <div key={index} className="flex justify-between text-xs">
+                                    <span className="text-black/70">
+                                      {item.quantity}x {item.productName}
+                                    </span>
+                                    <span className="font-medium">{dzd.format(item.unitPrice * item.quantity)}</span>
+                                  </div>
+                                ))}
+                                {proposal.items.length > 2 && (
+                                  <p className="text-xs text-black/50">+{proposal.items.length - 2} autres</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-3 border-t border-black/10">
+                              {proposal.status === "brouillon" && (
+                                <CrmButton size="sm" className="flex-1">
+                                  Envoyer
+                                </CrmButton>
+                              )}
+                              {proposal.status === "envoyee" && (
+                                <>
+                                  <CrmButton variant="success" size="sm" className="flex-1">
+                                    Accepter
+                                  </CrmButton>
+                                  <CrmButton variant="danger" size="sm" className="flex-1">
+                                    Refuser
+                                  </CrmButton>
+                                </>
+                              )}
+                              {proposal.status === "acceptee" && (
+                                <CrmButton variant="success" size="sm" className="flex-1">
+                                  Générer commande
+                                </CrmButton>
+                              )}
+                            </div>
+                          </CrmCard>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
-
-                <div className="flex gap-2 pt-4 border-t border-black/10">
-                  {proposal.status === "brouillon" && (
-                    <>
-                      <CrmButton size="sm">
-                        Envoyer
-                      </CrmButton>
-                      <CrmButton variant="ghost" size="sm">
-                        Modifier
-                      </CrmButton>
-                    </>
-                  )}
-                  {proposal.status === "envoyee" && (
-                    <>
-                      <CrmButton variant="success" size="sm">
-                        Accepter
-                      </CrmButton>
-                      <CrmButton variant="danger" size="sm">
-                        Refuser
-                      </CrmButton>
-                    </>
-                  )}
-                  {proposal.status === "acceptee" && (
-                    <CrmButton variant="success" size="sm">
-                      Générer commande
-                    </CrmButton>
-                  )}
-                </div>
-              </CrmCard>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {proposals.length === 0 && (
           <div className="py-12 text-center">
