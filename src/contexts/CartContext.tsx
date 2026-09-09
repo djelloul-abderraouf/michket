@@ -10,23 +10,37 @@ import {
   useState,
 } from "react";
 
+import {
+  getCart as apiGetCart,
+  addToCart as apiAddToCart,
+  updateCartItem as apiUpdateCartItem,
+  removeCartItem as apiRemoveCartItem,
+  clearCart as apiClearCart,
+  type ApiCartItem,
+} from "@/lib/api";
+
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
 /* ------------------------------------------------------------------ */
 
 export interface CartItem {
   id: string;
+  /** Product UUID from products table — sent to POST /orders */
+  productId: string;
   slug: string;
   title: string;
   price: number;
   image: string;
   quantity: number;
-
-  /**
-   * Optional for backward compatibility with existing addItem calls.
-   * Michket can later pass "DZD" explicitly from the product layer.
-   */
   currency?: string;
+  /** Backend variant UUID — sent to POST /carts/items */
+  variantId?: string;
+  /** Denormalized color name from backend (e.g. "Rose") */
+  selectedColorName?: string;
+  /** Denormalized color hex from backend (e.g. "#F4A6B8") */
+  selectedColorHex?: string;
+  /** Arbitrary personalization payload — sent to POST /carts/items */
+  personalization?: Record<string, unknown>;
 }
 
 interface CartState {
@@ -44,11 +58,13 @@ type CartAction =
   | { type: "CLEAR" }
   | { type: "HYDRATE"; items: CartItem[] };
 
-interface CartContextValue {
+export interface CartContextValue {
   items: CartItem[];
   itemCount: number;
   total: number;
   hydrated: boolean;
+  loading: boolean;
+  error: string | null;
   addItem: (
     item: Omit<CartItem, "quantity">,
     quantity?: number,
@@ -62,7 +78,6 @@ interface CartContextValue {
 /* Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const STORAGE_KEY = "michket-cart";
 const MAX_QUANTITY = 99;
 
 /* ------------------------------------------------------------------ */
@@ -74,38 +89,25 @@ function clampQuantity(quantity: number) {
   return Math.max(1, Math.min(MAX_QUANTITY, Math.floor(quantity)));
 }
 
-function isValidStoredItem(value: unknown): value is CartItem {
-  if (!value || typeof value !== "object") return false;
-
-  const item = value as Partial<CartItem>;
-
-  return (
-    typeof item.id === "string" &&
-    typeof item.slug === "string" &&
-    typeof item.title === "string" &&
-    typeof item.price === "number" &&
-    Number.isFinite(item.price) &&
-    item.price >= 0 &&
-    typeof item.image === "string" &&
-    typeof item.quantity === "number" &&
-    Number.isFinite(item.quantity) &&
-    item.quantity > 0
-  );
-}
-
-function sanitizeStoredItems(value: unknown): CartItem[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .filter(isValidStoredItem)
-    .map((item) => ({
-      ...item,
-      quantity: clampQuantity(item.quantity),
-    }));
+/** Convert a backend cart item to the frontend CartItem shape. */
+function mapCartItem(api: ApiCartItem): CartItem {
+  return {
+    id: api.id,
+    productId: api.product.id,
+    slug: api.product.slug,
+    title: api.product.name,
+    price: api.unitPriceCents / 100,
+    image: "", // Images not included in GET /carts — components must resolve separately
+    quantity: api.quantity,
+    variantId: api.variant?.id ?? undefined,
+    selectedColorName: api.selectedColorName ?? api.variant?.colorName ?? undefined,
+    selectedColorHex: api.selectedColorHex ?? api.variant?.colorHex ?? undefined,
+    personalization: api.personalization ?? undefined,
+  };
 }
 
 /* ------------------------------------------------------------------ */
-/* Reducer                                                            */
+/* Reducer (local state only — backend is source of truth)            */
 /* ------------------------------------------------------------------ */
 
 function cartReducer(state: CartState, action: CartAction): CartState {
@@ -206,95 +208,100 @@ export function CartProvider({
 }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [] });
   const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  /*
-   * IMPORTANT FIX:
-   *
-   * The previous implementation had two mount effects:
-   * 1) load localStorage
-   * 2) immediately save state.items
-   *
-   * On the first render state.items is [].
-   * That second effect could overwrite the saved cart with [] BEFORE
-   * hydration had completed.
-   *
-   * We now persist ONLY after hydration is complete.
-   */
+  /* ---------------------------------------------------------------- */
+  /* Mount: fetch cart from backend                                   */
+  /* ---------------------------------------------------------------- */
+
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+    let cancelled = false;
 
-      if (stored) {
-        const parsed: unknown = JSON.parse(stored);
-        const items = sanitizeStoredItems(parsed);
-
-        dispatch({
-          type: "HYDRATE",
-          items,
-        });
+    async function load() {
+      try {
+        const res = await apiGetCart();
+        if (!cancelled) {
+          dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
+          setError(null);
+        }
+      } catch {
+        if (!cancelled) {
+          // Backend unreachable or error — start with empty cart
+          dispatch({ type: "HYDRATE", items: [] });
+          setError("Impossible de charger le panier");
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+        if (!cancelled) setLoading(false);
       }
-    } catch {
-      // Corrupt or unavailable storage: start with a clean cart.
-      dispatch({
-        type: "HYDRATE",
-        items: [],
-      });
-    } finally {
-      setHydrated(true);
     }
+
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-
-    try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(state.items),
-      );
-    } catch {
-      // Storage may be unavailable/private/full.
-      // Cart still works for the current React session.
-    }
-  }, [hydrated, state.items]);
+  /* ---------------------------------------------------------------- */
+  /* Cart mutations — each calls the backend, then updates local state */
+  /* ---------------------------------------------------------------- */
 
   const addItem = useCallback(
-    (
+    async (
       item: Omit<CartItem, "quantity">,
       quantity = 1,
     ) => {
-      dispatch({
-        type: "ADD",
-        item,
-        quantity,
-      });
+      try {
+        const res = await apiAddToCart({
+          productId: item.id,
+          variantId: item.variantId ?? undefined,
+          quantity,
+          personalization: item.personalization ?? undefined,
+        });
+        dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
+        setError(null);
+      } catch {
+        setError("Erreur lors de l'ajout au panier");
+      }
     },
     [],
   );
 
-  const removeItem = useCallback((id: string) => {
-    dispatch({
-      type: "REMOVE",
-      id,
-    });
+  const removeItem = useCallback(async (id: string) => {
+    try {
+      const res = await apiRemoveCartItem(id);
+      dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
+      setError(null);
+    } catch {
+      setError("Erreur lors de la suppression");
+    }
   }, []);
 
   const updateQuantity = useCallback(
-    (id: string, quantity: number) => {
-      dispatch({
-        type: "UPDATE_QUANTITY",
-        id,
-        quantity,
-      });
+    async (id: string, quantity: number) => {
+      try {
+        const res = await apiUpdateCartItem(id, quantity);
+        dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
+        setError(null);
+      } catch {
+        setError("Erreur lors de la mise à jour");
+      }
     },
     [],
   );
 
-  const clearCart = useCallback(() => {
-    dispatch({
-      type: "CLEAR",
-    });
+  const clearCart = useCallback(async () => {
+    try {
+      const res = await apiClearCart();
+      dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
+      setError(null);
+    } catch {
+      setError("Erreur lors du vidage du panier");
+    }
   }, []);
+
+  /* ---------------------------------------------------------------- */
+  /* Derived values                                                    */
+  /* ---------------------------------------------------------------- */
 
   const itemCount = useMemo(
     () =>
@@ -320,6 +327,8 @@ export function CartProvider({
       itemCount,
       total,
       hydrated,
+      loading,
+      error,
       addItem,
       removeItem,
       updateQuantity,
@@ -330,6 +339,8 @@ export function CartProvider({
       itemCount,
       total,
       hydrated,
+      loading,
+      error,
       addItem,
       removeItem,
       updateQuantity,

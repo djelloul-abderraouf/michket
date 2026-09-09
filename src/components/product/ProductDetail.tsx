@@ -15,9 +15,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { Product } from "@/data/products";
+import type { Product, ProductVariant, PersonalizationConfig } from "@/lib/api";
 import type { CheckoutWilaya } from "@/lib/algeria";
 import type { DeliveryType } from "@/data/delivery-prices";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductDetailProps {
   product: Product;
@@ -39,14 +40,49 @@ function formatPriceDA(price: number): string {
 }
 
 export function ProductDetail({ product, wilayas }: ProductDetailProps) {
+  const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    () => product.variants?.[0] ?? null,
+  );
+
+  // Filter images by selected variant, fallback to general images (variantId=null)
+  const filteredImages = useMemo(() => {
+    if (!selectedVariant) return product.images;
+
+    const variantImages = product.images.filter(
+      (img) => img.variantId === selectedVariant.id,
+    );
+
+    // Fallback to general images if variant has no specific images
+    if (variantImages.length === 0) {
+      return product.images.filter((img) => img.variantId === null);
+    }
+
+    return variantImages;
+  }, [product.images, selectedVariant]);
+
+  const [cartMessage, setCartMessage] = useState<string | null>(null);
+
+  // Reset image selection when variant changes
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedVariant]);
+
+  // Auto-dismiss cart message after 3s
+  useEffect(() => {
+    if (!cartMessage) return;
+    const timer = setTimeout(() => setCartMessage(null), 3000);
+    return () => clearTimeout(timer);
+  }, [cartMessage]);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [personalization, setPersonalization] = useState("");
+  const [personalizationFields, setPersonalizationFields] = useState<Record<string, string>>({});
   const [wilayaCode, setWilayaCode] = useState("");
   const [commune, setCommune] = useState("");
   const [address, setAddress] = useState("");
@@ -64,7 +100,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   );
 
   const communes = selectedWilaya?.communes ?? [];
-  const activeImage = product.images[selectedImage] ?? product.images[0];
+  const activeImage = filteredImages[selectedImage] ?? filteredImages[0];
   const subtotal = product.price * quantity;
   const total = deliveryFee === null ? null : subtotal + deliveryFee;
 
@@ -161,6 +197,20 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
     setOrderState({ status: "sending" });
     const formData = new FormData(event.currentTarget);
 
+    // Serialize personalization: FREE → raw string, OPTIONS → field:value pairs
+    let personalizationValue = "";
+    if (isFreeMode) {
+      personalizationValue = personalization;
+    } else if (isOptionsMode && config.fields) {
+      const parts = config.fields
+        .map((field) => {
+          const val = personalizationFields[field.id] ?? "";
+          return val.trim() ? `${field.label}: ${val}` : "";
+        })
+        .filter(Boolean);
+      personalizationValue = parts.join("\n");
+    }
+
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -171,7 +221,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
           firstName,
           lastName,
           phone,
-          personalization,
+          personalization: personalizationValue,
           wilayaCode: selectedWilaya.code,
           wilayaName: selectedWilaya.name,
           commune,
@@ -204,6 +254,76 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
     }
   }
 
+  // --- Personalization validation ---
+  const config = product.personalizationConfig;
+  const isFreeMode = config?.mode === "FREE";
+  const isOptionsMode = config?.mode === "OPTIONS";
+
+  // FREE: required comes from config.required
+  const freeRequired = isFreeMode && config.required;
+
+  // OPTIONS: check each field's own required
+  function areOptionsFieldsValid(): boolean {
+    if (!isOptionsMode || !config.fields) return true;
+    return config.fields.every((field) => {
+      if (!field.required) return true;
+      const val = personalizationFields[field.id] ?? "";
+      return val.trim().length > 0;
+    });
+  }
+
+  const isPersonalizationValid =
+    !product.personalizable ||
+    (isFreeMode && (!freeRequired || Boolean(personalization.trim()))) ||
+    (isOptionsMode && areOptionsFieldsValid()) ||
+    (!isFreeMode && !isOptionsMode); // NONE or invalid → no validation needed
+
+  // --- Add to cart handler ---
+  async function handleAddToCart() {
+    // Block if variants exist but none selected
+    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+      setCartMessage("Veuillez sélectionner une couleur");
+      return;
+    }
+
+    // Block if personalization is required but empty
+    if (!isPersonalizationValid) {
+      setCartMessage("Veuillez remplir la personnalisation");
+      return;
+    }
+
+    // Build personalization payload for the backend
+    let personalizationPayload: Record<string, unknown> | undefined;
+    if (isFreeMode && personalization.trim()) {
+      personalizationPayload = { text: personalization.trim() };
+    } else if (isOptionsMode && config.fields) {
+      const fields: Record<string, string> = {};
+      for (const field of config.fields) {
+        const val = personalizationFields[field.id] ?? "";
+        if (val.trim()) fields[field.id] = val.trim();
+      }
+      if (Object.keys(fields).length > 0) {
+        personalizationPayload = fields;
+      }
+    }
+
+    await addItem(
+      {
+        id: product.id,
+        productId: product.id,
+        slug: product.slug,
+        title: product.title,
+        price: product.price,
+        image: filteredImages[0]?.src ?? "",
+        variantId: selectedVariant?.id,
+        personalization: personalizationPayload,
+      },
+      quantity,
+    );
+
+    setCartMessage("Produit ajouté au panier");
+  }
+
   const canSubmit =
     Boolean(firstName.trim()) &&
     Boolean(lastName.trim()) &&
@@ -211,7 +331,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
     Boolean(wilayaCode) &&
     Boolean(commune) &&
     (deliveryType === "office" || Boolean(address.trim())) &&
-    (!product.personalizable || Boolean(personalization.trim())) &&
+    isPersonalizationValid &&
     deliveryFee !== null &&
     orderState.status !== "sending";
 
@@ -257,9 +377,40 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
               </span>
             </button>
 
-            {product.images.length > 1 && (
+            {/* Color swatches */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="mt-3 flex items-center gap-2 sm:mt-4">
+                <span className="text-[10px] font-semibold text-[#251713]/45 sm:text-[11px]">
+                  Couleur :
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => setSelectedVariant(variant)}
+                      title={variant.colorName || variant.name}
+                      className={`relative h-8 w-8 rounded-full border-2 transition ${
+                        selectedVariant?.id === variant.id
+                          ? "border-[#ECAB1C] ring-2 ring-[#ECAB1C]/20"
+                          : "border-[#251713]/10 hover:border-[#251713]/25"
+                      }`}
+                    >
+                      {variant.colorHex && (
+                        <span
+                          className="absolute inset-1 rounded-full"
+                          style={{ backgroundColor: variant.colorHex }}
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredImages.length > 1 && (
               <div className="mt-3 hidden grid-cols-4 gap-2 sm:grid sm:grid-cols-5">
-                {product.images.map((image, index) => (
+                {filteredImages.map((image, index) => (
                   <button
                     key={`${image.src}-${index}`}
                     type="button"
@@ -309,6 +460,26 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
               <p className="mt-2 hidden text-[10px] font-semibold text-[#8A6A20] sm:block">
                 Paiement à la livraison
               </p>
+
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-[11px] border-2 border-[#251713] bg-[#251713] px-5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-white transition hover:bg-[#3D2A24]"
+              >
+                Ajouter au panier
+              </button>
+
+              {cartMessage && (
+                <p
+                  className={`mt-2 text-center text-[11px] font-semibold ${
+                    cartMessage.includes("ajouté")
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                  }`}
+                >
+                  {cartMessage}
+                </p>
+              )}
             </div>
           </div>
 
@@ -375,16 +546,86 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                 />
               </Field>
 
-              <Field label="Personnalisation" required={product.personalizable}>
-                <textarea
-                  value={personalization}
-                  onChange={(e) => setPersonalization(e.target.value)}
-                  required={product.personalizable}
-                  rows={4}
-                  className={`${inputClass} min-h-[110px] resize-y py-3`}
-                  placeholder="Ex : Prénom Lina, date, message souhaité..."
-                />
-              </Field>
+              {/* ── Personalization ── */}
+
+              {/* FREE mode: single textarea */}
+              {isFreeMode && (
+                <Field label={config.label} required={config.required}>
+                  <textarea
+                    value={personalization}
+                    onChange={(e) => setPersonalization(e.target.value)}
+                    required={config.required}
+                    maxLength={config.maxLength}
+                    rows={4}
+                    className={`${inputClass} min-h-[110px] resize-y py-3`}
+                    placeholder={config.placeholder}
+                  />
+                  {config.maxLength > 0 && (
+                    <span className="mt-1 block text-right text-[9px] text-[#251713]/30">
+                      {personalization.length}/{config.maxLength}
+                    </span>
+                  )}
+                </Field>
+              )}
+
+              {/* OPTIONS mode: render fields in backend order */}
+              {isOptionsMode && config.fields && (
+                <>
+                  {config.fields.map((field) => {
+                    if (field.type === "SELECT" && field.options) {
+                      return (
+                        <Field key={field.id} label={field.label} required={field.required}>
+                          <select
+                            value={personalizationFields[field.id] ?? ""}
+                            onChange={(e) =>
+                              setPersonalizationFields((prev) => ({
+                                ...prev,
+                                [field.id]: e.target.value,
+                              }))
+                            }
+                            required={field.required}
+                            className={inputClass}
+                          >
+                            <option value="">Choisir…</option>
+                            {field.options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      );
+                    }
+
+                    // TEXT field
+                    return (
+                      <Field key={field.id} label={field.label} required={field.required}>
+                        <input
+                          type="text"
+                          value={personalizationFields[field.id] ?? ""}
+                          onChange={(e) =>
+                            setPersonalizationFields((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          required={field.required}
+                          maxLength={field.maxLength}
+                          className={inputClass}
+                          placeholder={field.placeholder ?? ""}
+                        />
+                      </Field>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* NONE / config absente / config invalide */}
+              {product.personalizable && !isFreeMode && !isOptionsMode && (
+                <div className="rounded-[10px] border border-[#251713]/[0.08] bg-[#F7F1E8] px-4 py-3 text-[11px] text-[#251713]/50">
+                  Configuration de personnalisation indisponible.
+                </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Wilaya" required>
@@ -602,9 +843,9 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
               </div>
             </div>
 
-            {product.images.length > 1 && (
+            {filteredImages.length > 1 && (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {product.images.map((image, index) => (
+                {filteredImages.map((image, index) => (
                   <button
                     key={`${image.src}-modal-${index}`}
                     type="button"

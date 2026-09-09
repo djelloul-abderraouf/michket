@@ -9,8 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { products } from "@/data/products";
-import { categories } from "@/data/categories";
+import {
+  fetchAllProductsMapped,
+  fetchCategories,
+  type Product,
+  type ApiCategory,
+} from "@/lib/api";
 
 interface SearchOverlayProps {
   open: boolean;
@@ -25,9 +29,9 @@ function normalizeSearch(value: string) {
     .trim();
 }
 
-function categoryLabel(categoryId: string) {
+function categoryLabel(categoryId: string, categories: ApiCategory[]) {
   return (
-    categories.find((category) => category.id === categoryId)?.label ??
+    categories.find((category) => category.id === categoryId)?.name ??
     categoryId.replaceAll("-", " ")
   );
 }
@@ -58,9 +62,22 @@ function scoreMatch(source: string, query: string) {
 
 export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
   const [query, setQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch products and categories on mount
+  useEffect(() => {
+    Promise.all([
+      fetchAllProductsMapped().catch(() => [] as Product[]),
+      fetchCategories().catch(() => [] as ApiCategory[]),
+    ]).then(([prods, cats]) => {
+      setProducts(prods);
+      setCategories(cats);
+    });
+  }, []);
 
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = normalizeSearch(deferredQuery);
@@ -140,7 +157,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
       .map((product) => {
         const titleScore = scoreMatch(product.title, normalizedQuery) * 5;
         const categoryScore =
-          scoreMatch(categoryLabel(product.category), normalizedQuery) * 4;
+          scoreMatch(categoryLabel(product.category, categories), normalizedQuery) * 4;
         const occasionScore =
           Math.max(
             0,
@@ -166,7 +183,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .map(({ product }) => product);
-  }, [normalizedQuery]);
+  }, [normalizedQuery, products, categories]);
 
   const categoryResults = useMemo(() => {
     if (!normalizedQuery) return [];
@@ -175,13 +192,13 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
       .map((category) => ({
         category,
         score:
-          scoreMatch(category.label, normalizedQuery) * 4 +
-          scoreMatch(category.description, normalizedQuery) * 2,
+          scoreMatch(category.name, normalizedQuery) * 4 +
+          scoreMatch(category.description ?? "", normalizedQuery) * 2,
       }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .map(({ category }) => category);
-  }, [normalizedQuery]);
+  }, [normalizedQuery, categories]);
 
   const visibleProducts = productResults.slice(0, 8);
   const visibleCategories = categoryResults.slice(0, 4);
@@ -328,7 +345,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
         {/* ───────────────── Results ───────────────── */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {!hasQuery ? (
-            <EmptySearchState onClose={onClose} />
+            <EmptySearchState onClose={onClose} categories={categories} />
           ) : hasResults ? (
             <div className="px-4 py-5 sm:px-6 sm:py-6">
               {/* Category matches */}
@@ -347,18 +364,22 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                     {visibleCategories.map((category) => (
                       <Link
                         key={category.id}
-                        href={category.href}
+                        href={`/produits?category=${category.slug}`}
                         onClick={onClose}
                         className="group relative overflow-hidden rounded-[9px] bg-[#EEE8DE]"
                       >
                         <div className="relative aspect-[16/10]">
-                          <Image
-                            src={category.image}
-                            alt=""
-                            fill
-                            className="object-cover transition-transform duration-300 group-hover:scale-[1.035]"
-                            sizes="(max-width: 639px) 50vw, 25vw"
-                          />
+                          {category.imageUrl ? (
+                            <Image
+                              src={category.imageUrl}
+                              alt=""
+                              fill
+                              className="object-cover transition-transform duration-300 group-hover:scale-[1.035]"
+                              sizes="(max-width: 639px) 50vw, 25vw"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-[#D9CFC2]" />
+                          )}
 
                           <div
                             className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/5 to-transparent"
@@ -366,7 +387,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                           />
 
                           <span className="absolute inset-x-0 bottom-0 p-3 text-[12px] font-semibold leading-tight text-white sm:text-[13px]">
-                            {category.label}
+                            {category.name}
                           </span>
                         </div>
                       </Link>
@@ -429,7 +450,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
 
                         <div className="min-w-0 flex-1">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9A741C]">
-                            {categoryLabel(product.category)}
+                            {categoryLabel(product.category, categories)}
                           </p>
 
                           <h3 className="line-clamp-2 text-[13px] font-semibold leading-5 text-[#171717] sm:text-[14px]">
@@ -510,7 +531,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
   );
 }
 
-function EmptySearchState({ onClose }: { onClose: () => void }) {
+function EmptySearchState({ onClose, categories }: { onClose: () => void; categories: ApiCategory[] }) {
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-7">
       <div className="mb-5">
@@ -526,18 +547,22 @@ function EmptySearchState({ onClose }: { onClose: () => void }) {
         {categories.map((category) => (
           <Link
             key={category.id}
-            href={category.href}
+            href={`/produits?category=${category.slug}`}
             onClick={onClose}
             className="group overflow-hidden rounded-[9px] bg-[#EEE8DE]"
           >
             <div className="relative aspect-[4/3]">
-              <Image
-                src={category.image}
-                alt=""
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                sizes="(max-width: 639px) 50vw, 25vw"
-              />
+              {category.imageUrl ? (
+                <Image
+                  src={category.imageUrl}
+                  alt=""
+                  fill
+                  className="object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                  sizes="(max-width: 639px) 50vw, 25vw"
+                />
+              ) : (
+                <div className="h-full w-full bg-[#D9CFC2]" />
+              )}
 
               <div
                 className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent"
@@ -545,7 +570,7 @@ function EmptySearchState({ onClose }: { onClose: () => void }) {
               />
 
               <span className="absolute inset-x-0 bottom-0 p-3 text-[12px] font-semibold text-white sm:text-[13px]">
-                {category.label}
+                {category.name}
               </span>
             </div>
           </Link>

@@ -1,8 +1,25 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { occasions } from "@/data/occasions";
+import { useNavigation } from "@/contexts/NavigationContext";
 
+/**
+ * OccasionBar displays subcategories from the lampes-3d parent category.
+ * Data comes from the backend via NavigationContext — no hardcoded occasions.
+ */
 export function OccasionBar() {
+  const { categories } = useNavigation();
+
+  // Find lampes-3d parent and use its children as occasions
+  const lampesParent = categories.find((c) => c.slug === "lampes-3d");
+  const occasions = (lampesParent?.children ?? []).filter(
+    (child) => child.imageUrl,
+  );
+
+  // Don't render if no occasions available
+  if (occasions.length === 0) return null;
+
   return (
     <section
       className="bg-[#FAF6EE] py-8 sm:py-10 lg:py-12"
@@ -18,7 +35,15 @@ export function OccasionBar() {
             "
           >
             {occasions.map((occasion) => (
-              <OccasionCard key={occasion.id} occasion={occasion} />
+              <OccasionCard
+                key={occasion.id}
+                occasion={{
+                  id: occasion.id,
+                  label: occasion.name,
+                  href: `/lampes-3d/${occasion.slug}`,
+                  image: occasion.imageUrl!,
+                }}
+              />
             ))}
           </div>
         </div>
@@ -61,7 +86,12 @@ export function OccasionBar() {
 function OccasionCard({
   occasion,
 }: {
-  occasion: (typeof occasions)[number];
+  occasion: {
+    id: string;
+    label: string;
+    href: string;
+    image: string;
+  };
 }) {
   return (
     <Link

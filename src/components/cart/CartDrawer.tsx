@@ -25,6 +25,8 @@ export function CartDrawer({
     itemCount,
     total,
     hydrated,
+    loading,
+    error,
     updateQuantity,
     removeItem,
     clearCart,
@@ -142,10 +144,16 @@ export function CartDrawer({
         </header>
 
         {/* ───────────────── Content ───────────────── */}
-        {!hydrated ? (
+        {!hydrated || loading ? (
           <div className="flex flex-1 items-center justify-center px-6">
             <p className="text-sm text-black/35">
               Chargement du panier…
+            </p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-1 items-center justify-center px-6">
+            <p className="text-center text-sm text-red-700">
+              {error}
             </p>
           </div>
         ) : items.length === 0 ? (
@@ -182,6 +190,30 @@ export function CartDrawer({
                       >
                         {item.title}
                       </Link>
+
+                      {/* Variant color swatch */}
+                      {item.variantId && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-3.5 w-3.5 rounded-full border border-black/10"
+                            style={{
+                              backgroundColor: item.selectedColorHex ?? "#ccc",
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span className="text-[11px] text-black/45">
+                            {item.selectedColorName ?? "Couleur"}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Personalization summary */}
+                      {item.personalization && typeof item.personalization === "object" && (
+                        <p className="mt-1 text-[11px] italic text-black/35 line-clamp-2">
+                          {item.personalization.text as string ??
+                            Object.values(item.personalization).filter(Boolean).join(" · ")}
+                        </p>
+                      )}
 
                       <p className="mt-1.5 text-[15px] font-bold tracking-[-0.02em] text-[#111]">
                         {formatPrice(item.price)}

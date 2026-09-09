@@ -3,142 +3,33 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryHeroCarousel } from "@/components/collection/CategoryHeroCarousel";
-import { products } from "@/data/products";
+import {
+  fetchCategoryBySlug,
+  fetchCategoryBySlugSafe,
+  fetchProductsForCategory,
+  type ApiCategoryDetail,
+} from "@/lib/api";
 import { ScrollToTop } from "@/components/navigation/ScrollToTop";
 
-const categories = {
-  anniversaire: {
-    productOccasion: "anniversaire",
-    label: "Anniversaire",
-    eyebrow: "Lampes 3D anniversaire",
-    title: "Un cadeau qui reste allumé dans les souvenirs.",
-    description:
-      "Découvrez les lampes 3D personnalisées pensées pour célébrer un anniversaire avec une création unique.",
-    image: "/images/products/lampes/anniv.jpeg",
-    heroImages: [
-      "/images/category-hero/anniversaire/anniversaire-hero.png",
-      "/images/category-hero/anniversaire/anniversaire-hero2.png",
-    
-    ],
-  },
-  mariage: {
-    productOccasion: "mariage",
-    label: "Mariage",
-    eyebrow: "Lampes 3D mariage",
-    title: "Une lumière pour célébrer une histoire à deux.",
-    description:
-      "Prénoms, dates et messages prennent vie dans une lampe personnalisée pensée pour les mariages.",
-    image: "/images/products/lampes/mariage.jpeg",
-    heroImages: [
-      "/images/category-hero/mariage/mariage-hero.png",
-      
-    ],
-  },
-  naissance: {
-    productOccasion: "naissance",
-    label: "Nouveau-né",
-    eyebrow: "Lampes 3D naissance",
-    title: "Une douce lumière pour accueillir bébé.",
-    description:
-      "Des lampes personnalisées avec prénom et détails de naissance pour créer un souvenir tendre.",
-    image: "/images/products/lampes/nouveau nee.jpeg",
-    heroImages: [
-      "/images/category-hero/naissance/naissance-hero.png",
-    
-    ],
-  },
-  maman: {
-    productOccasion: "maman",
-    label: "Maman & Famille",
-    eyebrow: "Lampes 3D famille",
-    title: "Des mots lumineux pour ceux qui comptent.",
-    description:
-      "Des créations personnalisées à offrir à maman et à la famille pour marquer les liens les plus précieux.",
-    image: "/images/products/lampes/maman.jpeg",
-    heroImages: [
-      "/images/category-hero/maman/maman-hero.png",
-      
-    ],
-  },
-  medecine: {
-    productOccasion: "metiers",
-    label: "Médecine",
-    eyebrow: "Lampes 3D métiers",
-    title: "Une création qui célèbre une vocation.",
-    description:
-      "Des lampes personnalisées pensées pour les métiers de la santé, les réussites et les parcours professionnels.",
-    image: "/images/products/lampes/medecine.jpeg",
-    heroImages: [
-      "/images/category-hero/medecine/medecine-hero.png",
-    
-    ],
-  },
-  football: {
-    productOccasion: "sport",
-    label: "Football",
-    eyebrow: "Lampes 3D football",
-    title: "Pour les passionnés qui vivent leur équipe à fond.",
-    description:
-      "Découvrez les modèles football personnalisables pour offrir un cadeau à l’image d’une passion.",
-    image: "/images/products/lampes/football.jpeg",
-    heroImages: [
-      "/images/category-hero/football/foot-hero.png",
-    
-    ],
-  },
-  soutenance: {
-    productOccasion: "soutenance",
-    label: "Soutenance",
-    eyebrow: "Lampes 3D soutenance",
-    title: "Une lumière pour célébrer le chemin parcouru.",
-    description:
-      "Des lampes personnalisées pour féliciter une soutenance et garder un souvenir de cette réussite.",
-    image: "/images/products/lampes/soutenance.jpeg",
-    heroImages: [
-      "/images/category-hero/soutenance/soutenance-hero.png",
-    
-    ],
-  },
-  "5eme": {
-    productOccasion: "5eme",
-    label: "5ème année",
-    eyebrow: "Lampes 3D 5ème année",
-    title: "Une étape importante mérite un souvenir unique.",
-    description:
-      "Découvrez les créations personnalisées pensées pour marquer la 5ème année et les moments importants du parcours.",
-    image: "/images/products/lampes/5eme.jpeg",
-    heroImages: [
-      "/images/category-hero/5eme/5eme-hero.png",
-   
-    ],
-  },
-} as const;
+// ---------------------------------------------------------------------------
+// Static params: pre-render known subcategories at build time.
+// Falls back gracefully — unknown slugs get runtime generation.
+// ---------------------------------------------------------------------------
 
-type CategoryKey = keyof typeof categories;
+export const dynamicParams = true;
 
-function isCategoryKey(value: string): value is CategoryKey {
-  return value in categories;
+export async function generateStaticParams() {
+  try {
+    const parent = await fetchCategoryBySlug("lampes-3d");
+    return parent.children.map((child) => ({ occasion: child.slug }));
+  } catch {
+    return [];
+  }
 }
 
-function formatPriceDA(price: number): string {
-  return `${new Intl.NumberFormat("fr-DZ", {
-    maximumFractionDigits: 2,
-  }).format(price)} DA`;
-}
-
-function productMatchesCategory(
-  occasion: string | string[] | undefined,
-  category: string,
-) {
-  if (!occasion) return false;
-  return Array.isArray(occasion)
-    ? occasion.includes(category)
-    : occasion === category || occasion.includes(category);
-}
-
-export function generateStaticParams() {
-  return Object.keys(categories).map((occasion) => ({ occasion }));
-}
+// ---------------------------------------------------------------------------
+// Metadata
+// ---------------------------------------------------------------------------
 
 export async function generateMetadata({
   params,
@@ -147,19 +38,34 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { occasion } = await params;
 
-  if (!isCategoryKey(occasion)) {
-    return {
-      title: "Lampes 3D | Michket",
-    };
+  const category = await fetchCategoryBySlugSafe(occasion);
+
+  if (!category || category.parentId === null) {
+    return { title: "Lampes 3D | Michket" };
   }
 
-  const category = categories[occasion];
-
   return {
-    title: `${category.label} - Lampes 3D personnalisées | Michket`,
-    description: category.description,
+    title: category.metaTitle ?? `${category.name} - Lampes 3D personnalisées | Michket`,
+    description:
+      category.metaDescription ??
+      category.description ??
+      `Découvrez les lampes 3D personnalisées ${category.name.toLowerCase()}.`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatPriceDA(price: number): string {
+  return `${new Intl.NumberFormat("fr-DZ", {
+    maximumFractionDigits: 2,
+  }).format(price)} DA`;
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
 
 export default async function LampesCategoryPage({
   params,
@@ -168,28 +74,41 @@ export default async function LampesCategoryPage({
 }) {
   const { occasion } = await params;
 
-  if (!isCategoryKey(occasion)) {
+  // 1. Resolve subcategory from DB — NOT from hardcoded data
+  const category = await fetchCategoryBySlugSafe(occasion);
+
+  // 404: subcategory doesn't exist or is not active
+  if (!category || category.parentId === null) {
     notFound();
   }
 
-  const category = categories[occasion];
+  // 2. Hero images from DB (category_images table, sorted by sortOrder ASC)
+  const heroSlides =
+    category.heroImages.length > 0
+      ? category.heroImages.map((img, index) => ({
+          src: img.url,
+          alt: img.altText ?? `${category.name} - visuel ${index + 1}`,
+        }))
+      : [];
 
-  const categoryProducts = products.filter(
-    (product) =>
-      product.category === "lampes-3d" &&
-      productMatchesCategory(product.occasion, category.productOccasion),
-  );
+  // 3. Products — backend includes child-category products for parent categories.
+  //    Here we query by the subcategory slug directly, so we get exactly its products.
+  const categoryProducts = await fetchProductsForCategory(occasion);
 
-  // Images du grand carrousel choisies manuellement pour chaque catégorie.
-  // Elles sont totalement indépendantes des images de products.ts.
-  const heroSlides = category.heroImages.map((src, index) => ({
-    src,
-    alt: `Lampe 3D ${category.label} - visuel ${index + 1}`,
-  }));
+  // 4. Other occasions — sibling subcategories from the parent (lampes-3d)
+  let siblings: ApiCategoryDetail["children"] = [];
+  try {
+    const parent = await fetchCategoryBySlug("lampes-3d");
+    siblings = parent.children.filter((child) => child.slug !== occasion);
+  } catch {
+    // Parent fetch failed — section just won't render
+  }
 
   return (
     <main id="top" className="bg-[#F8F3EB] text-[#2A1B16]">
       <ScrollToTop trigger={occasion} />
+
+      {/* ─── Hero Section ─── */}
       <section
         className="relative overflow-hidden border-b border-[#2A1B16]/[0.08]"
         style={{
@@ -208,20 +127,24 @@ export default async function LampesCategoryPage({
                 Lampes 3D
               </Link>
               <span>/</span>
-              <span className="text-[#8A6A20]">{category.label}</span>
+              <span className="text-[#8A6A20]">{category.name}</span>
             </div>
 
             <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-[#8A6A20] sm:text-[10px]">
-              {category.eyebrow}
+              Lampes 3D {category.name.toLowerCase()}
             </p>
 
             <h1 className="mt-2 font-body text-[28px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[36px] lg:text-[42px]">
-              {category.title}
+              {category.description
+                ? category.name.charAt(0).toUpperCase() + category.name.slice(1)
+                : `Collection ${category.name}`}
             </h1>
 
-            <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-6 text-[#2A1B16]/50 sm:block lg:mx-0">
-              {category.description}
-            </p>
+            {category.description && (
+              <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-6 text-[#2A1B16]/50 sm:block lg:mx-0">
+                {category.description}
+              </p>
+            )}
 
             <Link
               href="#produits"
@@ -245,12 +168,16 @@ export default async function LampesCategoryPage({
             </Link>
           </div>
 
-          <div className="order-1 mx-auto w-full max-w-[680px] lg:order-2">
-            <CategoryHeroCarousel slides={heroSlides} />
-          </div>
+          {/* Hero carousel — only when DB has hero images */}
+          {heroSlides.length > 0 && (
+            <div className="order-1 mx-auto w-full max-w-[680px] lg:order-2">
+              <CategoryHeroCarousel slides={heroSlides} />
+            </div>
+          )}
         </div>
       </section>
 
+      {/* ─── Products Section ─── */}
       <section
         id="produits"
         className="scroll-mt-24 py-7 sm:py-9 lg:py-11"
@@ -261,7 +188,7 @@ export default async function LampesCategoryPage({
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
           <div className="mx-auto mb-5 max-w-[700px] text-center sm:mb-7">
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#8A6A20] sm:text-[10px]">
-              Collection {category.label}
+              Collection {category.name}
             </p>
 
             <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
@@ -278,6 +205,7 @@ export default async function LampesCategoryPage({
           {categoryProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
               {categoryProducts.map((product, index) => {
+                // Image primary: first image from backend (already sorted isPrimary → sortOrder)
                 const image = product.images[0];
 
                 const hasDiscount =
@@ -301,14 +229,16 @@ export default async function LampesCategoryPage({
                       href={`/produits/${product.slug}`}
                       className="relative block aspect-[4/5] overflow-hidden bg-[#EEE5DA]"
                     >
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        priority={index < 2}
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
-                      />
+                      {image && (
+                        <Image
+                          src={image.src}
+                          alt={image.alt}
+                          fill
+                          priority={index < 2}
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
+                        />
+                      )}
 
                       <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/24 via-transparent to-transparent"
@@ -335,7 +265,7 @@ export default async function LampesCategoryPage({
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                          {category.label}
+                          {category.name}
                         </p>
 
                         {typeof product.rating === "number" && (
@@ -415,49 +345,58 @@ export default async function LampesCategoryPage({
         </div>
       </section>
 
-      <section className="border-t border-[#2A1B16]/[0.07] bg-[#EFE7DD] py-7 sm:py-9">
-        <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-          <div className="mb-4 text-center">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8A6A20] sm:text-[10px]">
-              Explorer aussi
-            </p>
+      {/* ─── Other Occasions (sibling subcategories from DB) ─── */}
+      {siblings.length > 0 && (
+        <section className="border-t border-[#2A1B16]/[0.07] bg-[#EFE7DD] py-7 sm:py-9">
+          <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mb-4 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8A6A20] sm:text-[10px]">
+                Explorer aussi
+              </p>
 
-            <h2 className="mt-1 font-body text-[20px] font-semibold tracking-[-0.035em] sm:text-[24px]">
-              D’autres occasions à célébrer
-            </h2>
-          </div>
+              <h2 className="mt-1 font-body text-[20px] font-semibold tracking-[-0.035em] sm:text-[24px]">
+                D&apos;autres occasions à célébrer
+              </h2>
+            </div>
 
-          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-2.5 sm:gap-3 lg:justify-center">
-              {Object.entries(categories)
-                .filter(([key]) => key !== occasion)
-                .map(([key, item]) => (
+            <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-2.5 sm:gap-3 lg:justify-center">
+                {siblings.map((child) => (
                   <Link
-                    key={key}
-                    href={`/lampes-3d/${key}`}
+                    key={child.slug}
+                    href={`/lampes-3d/${child.slug}`}
                     className="group w-[128px] flex-none snap-start sm:w-[150px]"
                   >
                     <div className="relative aspect-[4/3] overflow-hidden rounded-[10px] bg-[#2A1B16]">
-                      <Image
-                        src={item.image}
-                        alt={item.label}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                        sizes="150px"
-                      />
+                      {child.imageUrl ? (
+                        <Image
+                          src={child.imageUrl}
+                          alt={child.name}
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
+                          sizes="150px"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-2">
+                          <span className="text-center text-[9px] font-semibold text-white sm:text-[10px]">
+                            {child.name}
+                          </span>
+                        </div>
+                      )}
 
                       <div className="absolute inset-0 bg-gradient-to-t from-[#21130F]/72 via-transparent to-transparent" />
 
                       <span className="absolute inset-x-2 bottom-2 text-[9px] font-semibold text-white sm:text-[10px]">
-                        {item.label}
+                        {child.name}
                       </span>
                     </div>
                   </Link>
                 ))}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </main>
   );
 }

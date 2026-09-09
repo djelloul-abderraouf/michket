@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { products } from "@/data/products";
+import { fetchProductsForCategory } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Néons LED personnalisés | Michket",
@@ -15,10 +15,14 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-export default function NeonLedPage() {
-  const neonProducts = products.filter(
-    (product) => product.category === "neon-led",
-  );
+export default async function NeonLedPage() {
+  let neonProducts: Awaited<ReturnType<typeof fetchProductsForCategory>> = [];
+  let apiError = false;
+  try {
+    neonProducts = await fetchProductsForCategory("neon-led");
+  } catch {
+    apiError = true;
+  }
 
   return (
     <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
@@ -246,6 +250,15 @@ export default function NeonLedPage() {
                   </article>
                 );
               })}
+            </div>
+          ) : apiError ? (
+            <div className="rounded-[12px] border border-red-200 bg-red-50 px-5 py-10 text-center">
+              <p className="font-body text-base font-semibold text-red-800">
+                Impossible de charger les produits pour le moment.
+              </p>
+              <p className="mt-1 text-[11px] text-red-600/70">
+                Veuillez réessayer plus tard.
+              </p>
             </div>
           ) : (
             <div className="border border-[#2A1B16]/[0.08] bg-white px-5 py-10 text-center">

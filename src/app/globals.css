@@ -545,56 +545,153 @@ body {
 }
 
 /* ============================================================
-   ANIMATION KEYFRAMES
+   ADMIN DESIGN SYSTEM
+   Light workspace for /admin routes
    ============================================================ */
 
-@keyframes slide-in-right {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+:root {
+  --admin-bg: #F6F4EF;
+  --admin-surface: #FFFFFF;
+  --admin-surface-hover: #F2F0EA;
+  --admin-sidebar-bg: #151512;
+  --admin-sidebar-border: rgba(255, 255, 255, 0.10);
+  --admin-border: #E5E1D8;
+  --admin-border-subtle: #ECE8E0;
+  --admin-text-primary: #171714;
+  --admin-text-secondary: #5F5C55;
+  --admin-text-muted: #918C82;
+  --admin-accent: #171714;
+  --admin-accent-hover: #2A2A26;
+  --admin-danger: #B42318;
+  --admin-success: #15803D;
+  --admin-warning: #B45309;
+  --admin-radius: 12px;
+  --admin-radius-lg: 16px;
+  --admin-shadow: 0 1px 2px rgba(23, 23, 20, 0.04);
+  --admin-shadow-lg: 0 12px 32px rgba(23, 23, 20, 0.07);
+  --admin-transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes slide-out-right {
-  from { transform: translateX(0); }
-  to { transform: translateX(100%); }
-}
-
-@keyframes slide-in-left {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes slide-out-left {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
-
-@keyframes fade-in {
+@keyframes admin-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-slide-in-right {
-  animation: slide-in-right var(--transition-slow) ease-out forwards;
-}
-
-.animate-slide-in-left {
-  animation: slide-in-left var(--transition-slow) ease-out forwards;
+@keyframes admin-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
-  animation: fade-in var(--transition-base) ease-out forwards;
+  animation: admin-fade-in 180ms ease-out forwards;
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up var(--transition-slow) ease-out forwards;
+  animation: admin-fade-in-up 220ms ease-out forwards;
+}
+
+/* Layout only. Sidebar/header positioning is handled in React/Tailwind. */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.admin-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.admin-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Compatibility while the remaining admin components are audited. */
+.admin-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.admin-stat-card {
+  background: var(--admin-surface);
+  color: var(--admin-text-primary);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--admin-shadow);
+  transition:
+    border-color var(--admin-transition),
+    box-shadow var(--admin-transition),
+    transform var(--admin-transition);
+}
+
+.admin-stat-card:hover {
+  border-color: #D8D3C8;
+  box-shadow: var(--admin-shadow-lg);
+  transform: translateY(-1px);
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  color: var(--admin-text-secondary);
+  text-decoration: none;
+  border-radius: var(--admin-radius);
+  transition:
+    background-color var(--admin-transition),
+    color var(--admin-transition);
+}
+
+.admin-nav-link:hover {
+  color: var(--admin-text-primary);
+  background: var(--admin-surface-hover);
+}
+
+.admin-nav-link[data-active="true"] {
+  color: var(--admin-text-primary);
+  background: var(--admin-surface);
+}
+
+@keyframes admin-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.admin-skeleton {
+  background: linear-gradient(
+    90deg,
+    #F1EFEA 0%,
+    #FAF9F6 50%,
+    #F1EFEA 100%
+  );
+  background-size: 800px 100%;
+  animation: admin-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--admin-radius);
+}
+
+@media (max-width: 1023px) {
+  .admin-layout,
+  .admin-main,
+  .admin-content {
+    min-width: 0;
+    width: 100%;
+  }
 }

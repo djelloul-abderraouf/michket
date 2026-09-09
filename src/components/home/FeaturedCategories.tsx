@@ -1,57 +1,82 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import type { ApiCategory } from "@/lib/api";
 
-const categories = [
+/**
+ * Layout config for the 4 featured category slots.
+ * The design requires a specific asymmetric grid — this stays hardcoded.
+ */
+const LAYOUT_CONFIG = [
   {
-    id: "lampes",
-    title: "Lampes 3D",
-    subtitle: "Des créations lumineuses pour transformer un souvenir en objet unique.",
-    href: "/lampes-3d",
-    image: "/images/products/lampes/mariage.jpeg",
+    key: "lampes-3d",
+    fallbackImage: "/images/products/lampes/mariage.jpeg",
+    subtitle:
+      "Des créations lumineuses pour transformer un souvenir en objet unique.",
     className: "lg:row-span-2",
-    imagePosition: "center",
+    imagePosition: "center" as const,
   },
   {
-    id: "cartes",
-    title: "Cartes du monde",
-    subtitle: "Le bois, le voyage et la décoration réunis dans une pièce forte.",
-    href: "/cartes-du-monde",
-    image: "/images/products/cartes-du-monde/carte.jpg",
+    key: "cartes-du-monde",
+    fallbackImage: "/images/products/cartes-du-monde/carte.jpg",
+    subtitle:
+      "Le bois, le voyage et la décoration réunis dans une pièce forte.",
     className: "",
-    imagePosition: "center",
+    imagePosition: "center" as const,
   },
   {
-    id: "trophees",
-    title: "Trophées",
-    subtitle: "Célébrez une réussite avec une création personnalisée.",
-    href: "/trophees",
-    image: "/images/products/trophees/trophebac.jpeg",
+    key: "trophees",
+    fallbackImage: "/images/products/trophees/trophebac.jpeg",
+    subtitle:
+      "Célébrez une réussite avec une création personnalisée.",
     className: "",
-    imagePosition: "center",
+    imagePosition: "center" as const,
   },
   {
-    id: "neon",
-    title: "Néon LED",
-    subtitle: "Une touche lumineuse et moderne, créée autour de votre univers.",
-    href: "/neon-led",
-    image: "/images/products/neon-led/OIP (1).webp",
+    key: "neon-led",
+    fallbackImage: "/images/products/neon-led/OIP (1).webp",
+    subtitle:
+      "Une touche lumineuse et moderne, créée autour de votre univers.",
     className: "",
-    imagePosition: "center",
+    imagePosition: "center" as const,
   },
 ] as const;
 
-export function FeaturedCategories() {
-  const lampes = categories[0];
-  const cartes = categories[1];
-  const trophees = categories[2];
-  const neon = categories[3];
+interface FeaturedCategoriesProps {
+  categories?: ApiCategory[];
+}
+
+function resolveCategory(
+  apiCategory: ApiCategory | undefined,
+  config: (typeof LAYOUT_CONFIG)[number],
+) {
+  return {
+    title: apiCategory?.name ?? config.key.replace(/-/g, " "),
+    href: `/produits?category=${config.key}`,
+    image: apiCategory?.imageUrl ?? config.fallbackImage,
+    subtitle: config.subtitle,
+    imagePosition: config.imagePosition,
+  };
+}
+
+export function FeaturedCategories({ categories = [] }: FeaturedCategoriesProps) {
+  // Map API categories to layout slots by slug
+  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+
+  const lampes = resolveCategory(bySlug.get("lampes-3d"), LAYOUT_CONFIG[0]);
+  const cartes = resolveCategory(
+    bySlug.get("cartes-du-monde"),
+    LAYOUT_CONFIG[1],
+  );
+  const trophees = resolveCategory(bySlug.get("trophees"), LAYOUT_CONFIG[2]);
+  const neon = resolveCategory(bySlug.get("neon-led"), LAYOUT_CONFIG[3]);
 
   return (
     <section
       className="relative overflow-hidden bg-white py-10 sm:py-12 lg:py-16"
       aria-labelledby="featured-categories-heading"
     >
-      {/* Subtle separation from the sections around it */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent"
         aria-hidden="true"
@@ -62,12 +87,11 @@ export function FeaturedCategories() {
       />
 
       <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        {/* Centered heading */}
         <div className="mx-auto mb-7 max-w-3xl text-center sm:mb-9 lg:mb-10">
           <div className="mb-3 flex items-center justify-center gap-3">
             <span className="h-px w-7 bg-[#ECAB1C]" aria-hidden="true" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8A6A20] sm:text-[11px]">
-              L’univers Michket
+              L&apos;univers Michket
             </span>
             <span className="h-px w-7 bg-[#ECAB1C]" aria-hidden="true" />
           </div>
@@ -80,23 +104,19 @@ export function FeaturedCategories() {
           </h2>
 
           <p className="mx-auto mt-3 max-w-2xl text-[13px] leading-6 text-black/50 sm:text-sm">
-            Quatre univers pour créer, offrir et marquer les moments qui comptent.
+            Quatre univers pour créer, offrir et marquer les moments qui
+            comptent.
           </p>
         </div>
 
-        {/* Mobile: artistic stacked composition */}
+        {/* Mobile */}
         <div className="grid gap-3 sm:gap-4 lg:hidden">
           <CategoryCard
             category={lampes}
             className="aspect-[16/11]"
             priority
           />
-
-          <CategoryCard
-            category={cartes}
-            className="aspect-[16/10]"
-          />
-
+          <CategoryCard category={cartes} className="aspect-[16/10]" />
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <CategoryCard
               category={trophees}
@@ -111,7 +131,7 @@ export function FeaturedCategories() {
           </div>
         </div>
 
-        {/* Desktop: asymmetric editorial composition */}
+        {/* Desktop */}
         <div className="hidden grid-cols-[1.08fr_0.92fr] gap-5 lg:grid">
           <CategoryCard
             category={lampes}
@@ -119,14 +139,12 @@ export function FeaturedCategories() {
             priority
             large
           />
-
           <div className="grid gap-5">
             <CategoryCard
               category={cartes}
               className="min-h-[315px] xl:min-h-[350px]"
               wide
             />
-
             <div className="grid grid-cols-2 gap-5">
               <CategoryCard
                 category={trophees}
@@ -154,7 +172,13 @@ function CategoryCard({
   wide = false,
   priority = false,
 }: {
-  category: (typeof categories)[number];
+  category: {
+    title: string;
+    href: string;
+    image: string;
+    subtitle: string;
+    imagePosition: "center" | "top" | "bottom";
+  };
   className?: string;
   compact?: boolean;
   large?: boolean;
@@ -183,13 +207,11 @@ function CategoryCard({
         }
       />
 
-      {/* Depth + readability */}
       <div
         className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/12 to-black/5 transition-colors duration-300 group-hover:from-black/82"
         aria-hidden="true"
       />
 
-      {/* Gold accent in the top-right */}
       <span
         className="absolute right-0 top-0 h-[3px] w-14 bg-[#ECAB1C] transition-all duration-300 group-hover:w-24"
         aria-hidden="true"
@@ -219,7 +241,9 @@ function CategoryCard({
             {!compact && (
               <p
                 className={`mt-2 max-w-md text-white/68 ${
-                  large ? "text-[14px] leading-6 xl:text-[15px]" : "text-[13px] leading-5"
+                  large
+                    ? "text-[14px] leading-6 xl:text-[15px]"
+                    : "text-[13px] leading-5"
                 }`}
               >
                 {category.subtitle}

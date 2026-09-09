@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { mainNav, type NavItemWithMega } from "@/data/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { NavItemWithMega } from "@/data/navigation";
 import { MobileNav } from "@/components/navigation/MobileNav";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
@@ -14,6 +14,7 @@ import { useCart } from "@/contexts/CartContext";
 /* ──────────────────────────── Desktop Nav ──────────────────────────── */
 
 interface DesktopNavigationProps {
+  items: NavItemWithMega[];
   onMegaOpen: (item: NavItemWithMega) => void;
   onMegaClose: () => void;
   onMegaCloseImmediate: () => void;
@@ -21,6 +22,7 @@ interface DesktopNavigationProps {
 }
 
 function DesktopNavigation({
+  items,
   onMegaOpen,
   onMegaClose,
   onMegaCloseImmediate,
@@ -32,7 +34,7 @@ function DesktopNavigation({
       aria-label="Navigation principale"
     >
       <ul className="flex items-center gap-0 min-w-0" role="menubar">
-        {mainNav.map((item) => {
+        {items.map((item) => {
           const hasMega = Boolean(item.mega);
           const isActive = megaOpenItem?.label === item.label;
 
@@ -121,7 +123,7 @@ function DesktopNavigation({
 
 /* ──────────────────────────── Header ──────────────────────────── */
 
-export function Header() {
+export function Header({ navItems = [] }: { navItems?: NavItemWithMega[] }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -482,6 +484,7 @@ export function Header() {
             </Link>
 
             <DesktopNavigation
+              items={navItems}
               onMegaOpen={handleMegaOpen}
               onMegaClose={handleMegaClose}
               onMegaCloseImmediate={handleMegaCloseImmediate}
@@ -555,7 +558,7 @@ export function Header() {
       )}
 
       {/* ── Overlays ── */}
-      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      <MobileNav items={navItems} open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>

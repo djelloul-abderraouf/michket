@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { products } from "@/data/products";
+import type { Product } from "@/lib/api";
 
 function formatPriceDA(price: number): string {
   return `${new Intl.NumberFormat("fr-DZ", {
@@ -25,7 +25,11 @@ function categoryLabel(category: string) {
   }
 }
 
-export function NewArrivals() {
+interface NewArrivalsProps {
+  products?: Product[];
+}
+
+export function NewArrivals({ products = [] }: NewArrivalsProps) {
   const newProducts = products.filter(
     (product) => product.badge === "NOUVEAU",
   );

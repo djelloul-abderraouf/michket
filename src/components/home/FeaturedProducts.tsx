@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { products } from "@/data/products";
 import { Badge } from "@/components/ui/Badge";
+import type { Product } from "@/lib/api";
 
 const badgeLabel: Record<string, string> = {
   "BEST SELLER": "Populaire",
@@ -79,13 +79,12 @@ function Rating({
   );
 }
 
-export function FeaturedProducts() {
-  const featured = products
-    .filter(
-      (product) =>
-        product.badge === "BEST SELLER" || product.badge === "NOUVEAU",
-    )
-    .slice(0, 10);
+interface FeaturedProductsProps {
+  products?: Product[];
+}
+
+export function FeaturedProducts({ products = [] }: FeaturedProductsProps) {
+  const featured = products.slice(0, 10);
 
   if (featured.length === 0) return null;
 

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+
+import { AppShell } from "@/components/layout/AppShell";
 import { Providers } from "@/components/Providers";
+import { NavigationProvider } from "@/contexts/NavigationContext";
+import { buildNavigation } from "@/lib/build-navigation";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,11 +34,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Fetch navigation data from backend (categories + subcategories)
+  const navigation = await buildNavigation();
+
   return (
     <html lang="fr" className="h-full antialiased">
       <head>
@@ -56,17 +62,9 @@ export default function RootLayout({
         className="min-h-full flex flex-col"
       >
         <Providers>
-          <a href="#main-content" className="skip-link">
-            Aller au contenu principal
-          </a>
-
-          <Header />
-
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
-
-          <Footer />
+          <NavigationProvider value={navigation}>
+            <AppShell>{children}</AppShell>
+          </NavigationProvider>
         </Providers>
       </body>
     </html>

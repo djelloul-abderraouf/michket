@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { mobileNav, type NavItemWithMega } from "@/data/navigation";
+import type { NavItemWithMega } from "@/data/navigation";
 
 function MobileAccordionItem({ item }: { item: NavItemWithMega }) {
   const [open, setOpen] = useState(false);
@@ -75,11 +75,12 @@ function MobileAccordionItem({ item }: { item: NavItemWithMega }) {
 }
 
 interface MobileNavProps {
+  items: NavItemWithMega[];
   open: boolean;
   onClose: () => void;
 }
 
-export function MobileNav({ open, onClose }: MobileNavProps) {
+export function MobileNav({ items, open, onClose }: MobileNavProps) {
   return (
     <>
       {/* Backdrop */}
@@ -119,7 +120,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         {/* Nav items */}
         <div className="flex-1 overflow-y-auto">
           <ul className="py-1">
-            {mobileNav.map((item) => (
+            {items.filter((item) => item.href !== "/").map((item) => (
               <MobileAccordionItem key={item.label} item={item} />
             ))}
           </ul>
