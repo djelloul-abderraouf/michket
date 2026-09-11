@@ -151,6 +151,8 @@ export default function AdminCategoriesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] =
     useState<string | null>(null);
+  const [formSuccess, setFormSuccess] =
+    useState<string | null>(null);
 
   // Profile image upload state
   const profileFileInputRef = useRef<HTMLInputElement>(null);
@@ -352,6 +354,7 @@ export default function AdminCategoriesPage() {
     setForm(EMPTY_FORM);
     setSlugTouched(false);
     setFormError(null);
+    setFormSuccess(null);
     setProfileFile(null);
     setProfilePreview(null);
     setProfileUploadError(null);
@@ -366,6 +369,7 @@ export default function AdminCategoriesPage() {
     setEditingCategory(category);
     setSlugTouched(true);
     setFormError(null);
+    setFormSuccess(null);
     setProfileFile(null);
     setProfilePreview(category.imageUrl);
     setProfileUploadError(null);
@@ -441,6 +445,7 @@ export default function AdminCategoriesPage() {
     setEditingCategory(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    setFormSuccess(null);
     setSlugTouched(false);
     setProfileFile(null);
     setProfilePreview(null);
@@ -690,6 +695,11 @@ export default function AdminCategoriesPage() {
 
       if (!createResponse.ok) {
         const payload = (await createResponse.json().catch(() => null)) as ApiErrorPayload;
+
+        // The Storage upload succeeded but the DB record failed.
+        // Remove the orphan object so it does not remain unused in Supabase.
+        await deleteTempStorage(path);
+
         setHeroUploadError(
           apiMessage(payload, "Erreur lors de l'enregistrement de l'image."),
         );
@@ -910,6 +920,7 @@ export default function AdminCategoriesPage() {
   ) {
     event.preventDefault();
     setFormError(null);
+    setFormSuccess(null);
 
     const name = form.name.trim();
     const slug = form.slug.trim().toLowerCase();
@@ -1064,11 +1075,50 @@ export default function AdminCategoriesPage() {
         return;
       }
 
-      // Save succeeded — pending image is now official in DB
+      const savedCategory = (await response.json()) as Category;
+
+      // Save succeeded — pending image is now official in DB.
       setPendingProfileUrl(null);
       setPendingProfileStoragePath(null);
 
-      closeForm();
+      const wasCreatingSubcategory =
+        !editingCategory && form.kind === "SUBCATEGORY";
+
+      if (wasCreatingSubcategory) {
+        // A hero image needs a real category id. Keep the modal open after
+        // the first save and switch immediately into edit mode so the admin
+        // can upload the carousel images without closing/reopening the form.
+        setEditingCategory(savedCategory);
+        setSlugTouched(true);
+        setProfileFile(null);
+        setProfilePreview(savedCategory.imageUrl);
+        setHeroImages(savedCategory.heroImages ?? []);
+        setForm({
+          name: savedCategory.name,
+          slug: savedCategory.slug,
+          kind: "SUBCATEGORY",
+          parentId: savedCategory.parentId ?? form.parentId,
+          description: savedCategory.description ?? "",
+          pageTitle: savedCategory.pageTitle ?? "",
+          productsTitle: savedCategory.productsTitle ?? "",
+          filterLabel: savedCategory.filterLabel ?? "",
+          imageUrl: savedCategory.imageUrl ?? "",
+          imageStoragePath:
+            savedCategory.imageStoragePath ?? "",
+          href: savedCategory.href ?? "",
+          sortOrder: String(savedCategory.sortOrder),
+          isActive: savedCategory.isActive,
+          metaTitle: savedCategory.metaTitle ?? "",
+          metaDescription:
+            savedCategory.metaDescription ?? "",
+        });
+        setFormSuccess(
+          "Sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous.",
+        );
+      } else {
+        closeForm();
+      }
+
       await loadCategories();
       router.refresh();
     } catch {
@@ -1843,6 +1893,12 @@ export default function AdminCategoriesPage() {
                 </div>
               ) : null}
 
+              {formSuccess ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  {formSuccess}
+                </div>
+              ) : null}
+
               <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-neutral-950">
                   Type
@@ -2215,10 +2271,10 @@ export default function AdminCategoriesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-neutral-950">
-                        Images Hero
+                        Carrousel Hero de la sous-catégorie
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-neutral-400">
-                        Images affichées dans le hero de la page catégorie.
+                        Ces images défilent automatiquement en haut de la page publique de cette sous-catégorie.
                         Maximum 10 images. JPEG, PNG, WebP ou AVIF. Max 10 Mo.
                       </p>
                     </div>

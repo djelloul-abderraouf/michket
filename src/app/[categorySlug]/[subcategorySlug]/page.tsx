@@ -6,7 +6,9 @@ import {
   fetchCategoryBySlugSafe,
   fetchProductsForCategory,
 } from "@/lib/api";
+import { SubcategoryHeroCarousel } from "@/components/category/SubcategoryHeroCarousel";
 
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
@@ -124,6 +126,13 @@ export default async function GenericSubcategoryPage({
               </p>
             )}
           </div>
+
+          {category.heroImages.length > 0 ? (
+            <SubcategoryHeroCarousel
+              images={category.heroImages}
+              categoryName={category.name}
+            />
+          ) : null}
 
           {products.length > 0 && (
             <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
