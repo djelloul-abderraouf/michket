@@ -18,10 +18,19 @@ export async function generateMetadata({
 }: {
   params: Promise<{ categorySlug: string; subcategorySlug: string }>;
 }): Promise<Metadata> {
-  const { subcategorySlug } = await params;
-  const category = await fetchCategoryBySlugSafe(subcategorySlug);
+  const { categorySlug, subcategorySlug } = await params;
 
-  if (!category || !category.parentId) {
+  const [parent, category] = await Promise.all([
+    fetchCategoryBySlugSafe(categorySlug),
+    fetchCategoryBySlugSafe(subcategorySlug),
+  ]);
+
+  if (
+    !parent ||
+    parent.parentId ||
+    !category ||
+    category.parentId !== parent.id
+  ) {
     return { title: "Sous-catégorie introuvable | Michket" };
   }
 
@@ -47,9 +56,17 @@ export default async function GenericSubcategoryPage({
 }) {
   const { categorySlug, subcategorySlug } = await params;
 
-  const category = await fetchCategoryBySlugSafe(subcategorySlug);
+  const [parent, category] = await Promise.all([
+    fetchCategoryBySlugSafe(categorySlug),
+    fetchCategoryBySlugSafe(subcategorySlug),
+  ]);
 
-  if (!category || !category.parentId) {
+  if (
+    !parent ||
+    parent.parentId ||
+    !category ||
+    category.parentId !== parent.id
+  ) {
     notFound();
   }
 
@@ -57,12 +74,15 @@ export default async function GenericSubcategoryPage({
   let apiError = false;
 
   try {
-    products = await fetchProductsForCategory(subcategorySlug);
+    products = await fetchProductsForCategory(category.slug);
   } catch {
     apiError = true;
   }
 
-  const displayName = category.productsTitle || category.name;
+  const displayName =
+    category.productsTitle?.trim() ||
+    category.pageTitle?.trim() ||
+    category.name;
 
   return (
     <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
@@ -85,17 +105,17 @@ export default async function GenericSubcategoryPage({
               </Link>
               <span>/</span>
               <Link
-                href={`/${categorySlug}`}
+                href={`/${parent.slug}`}
                 className="transition-colors hover:text-[#ECAB1C]"
               >
-                {categorySlug.replace(/-/g, " ")}
+                {parent.name}
               </Link>
               <span>/</span>
               <span className="text-[#8A6A20]">{category.name}</span>
             </div>
 
             <h1 className="mt-2.5 font-body text-[27px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[34px] lg:text-[39px]">
-              {category.name}
+              {category.pageTitle?.trim() || category.name}
             </h1>
 
             {category.description && (
@@ -256,7 +276,7 @@ export default async function GenericSubcategoryPage({
 
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                        {category.name}
+                        {product.categoryName ?? category.name}
                       </p>
 
                       <Link href={`/produits/${product.slug}`}>

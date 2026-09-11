@@ -30,7 +30,7 @@ export interface CartItem {
   slug: string;
   title: string;
   price: number;
-  image: string;
+  image: string | null;
   quantity: number;
   currency?: string;
   /** Backend variant UUID — sent to POST /carts/items */
@@ -68,7 +68,7 @@ export interface CartContextValue {
   addItem: (
     item: Omit<CartItem, "quantity">,
     quantity?: number,
-  ) => void;
+  ) => Promise<boolean>;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -97,7 +97,7 @@ function mapCartItem(api: ApiCartItem): CartItem {
     slug: api.product.slug,
     title: api.product.name,
     price: api.unitPriceCents / 100,
-    image: "", // Images not included in GET /carts — components must resolve separately
+    image: api.product.imageUrl ?? null,
     quantity: api.quantity,
     variantId: api.variant?.id ?? undefined,
     selectedColorName: api.selectedColorName ?? api.variant?.colorName ?? undefined,
@@ -252,15 +252,17 @@ export function CartProvider({
     ) => {
       try {
         const res = await apiAddToCart({
-          productId: item.id,
+          productId: item.productId,
           variantId: item.variantId ?? undefined,
           quantity,
           personalization: item.personalization ?? undefined,
         });
         dispatch({ type: "HYDRATE", items: res.items.map(mapCartItem) });
         setError(null);
+        return true;
       } catch {
         setError("Erreur lors de l'ajout au panier");
+        return false;
       }
     },
     [],

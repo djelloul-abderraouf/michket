@@ -44,21 +44,29 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
-    () => product.variants?.[0] ?? null,
-  );
+  const [selectedVariant, setSelectedVariant] =
+    useState<ProductVariant | null>(null);
 
   // Filter images by selected variant, fallback to general images (variantId=null)
   const filteredImages = useMemo(() => {
-    if (!selectedVariant) return product.images;
+    if (!selectedVariant) {
+      const generalImages = product.images.filter(
+        (img) => img.variantId === null,
+      );
+
+      return generalImages.length > 0 ? generalImages : product.images;
+    }
 
     const variantImages = product.images.filter(
       (img) => img.variantId === selectedVariant.id,
     );
 
-    // Fallback to general images if variant has no specific images
     if (variantImages.length === 0) {
-      return product.images.filter((img) => img.variantId === null);
+      const generalImages = product.images.filter(
+        (img) => img.variantId === null,
+      );
+
+      return generalImages.length > 0 ? generalImages : product.images;
     }
 
     return variantImages;
@@ -282,7 +290,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   async function handleAddToCart() {
     // Block if variants exist but none selected
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
-      setCartMessage("Veuillez sélectionner une couleur");
+      setCartMessage("Veuillez sélectionner une option");
       return;
     }
 
@@ -307,21 +315,25 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
       }
     }
 
-    await addItem(
+    const added = await addItem(
       {
         id: product.id,
         productId: product.id,
         slug: product.slug,
         title: product.title,
         price: product.price,
-        image: filteredImages[0]?.src ?? "",
+        image: filteredImages[0]?.src ?? null,
         variantId: selectedVariant?.id,
         personalization: personalizationPayload,
       },
       quantity,
     );
 
-    setCartMessage("Produit ajouté au panier");
+    setCartMessage(
+      added
+        ? "Produit ajouté au panier"
+        : "Impossible d'ajouter le produit au panier",
+    );
   }
 
   const canSubmit =
@@ -358,23 +370,52 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
           <div className="lg:sticky lg:top-6">
             <button
               type="button"
-              onClick={() => setImageModalOpen(true)}
-              className="group relative block w-full overflow-hidden rounded-[18px] border border-[#251713]/[0.07] bg-[#EDE3D7] shadow-[0_18px_45px_rgba(37,23,19,0.08)]"
+              onClick={() => {
+                if (activeImage) setImageModalOpen(true);
+              }}
+              disabled={!activeImage}
+              className="group relative block w-full overflow-hidden rounded-[18px] border border-[#251713]/[0.07] bg-[#EDE3D7] shadow-[0_18px_45px_rgba(37,23,19,0.08)] disabled:cursor-default"
             >
               <div className="relative aspect-[4/4.6] sm:aspect-square">
-                <Image
-                  src={activeImage.src}
-                  alt={activeImage.alt}
-                  fill
-                  priority
-                  className="object-cover transition-transform duration-500 group-hover:scale-[1.015]"
-                  sizes="(max-width: 1023px) 100vw, 52vw"
-                />
+                {activeImage ? (
+                  <Image
+                    src={activeImage.src}
+                    alt={activeImage.alt}
+                    fill
+                    priority
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.015]"
+                    sizes="(max-width: 1023px) 100vw, 52vw"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[#251713]/25">
+                    <svg
+                      className="h-12 w-12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.3}
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15 14.69m-1.5-1.5 1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38"
+                      />
+                    </svg>
+                  </div>
+                )}
               </div>
 
-              <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-bold shadow">
-                Voir en grand
-              </span>
+              {activeImage && (
+                <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-bold shadow">
+                  Voir en grand
+                </span>
+              )}
             </button>
 
             {/* Color swatches */}
@@ -814,7 +855,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
         </div>
       </section>
 
-      {imageModalOpen && (
+      {imageModalOpen && activeImage && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
           onClick={() => setImageModalOpen(false)}

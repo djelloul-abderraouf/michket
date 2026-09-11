@@ -1,71 +1,31 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { LampesFilterDropdown } from "@/components/collection/LampesFilterDropdown";
-import { fetchProductsForCategory } from "@/lib/api";
-
-export const metadata: Metadata = {
-  title: "Lampes 3D personnalisées | Michket",
-  description:
-    "Découvrez les lampes 3D personnalisées Michket pour anniversaire, mariage, naissance, famille, métiers, sport et soutenance.",
-};
+import {
+  fetchCategoryBySlugSafe,
+  fetchProductsForCategory,
+} from "@/lib/api";
 
 const PRODUCTS_PER_PAGE = 8;
+const CATEGORY_SLUG = "lampes-3d";
 
-const occasions = [
-  {
-    id: "anniversaire",
-    slug: "anniversaire",
-    label: "Anniversaire",
-    image: "/images/products/lampes/anniv.jpeg",
-  },
-  {
-    id: "mariage",
-    slug: "mariage",
-    label: "Mariage",
-    image: "/images/products/lampes/mariage.jpeg",
-  },
-  {
-    id: "naissance",
-    slug: "naissance",
-    label: "Nouveau-né",
-    image: "/images/products/lampes/nouveau nee.jpeg",
-  },
-  {
-    id: "maman",
-    slug: "maman",
-    label: "Maman & Famille",
-    image: "/images/products/lampes/maman.jpeg",
-  },
-  {
-    id: "metiers",
-    slug: "medecine",
-    label: "Médecine",
-    image: "/images/products/lampes/medecine.jpeg",
-  },
-  {
-    id: "sport",
-    slug: "football",
-    label: "Football",
-    image: "/images/products/lampes/football.jpeg",
-  },
-  {
-    id: "soutenance",
-    slug: "soutenance",
-    label: "Soutenance",
-    image: "/images/products/lampes/soutenance.jpeg",
-  },
-  {
-    id: "5eme",
-    slug: "5eme",
-    label: "5ème année",
-    image: "/images/products/lampes/5eme.jpeg",
-  },
-] as const;
+export async function generateMetadata(): Promise<Metadata> {
+  const category = await fetchCategoryBySlugSafe(CATEGORY_SLUG);
 
-const occasionLabels = Object.fromEntries(
-  occasions.map((item) => [item.id, item.label]),
-) as Record<string, string>;
+  if (!category || category.parentId) {
+    return { title: "Catégorie introuvable | Michket" };
+  }
+
+  return {
+    title: category.metaTitle || `${category.name} | Michket`,
+    description:
+      category.metaDescription ||
+      category.description ||
+      `Découvrez la collection ${category.name} sur Michket.`,
+  };
+}
 
 function formatPriceDA(price: number): string {
   return `${new Intl.NumberFormat("fr-DZ", {
@@ -73,7 +33,7 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-function catalogHref(category?: string, page = 1) {
+function catalogHref(basePath: string, category?: string, page = 1) {
   const params = new URLSearchParams();
 
   if (category) params.set("categorie", category);
@@ -81,12 +41,29 @@ function catalogHref(category?: string, page = 1) {
 
   const query = params.toString();
 
-  return query ? `/lampes-3d?${query}#produits` : "/lampes-3d#produits";
+  return query ? `${basePath}?${query}#produits` : `${basePath}#produits`;
+}
+
+function getTitleParts(name: string, pageTitle: string | null) {
+  const fullTitle = pageTitle?.trim() || name;
+
+  if (
+    fullTitle.toLocaleLowerCase("fr").startsWith(name.toLocaleLowerCase("fr"))
+  ) {
+    return {
+      primary: name,
+      accent: fullTitle.slice(name.length).trim(),
+    };
+  }
+
+  return {
+    primary: fullTitle,
+    accent: "",
+  };
 }
 
 type Lampes3DPageProps = {
   searchParams: Promise<{
-    occasion?: string;
     categorie?: string;
     page?: string;
   }>;
@@ -95,41 +72,40 @@ type Lampes3DPageProps = {
 export default async function Lampes3DPage({
   searchParams,
 }: Lampes3DPageProps) {
-  const { occasion, categorie, page } = await searchParams;
+  const { categorie, page } = await searchParams;
 
-  /*
-   * `occasion` reste réservé à la première section pour le moment.
-   * Plus tard, ses cartes pourront pointer vers des pages dédiées :
-   * /lampes-3d/anniversaire, /lampes-3d/mariage, etc.
-   */
-  const activeOccasion =
-    occasion && occasionLabels[occasion] ? occasion : undefined;
+  const category = await fetchCategoryBySlugSafe(CATEGORY_SLUG);
 
-  /*
-   * Le filtre du catalogue est volontairement séparé de la première section.
-   * Ainsi, la collection affiche toutes les lampes par défaut.
-   */
+  if (!category || category.parentId) {
+    notFound();
+  }
+
+  const subcategories = category.children
+    .filter((child) => child.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const selectedSubcategory = categorie
+    ? subcategories.find((child) => child.slug === categorie)
+    : undefined;
+
   const selectedCategory =
-    categorie && occasionLabels[categorie] ? categorie : undefined;
+    categorie && selectedSubcategory ? selectedSubcategory.slug : undefined;
 
-  let allLampProducts: Awaited<ReturnType<typeof fetchProductsForCategory>> = [];
+  let products: Awaited<ReturnType<typeof fetchProductsForCategory>> = [];
   let apiError = false;
+
   try {
-    allLampProducts = await fetchProductsForCategory("lampes-3d");
+    products = await fetchProductsForCategory(
+      selectedSubcategory?.slug ?? category.slug,
+    );
   } catch {
     apiError = true;
   }
 
-  const filteredProducts = selectedCategory
-    ? allLampProducts.filter((product) =>
-        product.occasion?.includes(selectedCategory),
-      )
-    : allLampProducts;
-
   const requestedPage = Number.parseInt(page ?? "1", 10);
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE),
+    Math.ceil(products.length / PRODUCTS_PER_PAGE),
   );
 
   const currentPage = Number.isFinite(requestedPage)
@@ -137,18 +113,21 @@ export default async function Lampes3DPage({
     : 1;
 
   const start = (currentPage - 1) * PRODUCTS_PER_PAGE;
-  const visibleProducts = filteredProducts.slice(
-    start,
-    start + PRODUCTS_PER_PAGE,
-  );
+  const visibleProducts = products.slice(start, start + PRODUCTS_PER_PAGE);
 
-  const selectedCategoryLabel = selectedCategory
-    ? occasionLabels[selectedCategory]
-    : "Toutes les lampes";
+  const selectedCategoryLabel =
+    selectedSubcategory?.name ?? "Toute la collection";
+
+  const basePath = `/${category.slug}`;
+  const titleParts = getTitleParts(category.name, category.pageTitle);
+  const catalogueTitle =
+    category.productsTitle?.trim() ||
+    category.pageTitle?.trim() ||
+    category.name;
 
   return (
     <main className="bg-[#F8F3EB] text-[#2A1B16]">
-      {/* ───────────────── TOP / SHOP BY OCCASION ───────────────── */}
+      {/* ───────────────── TOP / SHOP BY SUBCATEGORY ───────────────── */}
       <section
         className="relative border-b border-[#2A1B16]/[0.08]"
         style={{
@@ -167,41 +146,53 @@ export default async function Lampes3DPage({
                   Accueil
                 </Link>
                 <span>/</span>
-                <span className="text-[#8A6A20]">Lampes 3D</span>
+                <span className="text-[#8A6A20]">{category.name}</span>
               </div>
 
               <h1 className="mt-2.5 font-body text-[27px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[34px] lg:text-[39px]">
-                Lampes 3D{" "}
-                <span className="text-[#8A6A20]">personnalisées</span>
+                {titleParts.primary}
+                {titleParts.accent && (
+                  <>
+                    {" "}
+                    <span className="text-[#8A6A20]">
+                      {titleParts.accent}
+                    </span>
+                  </>
+                )}
               </h1>
 
-              <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-5 text-[#2A1B16]/48 sm:block">
-                Choisissez une occasion et découvrez l’univers qui correspond
-                à votre cadeau.
-              </p>
+              {category.description && (
+                <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-5 text-[#2A1B16]/48 sm:block">
+                  {category.description}
+                </p>
+              )}
             </div>
 
-            {/* Une seule ligne, scrollable sur toutes les tailles si nécessaire */}
-            <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-start">
-                {occasions.map((item) => {
-                  return (
+            {subcategories.length > 0 && (
+              <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-start">
+                  {subcategories.map((item) => (
                     <Link
                       key={item.id}
-                      href={`/lampes-3d/${item.slug}`}
+                      href={`${basePath}/${item.slug}`}
                       className="group w-[166px] flex-none snap-start sm:w-[205px] lg:w-[220px]"
                     >
-                      <article
-                        className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]"
-                      >
+                      <article className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]">
                         <div className="relative aspect-[5/4] overflow-hidden">
-                          <Image
-                            src={item.image}
-                            alt={`Lampe 3D ${item.label}`}
-                            fill
-                            className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                            sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
-                          />
+                          {item.imageUrl ? (
+                            <Image
+                              src={item.imageUrl}
+                              alt={item.name}
+                              fill
+                              className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
+                              sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
+                            />
+                          ) : (
+                            <div
+                              className="absolute inset-0 bg-gradient-to-br from-[#4A342B] to-[#21130F]"
+                              aria-hidden="true"
+                            />
+                          )}
 
                           <div
                             className="absolute inset-0 bg-gradient-to-t from-[#21130F]/80 via-[#21130F]/18 to-transparent"
@@ -210,7 +201,7 @@ export default async function Lampes3DPage({
 
                           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
                             <span className="text-[10px] font-semibold leading-4 text-white sm:text-[11px]">
-                              {item.label}
+                              {item.name}
                             </span>
 
                             <span
@@ -235,10 +226,10 @@ export default async function Lampes3DPage({
                         </div>
                       </article>
                     </Link>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -252,14 +243,13 @@ export default async function Lampes3DPage({
         }}
       >
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-          {/* Titre catalogue toujours centré */}
           <div className="mx-auto mb-5 max-w-[680px] text-center sm:mb-7">
             <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
               Collection disponible
             </p>
 
             <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
-              Une lumière unique pour chaque histoire
+              {catalogueTitle}
             </h2>
 
             <p className="mt-1.5 text-[10px] font-medium text-[#2A1B16]/42 sm:text-[11px]">
@@ -267,24 +257,25 @@ export default async function Lampes3DPage({
             </p>
           </div>
 
-          {/* Barre catalogue : nombre de produits + filtre compact */}
           <div className="mb-5 flex items-center justify-between gap-3 border-y border-[#2A1B16]/[0.08] py-3 sm:mb-6 sm:py-3.5">
             <p className="text-[10px] font-medium text-[#2A1B16]/45 sm:text-[11px]">
-              {filteredProducts.length} produit
-              {filteredProducts.length > 1 ? "s" : ""}
+              {products.length} produit
+              {products.length > 1 ? "s" : ""}
             </p>
 
-            <LampesFilterDropdown
-              selectedCategory={selectedCategory}
-              selectedCategoryLabel={selectedCategoryLabel}
-              options={occasions.map((item) => ({
-                id: item.id,
-                label: item.label,
-              }))}
-            />
+            {subcategories.length > 0 && (
+              <LampesFilterDropdown
+                basePath={basePath}
+                selectedCategory={selectedCategory}
+                selectedCategoryLabel={selectedCategoryLabel}
+                options={subcategories.map((item) => ({
+                  id: item.slug,
+                  label: item.name,
+                }))}
+              />
+            )}
           </div>
 
-          {/* Grille produits */}
           {visibleProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
               {visibleProducts.map((product, index) => {
@@ -310,14 +301,16 @@ export default async function Lampes3DPage({
                       href={`/produits/${product.slug}`}
                       className="relative block aspect-[4/5] overflow-hidden bg-[#EEE5DA]"
                     >
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        priority={index < 2 && currentPage === 1}
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
-                      />
+                      {image && (
+                        <Image
+                          src={image.src}
+                          alt={image.alt}
+                          fill
+                          priority={index < 2 && currentPage === 1}
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
+                        />
+                      )}
 
                       <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/24 via-transparent to-transparent"
@@ -344,7 +337,7 @@ export default async function Lampes3DPage({
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                          Lampe 3D
+                          {product.categoryName ?? category.name}
                         </p>
 
                         {typeof product.rating === "number" && (
@@ -421,24 +414,29 @@ export default async function Lampes3DPage({
                 Aucun produit dans cette catégorie pour le moment.
               </p>
 
-              <Link
-                href={catalogHref()}
-                className="mt-4 inline-flex border-b border-[#ECAB1C] pb-1 text-[9px] font-bold uppercase tracking-[0.09em]"
-              >
-                Voir toutes les lampes
-              </Link>
+              {selectedSubcategory && (
+                <Link
+                  href={catalogHref(basePath)}
+                  className="mt-4 inline-flex border-b border-[#ECAB1C] pb-1 text-[9px] font-bold uppercase tracking-[0.09em]"
+                >
+                  Voir toute la collection
+                </Link>
+              )}
             </div>
           )}
 
-          {/* ───────────────── PAGINATION ───────────────── */}
-          {filteredProducts.length > 0 && (
+          {products.length > 0 && totalPages > 1 && (
             <nav
               className="mt-8 flex items-center justify-center gap-1.5 sm:mt-10"
-              aria-label="Pagination des lampes 3D"
+              aria-label={`Pagination ${category.name}`}
             >
               {currentPage > 1 ? (
                 <Link
-                  href={catalogHref(selectedCategory, currentPage - 1)}
+                  href={catalogHref(
+                    basePath,
+                    selectedCategory,
+                    currentPage - 1,
+                  )}
                   className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[#2A1B16]/60 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10"
                   aria-label="Page précédente"
                 >
@@ -491,7 +489,11 @@ export default async function Lampes3DPage({
                   ) : (
                     <Link
                       key={pageNumber}
-                      href={catalogHref(selectedCategory, pageNumber)}
+                      href={catalogHref(
+                        basePath,
+                        selectedCategory,
+                        pageNumber,
+                      )}
                       className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[10px] font-semibold text-[#2A1B16]/55 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10 sm:text-[11px]"
                     >
                       {pageNumber}
@@ -501,7 +503,11 @@ export default async function Lampes3DPage({
 
               {currentPage < totalPages ? (
                 <Link
-                  href={catalogHref(selectedCategory, currentPage + 1)}
+                  href={catalogHref(
+                    basePath,
+                    selectedCategory,
+                    currentPage + 1,
+                  )}
                   className="flex h-9 min-w-9 items-center justify-center rounded-[8px] border border-[#2A1B16]/10 bg-white px-2 text-[#2A1B16]/60 transition-colors hover:border-[#ECAB1C]/50 hover:text-[#2A1B16] sm:h-10 sm:min-w-10"
                   aria-label="Page suivante"
                 >

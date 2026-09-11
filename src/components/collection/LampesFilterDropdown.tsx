@@ -9,18 +9,24 @@ type FilterOption = {
 };
 
 type LampesFilterDropdownProps = {
+  basePath: string;
   selectedCategory?: string;
   selectedCategoryLabel: string;
   options: readonly FilterOption[];
 };
 
-function hrefFor(category?: string) {
+function hrefFor(basePath: string, category?: string) {
+  const normalizedBasePath = basePath.startsWith("/")
+    ? basePath
+    : `/${basePath}`;
+
   return category
-    ? `/lampes-3d?categorie=${category}#produits`
-    : "/lampes-3d#produits";
+    ? `${normalizedBasePath}?categorie=${encodeURIComponent(category)}#produits`
+    : `${normalizedBasePath}#produits`;
 }
 
 export function LampesFilterDropdown({
+  basePath,
   selectedCategory,
   selectedCategoryLabel,
   options,
@@ -107,7 +113,7 @@ export function LampesFilterDropdown({
           role="menu"
         >
           <Link
-            href={hrefFor()}
+            href={hrefFor(basePath)}
             onClick={() => setOpen(false)}
             className={`flex min-h-9 items-center justify-between rounded-[7px] px-3 text-[11px] transition-colors ${
               !selectedCategory
@@ -116,7 +122,7 @@ export function LampesFilterDropdown({
             }`}
             role="menuitem"
           >
-            Toutes les lampes
+            Toute la collection
             {!selectedCategory && (
               <span className="text-[#ECAB1C]" aria-hidden="true">
                 ✓
@@ -130,7 +136,7 @@ export function LampesFilterDropdown({
             return (
               <Link
                 key={item.id}
-                href={hrefFor(item.id)}
+                href={hrefFor(basePath, item.id)}
                 onClick={() => setOpen(false)}
                 className={`flex min-h-9 items-center justify-between rounded-[7px] px-3 text-[11px] transition-colors ${
                   selected

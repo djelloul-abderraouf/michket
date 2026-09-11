@@ -104,9 +104,11 @@ export interface ApiProductListItem {
   id: string;
   name: string;
   slug: string;
-  description: string;
+  description: string | null;
   shortDescription: string | null;
   categoryId: string;
+  categorySlug: string;
+  categoryName: string;
   priceCents: number;
   compareAtPriceCents: number | null;
   currency: string;
@@ -114,7 +116,7 @@ export interface ApiProductListItem {
   occasions: string[] | null;
   isPersonalizable: boolean;
   personalizationPrompt: string | null;
-  ratingAvg: number | null;
+  ratingAvg: number | string | null;
   ratingCount: number | null;
   createdAt: string;
   imageUrl: string | null;
@@ -133,11 +135,22 @@ export interface ApiProductImage {
   createdAt: string;
 }
 
+export interface ApiInventory {
+  id: string;
+  productId: string;
+  variantId: string | null;
+  quantity: number;
+  reserved: number;
+  lowStockThreshold: number;
+  trackInventory: boolean;
+  updatedAt: string;
+}
+
 export interface ApiProductDetail {
   id: string;
   name: string;
   slug: string;
-  description: string;
+  description: string | null;
   shortDescription: string | null;
   categoryId: string;
   priceCents: number;
@@ -150,7 +163,7 @@ export interface ApiProductDetail {
   personalizationConfig: PersonalizationConfig | null;
   metaTitle: string | null;
   metaDescription: string | null;
-  ratingAvg: number | null;
+  ratingAvg: number | string | null;
   ratingCount: number | null;
   createdAt: string;
   updatedAt: string;
@@ -159,24 +172,18 @@ export interface ApiProductDetail {
     id: string;
     productId: string;
     name: string;
-    sku: string;
+    sku: string | null;
     colorName: string | null;
     colorHex: string | null;
-    priceCents: number;
-    compareAtPriceCents: number | null;
+    priceCents: number | null;
+    options: Record<string, unknown> | null;
     sortOrder: number;
     isActive: boolean;
     createdAt: string;
+    updatedAt: string;
+    inventory: ApiInventory | null;
   }>;
-  inventory: {
-    id: string;
-    productId: string;
-    variantId: string | null;
-    quantity: number;
-    reserved: number;
-    sku: string | null;
-    trackInventory: boolean;
-  } | null;
+  inventory: ApiInventory | null;
   category?: ApiCategory | null;
 }
 
@@ -206,6 +213,12 @@ export interface ProductVariant {
   colorName: string | null;
   colorHex: string | null;
   sortOrder: number;
+  /** Variant price in DZD. Undefined means the product base price applies. */
+  price?: number;
+  /** Current variant inventory returned by the backend. */
+  inventory: ApiInventory | null;
+  /** Availability derived from quantity, reserved and trackInventory. */
+  inStock: boolean;
 }
 
 export interface Product {
@@ -219,6 +232,7 @@ export interface Product {
   images: ProductImage[];
   badge?: "BEST SELLER" | "NOUVEAU" | "PROMO" | "PERSONNALISABLE" | "ENVOI GRATUIT";
   category: string;
+  categoryName?: string;
   occasion?: string[];
   rating?: number;
   reviewCount?: number;
@@ -244,15 +258,28 @@ function centsToDA(cents: number): number {
   return cents / 100;
 }
 
+function normalizeRating(value: number | string | null): number | undefined {
+  if (value == null) return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function inventoryHasStock(inventoryRow: ApiInventory | null): boolean {
+  // No inventory row means the backend is not providing a tracked stock row
+  // for this product/variant. Preserve storefront availability in that case.
+  if (!inventoryRow) return true;
+  if (!inventoryRow.trackInventory) return true;
+  return inventoryRow.quantity - inventoryRow.reserved > 0;
+}
+
 function mapProductListItem(
   item: ApiProductListItem,
-  categoryName: string,
 ): Product {
   return {
     id: item.id,
     slug: item.slug,
     title: item.name,
-    description: item.description,
+    description: item.description ?? "",
     price: centsToDA(item.priceCents),
     compareAtPrice:
       item.compareAtPriceCents != null
@@ -263,9 +290,10 @@ function mapProductListItem(
       ? [{ src: item.imageUrl, alt: item.imageAlt ?? item.name, variantId: null }]
       : [],
     badge: item.badge ? BADGE_MAP[item.badge] ?? undefined : undefined,
-    category: categoryName,
+    category: item.categorySlug,
+    categoryName: item.categoryName,
     occasion: item.occasions ?? undefined,
-    rating: item.ratingAvg ?? undefined,
+    rating: normalizeRating(item.ratingAvg),
     reviewCount: item.ratingCount ?? undefined,
     inStock: true, // listing doesn't carry inventory — assume available
     personalizable: item.isPersonalizable,
@@ -295,13 +323,16 @@ function mapProductDetail(
       colorName: v.colorName,
       colorHex: v.colorHex,
       sortOrder: v.sortOrder,
+      price: v.priceCents != null ? centsToDA(v.priceCents) : undefined,
+      inventory: v.inventory,
+      inStock: inventoryHasStock(v.inventory),
     }));
 
   return {
     id: detail.id,
     slug: detail.slug,
     title: detail.name,
-    description: detail.description,
+    description: detail.description ?? "",
     price: centsToDA(detail.priceCents),
     compareAtPrice:
       detail.compareAtPriceCents != null
@@ -311,10 +342,14 @@ function mapProductDetail(
     images,
     badge: detail.badge ? BADGE_MAP[detail.badge] ?? undefined : undefined,
     category: categoryName,
+    categoryName: detail.category?.name ?? undefined,
     occasion: detail.occasions ?? undefined,
-    rating: detail.ratingAvg ?? undefined,
+    rating: normalizeRating(detail.ratingAvg),
     reviewCount: detail.ratingCount ?? undefined,
-    inStock: detail.inventory ? detail.inventory.quantity > 0 : true,
+    inStock:
+      variants.length > 0
+        ? variants.some((variant) => variant.inStock)
+        : inventoryHasStock(detail.inventory),
     personalizable: detail.isPersonalizable,
     personalizationConfig: detail.personalizationConfig ?? null,
     variants: variants.length > 0 ? variants : undefined,
@@ -325,18 +360,60 @@ function mapProductDetail(
 // Fetch wrapper
 // ---------------------------------------------------------------------------
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+type ApiFetchOptions = {
+  noStore?: boolean;
+};
+
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+  options?: ApiFetchOptions,
+): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const method = (init?.method ?? "GET").toUpperCase();
+
+  const cacheConfig =
+    method === "GET"
+      ? options?.noStore
+        ? { cache: "no-store" as RequestCache }
+        : { next: { revalidate: 60 } }
+      : { cache: "no-store" as RequestCache };
+
   const res = await fetch(url, {
     ...init,
-    next: { revalidate: 60 }, // ISR: revalidate every 60s
+    ...cacheConfig,
   });
+
   if (!res.ok) {
-    if (res.status === 404) {
-      throw new ApiNotFoundError(`Not found: ${path}`);
+    let backendMessage = "";
+
+    try {
+      const body = (await res.json()) as {
+        message?: string | string[];
+        error?: string;
+      };
+
+      if (Array.isArray(body.message)) {
+        backendMessage = body.message.join(" · ");
+      } else if (typeof body.message === "string") {
+        backendMessage = body.message;
+      } else if (typeof body.error === "string") {
+        backendMessage = body.error;
+      }
+    } catch {
+      // Keep the generic fallback below if the backend response is not JSON.
     }
-    throw new ApiRequestError(res.status, `API error ${res.status} for ${path}`);
+
+    const message =
+      backendMessage || `API error ${res.status} for ${path}`;
+
+    if (res.status === 404) {
+      throw new ApiNotFoundError(message);
+    }
+
+    throw new ApiRequestError(res.status, message);
   }
+
   return res.json() as Promise<T>;
 }
 
@@ -346,10 +423,16 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** GET /categories — returns flat list of active categories */
 export async function fetchCategories(): Promise<ApiCategory[]> {
-  return apiFetch<ApiCategory[]>("/categories");
+  // Header/navigation must always reflect the current backend state.
+  // Do not keep deleted/created categories in Next.js ISR cache.
+  return apiFetch<ApiCategory[]>(
+    "/categories",
+    undefined,
+    { noStore: true },
+  );
 }
 
-/** GET /categories/featured — first 3 active categories */
+/** GET /categories/featured — first 4 active top-level categories */
 export async function fetchFeaturedCategories(): Promise<ApiCategory[]> {
   return apiFetch<ApiCategory[]>("/categories/featured");
 }
@@ -366,6 +449,9 @@ export async function fetchProducts(params: {
   category?: string;
   badge?: string;
   personalizable?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+  search?: string;
   sort?: string;
   page?: number;
   limit?: number;
@@ -375,6 +461,9 @@ export async function fetchProducts(params: {
   if (params.badge) qs.set("badge", params.badge);
   if (params.personalizable != null)
     qs.set("personalizable", String(params.personalizable));
+  if (params.minPrice != null) qs.set("minPrice", String(params.minPrice));
+  if (params.maxPrice != null) qs.set("maxPrice", String(params.maxPrice));
+  if (params.search?.trim()) qs.set("search", params.search.trim());
   if (params.sort) qs.set("sort", params.sort);
   if (params.page) qs.set("page", String(params.page));
   if (params.limit) qs.set("limit", String(params.limit));
@@ -385,8 +474,16 @@ export async function fetchProducts(params: {
 }
 
 /** GET /products/best-sellers */
-export async function fetchBestSellers(): Promise<ApiProductListItem[]> {
-  return apiFetch<ApiProductListItem[]>("/products/best-sellers");
+export async function fetchBestSellers(
+  limit?: number,
+): Promise<ApiProductListItem[]> {
+  const qs = new URLSearchParams();
+  if (limit != null) qs.set("limit", String(limit));
+  const query = qs.toString();
+
+  return apiFetch<ApiProductListItem[]>(
+    `/products/best-sellers${query ? `?${query}` : ""}`,
+  );
 }
 
 /** GET /products/:slug — full detail with images + variants + inventory */
@@ -408,8 +505,8 @@ export async function fetchProductBySlug(
  * The backend automatically includes products from child categories when the slug
  * refers to a main (parent) category, so the frontend does NOT need to query children separately.
  *
- * Throws ApiNotFoundError if category doesn't exist, ApiRequestError on server errors.
- * Returns [] only when the category exists but has zero products.
+ * The backend returns an empty page for an unknown category slug.
+ * Throws ApiRequestError on server errors.
  */
 export async function fetchProductsForCategory(
   categorySlug: string,
@@ -432,7 +529,7 @@ export async function fetchProductsForCategory(
     page++;
   }
 
-  return all.map((item) => mapProductListItem(item, categorySlug));
+  return all.map((item) => mapProductListItem(item));
 }
 
 /** Fetch products by badge, mapped to frontend Product[] */
@@ -444,13 +541,13 @@ export async function fetchProductsByBadge(
     badge,
     limit: opts?.limit ?? 50,
   });
-  return res.data.map((item) => mapProductListItem(item, ""));
+  return res.data.map((item) => mapProductListItem(item));
 }
 
 /** Fetch best sellers, mapped to frontend Product[] */
 export async function fetchBestSellersMapped(): Promise<Product[]> {
   const items = await fetchBestSellers();
-  return items.map((item) => mapProductListItem(item, ""));
+  return items.map((item) => mapProductListItem(item));
 }
 
 /** Fetch all products across all pages, mapped to frontend Product[] */
@@ -464,7 +561,7 @@ export async function fetchAllProductsMapped(): Promise<Product[]> {
     if (page >= res.meta.totalPages) break;
     page++;
   }
-  return all.map((item) => mapProductListItem(item, ""));
+  return all.map((item) => mapProductListItem(item));
 }
 
 /**
@@ -538,7 +635,7 @@ export async function fetchProductBySlugSafe(
 export interface ApiCartVariant {
   id: string;
   name: string;
-  sku: string;
+  sku: string | null;
   colorName: string | null;
   colorHex: string | null;
 }
@@ -549,6 +646,8 @@ export interface ApiCartProduct {
   slug: string;
   priceCents: number;
   isPersonalizable: boolean;
+  imageUrl: string | null;
+  imageAlt: string | null;
 }
 
 export interface ApiCartItem {
@@ -610,15 +709,21 @@ async function cartFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const sessionId = getCartSessionId();
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(sessionId ? { "X-Session-Id": sessionId } : {}),
     // Pass through any caller-provided headers
     ...((init?.headers as Record<string, string>) ?? {}),
   };
 
+  // Only declare JSON when a request body actually exists.
+  // Fastify rejects DELETE requests that send Content-Type: application/json
+  // with an empty body.
+  if (init?.body != null && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(url, { ...init, headers });
 
-  // Persist session ID returned by backend (new guest or existing)
+  // Persist session ID returned in the response header when it is exposed.
   const returnedSessionId = res.headers.get("X-Session-Id");
   if (returnedSessionId) {
     setCartSessionId(returnedSessionId);
@@ -631,7 +736,17 @@ async function cartFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiRequestError(res.status, `Cart API error ${res.status} for ${path}`);
   }
 
-  return res.json() as Promise<T>;
+  const data = (await res.json()) as T;
+
+  // The backend also returns sessionId in the JSON body for guest carts.
+  // Persist it as a fallback because browsers may hide custom response headers
+  // unless CORS explicitly exposes them.
+  const bodySessionId = (data as { sessionId?: unknown }).sessionId;
+  if (typeof bodySessionId === "string" && bodySessionId.trim()) {
+    setCartSessionId(bodySessionId);
+  }
+
+  return data;
 }
 
 /** GET /carts — retrieve or create the active cart */
@@ -747,7 +862,7 @@ export interface ApiOrder {
   paymentStatus: string;
   createdAt: string;
   updatedAt: string;
-  /** Only present for guest orders — store in localStorage for future lookup */
+  /** Only present for guest orders — stored in sessionStorage for future lookup */
   guestAccessToken?: string;
   items?: ApiOrderItem[];
 }
@@ -882,9 +997,7 @@ export async function createOrder(
 export async function getOrderByReference(
   reference: string,
 ): Promise<ApiOrder> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
 
   // Guest: use stored access token for this order
   const guestToken = getGuestOrderAccessToken(reference);

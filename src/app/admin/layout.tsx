@@ -7,7 +7,6 @@ import {
 } from "react";
 import {
   usePathname,
-  useRouter,
 } from "next/navigation";
 
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -25,7 +24,6 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
 
   // Keep a single Supabase client instance for the lifetime of this layout.
@@ -42,11 +40,16 @@ export default function AdminLayout({
     setSidebarOpen(false);
   }, [pathname]);
 
+  const redirectToLogin = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.replace("/admin/login");
+    }
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
-    router.replace("/admin/login");
-    router.refresh();
-  }, [router, supabase]);
+    redirectToLogin();
+  }, [redirectToLogin, supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,20 +57,25 @@ export default function AdminLayout({
     async function loadAdmin() {
       if (pathname === "/admin/login") {
         if (!cancelled) {
+          setProfile(null);
           setIsLoading(false);
         }
         return;
       }
 
-      setIsLoading(true);
+      if (!cancelled) {
+        setIsLoading(true);
+      }
 
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
+        if (cancelled) return;
+
         if (!session?.access_token) {
-          router.replace("/admin/login");
+          redirectToLogin();
           return;
         }
 
@@ -76,7 +84,10 @@ export default function AdminLayout({
 
         if (!apiUrl) {
           await supabase.auth.signOut();
-          router.replace("/admin/login");
+
+          if (!cancelled) {
+            redirectToLogin();
+          }
           return;
         }
 
@@ -92,9 +103,14 @@ export default function AdminLayout({
           },
         );
 
+        if (cancelled) return;
+
         if (!response.ok) {
           await supabase.auth.signOut();
-          router.replace("/admin/login");
+
+          if (!cancelled) {
+            redirectToLogin();
+          }
           return;
         }
 
@@ -106,7 +122,10 @@ export default function AdminLayout({
           adminProfile.role !== "super_admin"
         ) {
           await supabase.auth.signOut();
-          router.replace("/admin/login");
+
+          if (!cancelled) {
+            redirectToLogin();
+          }
           return;
         }
 
@@ -116,7 +135,10 @@ export default function AdminLayout({
         }
       } catch {
         await supabase.auth.signOut();
-        router.replace("/admin/login");
+
+        if (!cancelled) {
+          redirectToLogin();
+        }
       }
     }
 
@@ -125,7 +147,7 @@ export default function AdminLayout({
     return () => {
       cancelled = true;
     };
-  }, [pathname, router, supabase]);
+  }, [pathname, redirectToLogin, supabase]);
 
   if (pathname === "/admin/login") {
     return <>{children}</>;

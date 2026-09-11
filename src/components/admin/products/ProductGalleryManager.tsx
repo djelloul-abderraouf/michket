@@ -376,8 +376,6 @@ export function ProductGalleryManager({
         next[targetIdx],
         next[idx],
       ];
-      const reorderedIds = next.map((img) => img.id);
-
       try {
         const res = await fetch(
           `${apiUrl}/admin/products/${productId}/images/reorder`,
@@ -388,7 +386,10 @@ export function ProductGalleryManager({
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              imageIds: reorderedIds,
+              images: next.map((img, index) => ({
+                imageId: img.id,
+                sortOrder: index,
+              })),
             }),
           },
         );
@@ -642,60 +643,132 @@ export function ProductGalleryManager({
             <div
               key={image.id}
               className={[
-                "group relative overflow-hidden rounded-xl border bg-[#f3f1ec] transition",
+                "group overflow-hidden rounded-xl border bg-white transition",
                 image.isPrimary
                   ? "border-neutral-950 ring-2 ring-neutral-950/10"
                   : "border-black/[0.06] hover:border-black/[0.12]",
               ].join(" ")}
             >
-              {/* Image */}
-              <div className="aspect-square overflow-hidden">
+              {/* Image preview — controls are intentionally kept outside
+                  the variant selector so nothing can overlap it. */}
+              <div className="relative aspect-square overflow-hidden bg-[#f3f1ec]">
                 <img
                   src={image.url}
-                  alt={
-                    image.altText ?? "Image produit"
-                  }
+                  alt={image.altText ?? "Image produit"}
                   className="h-full w-full object-cover"
                 />
+
+                {image.isPrimary ? (
+                  <span className="absolute left-2 top-2 rounded-full bg-neutral-950/90 px-2 py-1 text-[10px] font-semibold text-white">
+                    Principale
+                  </span>
+                ) : null}
+
+                {/* Alt text editing stays inside the image preview only. */}
+                {editingAltId === image.id ? (
+                  <div className="absolute inset-0 z-20 flex flex-col justify-end bg-black/70 p-3">
+                    <label className="text-[10px] font-semibold text-white/80">
+                      Texte alternatif
+                    </label>
+                    <input
+                      type="text"
+                      value={altDraft}
+                      onChange={(e) =>
+                        setAltDraft(e.target.value)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter")
+                          void saveAlt(image.id);
+                        if (e.key === "Escape")
+                          setEditingAltId(null);
+                      }}
+                      placeholder="Décrivez l'image…"
+                      autoFocus
+                      className="mt-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none ring-1 ring-black/10 placeholder:text-neutral-400"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={
+                          savingAltId === image.id
+                        }
+                        onClick={() =>
+                          void saveAlt(image.id)
+                        }
+                        className="flex-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
+                      >
+                        {savingAltId === image.id
+                          ? "…"
+                          : "Enregistrer"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingAltId(null)
+                        }
+                        className="rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              {/* Variant assignment */}
-              {variants.length > 0 ? (
-                <div className="px-2 py-1.5">
-                  <select
-                    value={image.variantId ?? ""}
-                    disabled={updatingVariantId === image.id}
-                    onChange={(e) => {
-                      const val = e.target.value || null;
-                      void handleSetVariant(image.id, val);
-                    }}
-                    className="w-full rounded-md border border-black/[0.08] bg-white px-1.5 py-1 text-[10px] text-neutral-700 outline-none focus:border-[#ECAB1C]"
-                  >
-                    <option value="">Image générale</option>
-                    {variants.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.colorName ?? v.name}
+              <div className="space-y-2.5 border-t border-black/[0.06] p-2.5">
+                {/* Variant assignment — always visible and never covered by actions. */}
+                {variants.length > 0 ? (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400">
+                      Variante de cette image
+                    </span>
+                    <select
+                      value={image.variantId ?? ""}
+                      disabled={
+                        updatingVariantId === image.id
+                      }
+                      onChange={(e) => {
+                        const val =
+                          e.target.value || null;
+                        void handleSetVariant(
+                          image.id,
+                          val,
+                        );
+                      }}
+                      className="h-9 w-full rounded-lg border border-black/[0.10] bg-white px-2.5 text-xs font-medium text-neutral-700 outline-none transition focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/15 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
+                    >
+                      <option value="">
+                        Image générale
                       </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+                      {variants.map((v) => (
+                        <option
+                          key={v.id}
+                          value={v.id}
+                        >
+                          {v.colorName ?? v.name}
+                        </option>
+                      ))}
+                    </select>
+                    {updatingVariantId === image.id ? (
+                      <span className="mt-1 block text-[10px] text-neutral-400">
+                        Mise à jour…
+                      </span>
+                    ) : null}
+                  </label>
+                ) : (
+                  <p className="text-[11px] leading-5 text-neutral-400">
+                    Créez une variante pour pouvoir associer
+                    cette image à une couleur.
+                  </p>
+                )}
 
-              {/* Primary badge */}
-              {image.isPrimary ? (
-                <span className="absolute left-2 top-2 rounded-full bg-neutral-950/90 px-2 py-1 text-[10px] font-semibold text-white">
-                  Principale
-                </span>
-              ) : null}
-
-              {/* Overlay controls — visible on hover */}
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                {/* Left: reorder buttons */}
-                <div className="flex gap-1">
-                  {idx > 0 ? (
+                {/* Actions — separate row, never overlays the select. */}
+                <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       disabled={
+                        idx === 0 ||
                         reorderingId === image.id
                       }
                       onClick={() =>
@@ -704,8 +777,9 @@ export function ProductGalleryManager({
                           "up",
                         )
                       }
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-neutral-700 transition hover:bg-white disabled:opacity-50"
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
                       title="Déplacer vers la gauche"
+                      aria-label="Déplacer vers la gauche"
                     >
                       <svg
                         className="h-3.5 w-3.5"
@@ -718,11 +792,11 @@ export function ProductGalleryManager({
                         <path d="M15 18l-6-6 6-6" />
                       </svg>
                     </button>
-                  ) : null}
-                  {idx < images.length - 1 ? (
+
                     <button
                       type="button"
                       disabled={
+                        idx === images.length - 1 ||
                         reorderingId === image.id
                       }
                       onClick={() =>
@@ -731,8 +805,9 @@ export function ProductGalleryManager({
                           "down",
                         )
                       }
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-neutral-700 transition hover:bg-white disabled:opacity-50"
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
                       title="Déplacer vers la droite"
+                      aria-label="Déplacer vers la droite"
                     >
                       <svg
                         className="h-3.5 w-3.5"
@@ -745,152 +820,104 @@ export function ProductGalleryManager({
                         <path d="M9 18l6-6-6-6" />
                       </svg>
                     </button>
-                  ) : null}
-                </div>
+                  </div>
 
-                {/* Right: actions */}
-                <div className="flex gap-1">
-                  {!image.isPrimary ? (
+                  <div className="flex min-w-0 items-center gap-1">
+                    {!image.isPrimary ? (
+                      <button
+                        type="button"
+                        disabled={
+                          settingPrimaryId === image.id
+                        }
+                        onClick={() =>
+                          void handleSetPrimary(
+                            image.id,
+                          )
+                        }
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                        title="Définir comme image principale"
+                        aria-label="Définir comme image principale"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      </button>
+                    ) : null}
+
                     <button
                       type="button"
-                      disabled={
-                        settingPrimaryId === image.id
-                      }
                       onClick={() =>
-                        void handleSetPrimary(
-                          image.id,
-                        )
+                        void startEditAlt(image)
                       }
-                      className="flex h-7 items-center gap-1 rounded-lg bg-white/90 px-2 text-[10px] font-semibold text-neutral-700 transition hover:bg-white disabled:opacity-50"
-                      title="Définir comme principale"
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50"
+                      title="Modifier le texte alternatif"
+                      aria-label="Modifier le texte alternatif"
                     >
                       <svg
-                        className="h-3 w-3"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                      </svg>
-                    </button>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void startEditAlt(image)
-                    }
-                    className="flex h-7 items-center gap-1 rounded-lg bg-white/90 px-2 text-[10px] font-semibold text-neutral-700 transition hover:bg-white"
-                    title="Modifier le texte alternatif"
-                  >
-                    <svg
-                      className="h-3 w-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    >
-                      <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                    </svg>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={
-                      deletingId === image.id
-                    }
-                    onClick={() =>
-                      void handleDelete(image)
-                    }
-                    className="flex h-7 items-center gap-1 rounded-lg bg-red-500/90 px-2 text-[10px] font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
-                    title="Supprimer l'image"
-                  >
-                    {deletingId === image.id ? (
-                      <svg
-                        className="h-3 w-3 animate-spin"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          className="opacity-25"
-                        />
-                        <path
-                          d="M4 12a8 8 0 018-8"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="h-3 w-3"
+                        className="h-3.5 w-3.5"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeLinecap="round"
                       >
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                       </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
+                    </button>
 
-              {/* Alt text editing (inline modal) */}
-              {editingAltId === image.id ? (
-                <div className="absolute inset-0 flex flex-col justify-end bg-black/70 p-3">
-                  <label className="text-[10px] font-semibold text-white/80">
-                    Texte alternatif
-                  </label>
-                  <input
-                    type="text"
-                    value={altDraft}
-                    onChange={(e) =>
-                      setAltDraft(e.target.value)
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter")
-                        void saveAlt(image.id);
-                      if (e.key === "Escape")
-                        setEditingAltId(null);
-                    }}
-                    placeholder="Décrivez l'image…"
-                    autoFocus
-                    className="mt-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none ring-1 ring-black/10 placeholder:text-neutral-400"
-                  />
-                  <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       disabled={
-                        savingAltId === image.id
+                        deletingId === image.id
                       }
                       onClick={() =>
-                        void saveAlt(image.id)
+                        void handleDelete(image)
                       }
-                      className="flex-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                      title="Supprimer l'image"
+                      aria-label="Supprimer l'image"
                     >
-                      {savingAltId === image.id
-                        ? "…"
-                        : "Enregistrer"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingAltId(null)
-                      }
-                      className="rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
-                    >
-                      Annuler
+                      {deletingId === image.id ? (
+                        <svg
+                          className="h-3.5 w-3.5 animate-spin"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            className="opacity-25"
+                          />
+                          <path
+                            d="M4 12a8 8 0 018-8"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="h-3.5 w-3.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        >
+                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
-              ) : null}
+              </div>
             </div>
           ))}
         </div>

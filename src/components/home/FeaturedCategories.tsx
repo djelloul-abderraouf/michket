@@ -4,73 +4,48 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ApiCategory } from "@/lib/api";
 
-/**
- * Layout config for the 4 featured category slots.
- * The design requires a specific asymmetric grid — this stays hardcoded.
- */
-const LAYOUT_CONFIG = [
-  {
-    key: "lampes-3d",
-    fallbackImage: "/images/products/lampes/mariage.jpeg",
-    subtitle:
-      "Des créations lumineuses pour transformer un souvenir en objet unique.",
-    className: "lg:row-span-2",
-    imagePosition: "center" as const,
-  },
-  {
-    key: "cartes-du-monde",
-    fallbackImage: "/images/products/cartes-du-monde/carte.jpg",
-    subtitle:
-      "Le bois, le voyage et la décoration réunis dans une pièce forte.",
-    className: "",
-    imagePosition: "center" as const,
-  },
-  {
-    key: "trophees",
-    fallbackImage: "/images/products/trophees/trophebac.jpeg",
-    subtitle:
-      "Célébrez une réussite avec une création personnalisée.",
-    className: "",
-    imagePosition: "center" as const,
-  },
-  {
-    key: "neon-led",
-    fallbackImage: "/images/products/neon-led/OIP (1).webp",
-    subtitle:
-      "Une touche lumineuse et moderne, créée autour de votre univers.",
-    className: "",
-    imagePosition: "center" as const,
-  },
-] as const;
-
 interface FeaturedCategoriesProps {
   categories?: ApiCategory[];
 }
 
-function resolveCategory(
-  apiCategory: ApiCategory | undefined,
-  config: (typeof LAYOUT_CONFIG)[number],
-) {
+type CategoryCardData = {
+  id: string;
+  title: string;
+  href: string;
+  image: string | null;
+  subtitle: string;
+  imagePosition: "center" | "top" | "bottom";
+};
+
+function mapCategory(category: ApiCategory): CategoryCardData {
   return {
-    title: apiCategory?.name ?? config.key.replace(/-/g, " "),
-    href: `/produits?category=${config.key}`,
-    image: apiCategory?.imageUrl ?? config.fallbackImage,
-    subtitle: config.subtitle,
-    imagePosition: config.imagePosition,
+    id: category.id,
+    title: category.name,
+    href: `/${category.slug}`,
+    image: category.imageUrl,
+    subtitle:
+      category.description?.trim() ||
+      `Découvrez la collection ${category.name} de Michket.`,
+    imagePosition: "center",
   };
 }
 
-export function FeaturedCategories({ categories = [] }: FeaturedCategoriesProps) {
-  // Map API categories to layout slots by slug
-  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+export function FeaturedCategories({
+  categories = [],
+}: FeaturedCategoriesProps) {
+  /**
+   * The backend GET /categories/featured is the source of truth.
+   * It returns up to 4 active top-level categories in sortOrder order.
+   *
+   * The visual layout remains fixed, but the category content is dynamic.
+   */
+  const featured = categories.slice(0, 4).map(mapCategory);
 
-  const lampes = resolveCategory(bySlug.get("lampes-3d"), LAYOUT_CONFIG[0]);
-  const cartes = resolveCategory(
-    bySlug.get("cartes-du-monde"),
-    LAYOUT_CONFIG[1],
-  );
-  const trophees = resolveCategory(bySlug.get("trophees"), LAYOUT_CONFIG[2]);
-  const neon = resolveCategory(bySlug.get("neon-led"), LAYOUT_CONFIG[3]);
+  if (featured.length === 0) {
+    return null;
+  }
+
+  const [first, second, third, fourth] = featured;
 
   return (
     <section
@@ -104,60 +79,98 @@ export function FeaturedCategories({ categories = [] }: FeaturedCategoriesProps)
           </h2>
 
           <p className="mx-auto mt-3 max-w-2xl text-[13px] leading-6 text-black/50 sm:text-sm">
-            Quatre univers pour créer, offrir et marquer les moments qui
-            comptent.
+            Découvrez les univers Michket disponibles actuellement.
           </p>
         </div>
 
         {/* Mobile */}
         <div className="grid gap-3 sm:gap-4 lg:hidden">
-          <CategoryCard
-            category={lampes}
-            className="aspect-[16/11]"
-            priority
-          />
-          <CategoryCard category={cartes} className="aspect-[16/10]" />
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {first && (
             <CategoryCard
-              category={trophees}
-              className="aspect-[4/5]"
-              compact
+              category={first}
+              className="aspect-[16/11]"
+              priority
             />
+          )}
+
+          {second && (
             <CategoryCard
-              category={neon}
-              className="aspect-[4/5]"
-              compact
+              category={second}
+              className="aspect-[16/10]"
             />
-          </div>
+          )}
+
+          {(third || fourth) && (
+            <div
+              className={`grid gap-3 sm:gap-4 ${
+                third && fourth ? "grid-cols-2" : "grid-cols-1"
+              }`}
+            >
+              {third && (
+                <CategoryCard
+                  category={third}
+                  className="aspect-[4/5]"
+                  compact
+                />
+              )}
+
+              {fourth && (
+                <CategoryCard
+                  category={fourth}
+                  className="aspect-[4/5]"
+                  compact
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Desktop */}
         <div className="hidden grid-cols-[1.08fr_0.92fr] gap-5 lg:grid">
-          <CategoryCard
-            category={lampes}
-            className="min-h-[610px] xl:min-h-[680px]"
-            priority
-            large
-          />
-          <div className="grid gap-5">
+          {first && (
             <CategoryCard
-              category={cartes}
-              className="min-h-[315px] xl:min-h-[350px]"
-              wide
+              category={first}
+              className="min-h-[610px] xl:min-h-[680px]"
+              priority
+              large
             />
-            <div className="grid grid-cols-2 gap-5">
-              <CategoryCard
-                category={trophees}
-                className="min-h-[275px] xl:min-h-[310px]"
-                compact
-              />
-              <CategoryCard
-                category={neon}
-                className="min-h-[275px] xl:min-h-[310px]"
-                compact
-              />
+          )}
+
+          {(second || third || fourth) && (
+            <div className="grid gap-5">
+              {second && (
+                <CategoryCard
+                  category={second}
+                  className="min-h-[315px] xl:min-h-[350px]"
+                  wide
+                />
+              )}
+
+              {(third || fourth) && (
+                <div
+                  className={`grid gap-5 ${
+                    third && fourth ? "grid-cols-2" : "grid-cols-1"
+                  }`}
+                >
+                  {third && (
+                    <CategoryCard
+                      category={third}
+                      className="min-h-[275px] xl:min-h-[310px]"
+                      compact
+                    />
+                  )}
+
+                  {fourth && (
+                    <CategoryCard
+                      category={fourth}
+                      className="min-h-[275px] xl:min-h-[310px]"
+                      compact
+                    />
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </section>
@@ -172,13 +185,7 @@ function CategoryCard({
   wide = false,
   priority = false,
 }: {
-  category: {
-    title: string;
-    href: string;
-    image: string;
-    subtitle: string;
-    imagePosition: "center" | "top" | "bottom";
-  };
+  category: CategoryCardData;
   className?: string;
   compact?: boolean;
   large?: boolean;
@@ -191,21 +198,28 @@ function CategoryCard({
       className={`group relative block overflow-hidden rounded-[10px] bg-[#151515] ${className}`}
       aria-label={`Découvrir ${category.title}`}
     >
-      <Image
-        src={category.image}
-        alt={category.title}
-        fill
-        priority={priority}
-        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
-        style={{ objectPosition: category.imagePosition }}
-        sizes={
-          large
-            ? "(min-width: 1024px) 54vw, 100vw"
-            : wide
-              ? "(min-width: 1024px) 46vw, 100vw"
-              : "(min-width: 1024px) 23vw, 50vw"
-        }
-      />
+      {category.image ? (
+        <Image
+          src={category.image}
+          alt={category.title}
+          fill
+          priority={priority}
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
+          style={{ objectPosition: category.imagePosition }}
+          sizes={
+            large
+              ? "(min-width: 1024px) 54vw, 100vw"
+              : wide
+                ? "(min-width: 1024px) 46vw, 100vw"
+                : "(min-width: 1024px) 23vw, 50vw"
+          }
+        />
+      ) : (
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-[#2E2E2E] to-[#111111]"
+          aria-hidden="true"
+        />
+      )}
 
       <div
         className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/12 to-black/5 transition-colors duration-300 group-hover:from-black/82"

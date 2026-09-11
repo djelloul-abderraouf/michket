@@ -10,8 +10,10 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-function categoryLabel(category: string) {
-  switch (category) {
+function categoryLabel(product: Product) {
+  if (product.categoryName) return product.categoryName;
+
+  switch (product.category) {
     case "lampes-3d":
       return "Lampes 3D";
     case "trophees":
@@ -21,7 +23,7 @@ function categoryLabel(category: string) {
     case "neon-led":
       return "Néon LED";
     default:
-      return category.replaceAll("-", " ");
+      return product.category.replaceAll("-", " ");
   }
 }
 
@@ -45,7 +47,6 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
           "radial-gradient(circle at 18% 0%, rgba(236,171,28,0.11), transparent 28%), radial-gradient(circle at 82% 100%, rgba(255,255,255,0.035), transparent 26%), linear-gradient(135deg, #3A2922 0%, #2A1B16 48%, #21130F 100%)",
       }}
     >
-      {/* Relief global très discret : aucune forme visible */}
       <div
         className="pointer-events-none absolute inset-0"
         aria-hidden="true"
@@ -55,14 +56,12 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
         }}
       />
 
-      {/* Ligne supérieure Michket */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ECAB1C]/40 to-transparent"
         aria-hidden="true"
       />
 
       <div className="relative mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        {/* ───────────────── Header ───────────────── */}
         <div className="mx-auto mb-7 max-w-3xl text-center sm:mb-9 lg:mb-10">
           <div className="mb-3 flex items-center justify-center gap-3">
             <span className="h-px w-7 bg-[#ECAB1C]" aria-hidden="true" />
@@ -87,10 +86,6 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
           </p>
         </div>
 
-        {/* ───────────────── Products ─────────────────
-            Mobile/tablette : rail compact.
-            Desktop : cartes centrées, pas collées à gauche.
-        */}
         <div className="-mx-4 overflow-x-auto px-4 pb-5 sm:-mx-6 sm:px-6 lg:mx-0 lg:overflow-visible lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-5 lg:justify-center lg:gap-6">
             {newProducts.map((product, index) => {
@@ -119,11 +114,9 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
                     flex-none
                     snap-start
                     outline-none
-
                     sm:w-[36vw]
                     sm:min-w-[235px]
                     sm:max-w-[285px]
-
                     lg:w-[310px]
                     lg:min-w-[310px]
                     lg:max-w-[310px]
@@ -140,30 +133,50 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
                       shadow-[0_18px_42px_rgba(14,7,4,0.20),inset_0_1px_0_rgba(255,255,255,0.45)]
                       transition-all
                       duration-300
-
                       group-hover:-translate-y-1.5
                       group-hover:border-[#ECAB1C]/40
                       group-hover:shadow-[0_26px_58px_rgba(14,7,4,0.30),inset_0_1px_0_rgba(255,255,255,0.55)]
                     "
                   >
-                    {/* Image */}
                     <div className="relative aspect-[4/5] overflow-hidden bg-[#EDE5DA]">
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        priority={index === 0}
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.055]"
-                        sizes="(max-width: 639px) 64vw, (max-width: 1023px) 36vw, 310px"
-                      />
+                      {image ? (
+                        <Image
+                          src={image.src}
+                          alt={image.alt}
+                          fill
+                          priority={index === 0}
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.055]"
+                          sizes="(max-width: 639px) 64vw, (max-width: 1023px) 36vw, 310px"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[#2A1B16]/25">
+                          <svg
+                            className="h-10 w-10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.4}
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15 14.69m-1.5-1.5 1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38"
+                            />
+                          </svg>
+                        </div>
+                      )}
 
-                      {/* Légère profondeur sur la photo */}
                       <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#2A1B16]/42 via-transparent to-white/[0.03]"
                         aria-hidden="true"
                       />
 
-                      {/* Badge nouveau */}
                       <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-2">
                         <span className="inline-flex rounded-full bg-[#ECAB1C] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.13em] text-[#2A1B16] shadow-[0_5px_14px_rgba(42,27,22,0.14)] sm:text-[10px]">
                           Nouveau
@@ -176,7 +189,6 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
                         )}
                       </div>
 
-                      {/* CTA directement visible sur l'image */}
                       <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2">
                         <span className="inline-flex min-h-9 items-center rounded-full border border-white/20 bg-[#2A1B16]/60 px-3 text-[10px] font-semibold uppercase tracking-[0.09em] text-white backdrop-blur-md transition-colors duration-300 group-hover:border-[#ECAB1C]/50 group-hover:bg-[#2A1B16]/80 sm:text-[11px]">
                           Découvrir
@@ -203,9 +215,7 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
                       </div>
                     </div>
 
-                    {/* Infos produit */}
                     <div className="relative p-4 sm:p-5">
-                      {/* Petit reflet haut */}
                       <div
                         className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/30 to-transparent"
                         aria-hidden="true"
@@ -213,7 +223,7 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
 
                       <div className="relative flex items-center justify-between gap-3">
                         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#8A6A20] sm:text-[10px]">
-                          {categoryLabel(product.category)}
+                          {categoryLabel(product)}
                         </p>
 
                         {typeof product.rating === "number" && (
@@ -268,7 +278,6 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
           </div>
         </div>
 
-        {/* Indication mobile */}
         {newProducts.length > 1 && (
           <div className="mt-1 flex items-center justify-center gap-2 text-[9px] font-semibold uppercase tracking-[0.11em] text-white/30 lg:hidden">
             <svg
@@ -289,7 +298,6 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
           </div>
         )}
 
-        {/* CTA principal */}
         <div className="mt-7 flex justify-center sm:mt-8">
           <Link
             href="/nouveautes"
@@ -312,10 +320,8 @@ export function NewArrivals({ products = [] }: NewArrivalsProps) {
               shadow-[0_10px_28px_rgba(236,171,28,0.14)]
               transition-all
               duration-300
-
               hover:-translate-y-0.5
               hover:shadow-[0_14px_34px_rgba(236,171,28,0.22)]
-
               sm:px-7
               sm:text-[11px]
             "

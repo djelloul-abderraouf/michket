@@ -172,6 +172,14 @@ export default function AdminCategoriesPage() {
 
   const [actionId, setActionId] =
     useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<Category | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState("");
+  const [deleteError, setDeleteError] =
+    useState<string | null>(null);
+  const [isDeletingCategory, setIsDeletingCategory] =
+    useState(false);
   const [search, setSearch] = useState("");
 
   const loadCategories = useCallback(async () => {
@@ -1062,6 +1070,7 @@ export default function AdminCategoriesPage() {
 
       closeForm();
       await loadCategories();
+      router.refresh();
     } catch {
       // Network error — clean up temp upload if any
       if (pendingProfileStoragePath) {
@@ -1078,15 +1087,15 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  async function deactivateCategory(
+  async function toggleCategoryActive(
     category: Category,
   ) {
-    if (!category.isActive) {
-      return;
-    }
+    const nextIsActive = !category.isActive;
 
     const confirmed = window.confirm(
-      `Désactiver "${category.name}" ?`,
+      nextIsActive
+        ? `Réactiver "${category.name}" ?`
+        : `Désactiver "${category.name}" ?`,
     );
 
     if (!confirmed) {
@@ -1117,6 +1126,108 @@ export default function AdminCategoriesPage() {
       const response = await fetch(
         `${apiUrl}/admin/categories/${category.id}`,
         {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isActive: nextIsActive,
+          }),
+        },
+      );
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        await supabase.auth.signOut();
+        router.replace("/admin/login");
+        return;
+      }
+
+      if (!response.ok) {
+        let payload: ApiErrorPayload | null = null;
+
+        try {
+          payload =
+            (await response.json()) as ApiErrorPayload;
+        } catch {}
+
+        window.alert(
+          apiMessage(
+            payload,
+            nextIsActive
+              ? "Impossible de réactiver cette catégorie."
+              : "Impossible de désactiver cette catégorie.",
+          ),
+        );
+        return;
+      }
+
+      await loadCategories();
+      router.refresh();
+    } catch {
+      window.alert(
+        nextIsActive
+          ? "Une erreur est survenue pendant la réactivation."
+          : "Une erreur est survenue pendant la désactivation.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  function openDeleteCategory(category: Category) {
+    setDeleteTarget(category);
+    setDeleteConfirmationText("");
+    setDeleteError(null);
+  }
+
+  function closeDeleteCategory() {
+    if (isDeletingCategory) {
+      return;
+    }
+
+    setDeleteTarget(null);
+    setDeleteConfirmationText("");
+    setDeleteError(null);
+  }
+
+  async function permanentlyDeleteCategory() {
+    if (
+      !deleteTarget ||
+      isDeletingCategory ||
+      deleteConfirmationText !== "SUPPRIMER"
+    ) {
+      return;
+    }
+
+    setIsDeletingCategory(true);
+    setDeleteError(null);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        router.replace("/admin/login");
+        return;
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        setDeleteError(
+          "NEXT_PUBLIC_API_URL n'est pas configurée.",
+        );
+        return;
+      }
+
+      const response = await fetch(
+        `${apiUrl}/admin/categories/${deleteTarget.id}`,
+        {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -1141,22 +1252,25 @@ export default function AdminCategoriesPage() {
             (await response.json()) as ApiErrorPayload;
         } catch {}
 
-        window.alert(
+        setDeleteError(
           apiMessage(
             payload,
-            "Impossible de désactiver cette catégorie.",
+            "Impossible de supprimer définitivement cette catégorie.",
           ),
         );
         return;
       }
 
+      setDeleteTarget(null);
+      setDeleteConfirmationText("");
       await loadCategories();
+      router.refresh();
     } catch {
-      window.alert(
-        "Une erreur est survenue pendant la désactivation.",
+      setDeleteError(
+        "Une erreur est survenue pendant la suppression définitive.",
       );
     } finally {
-      setActionId(null);
+      setIsDeletingCategory(false);
     }
   }
 
@@ -1448,22 +1562,39 @@ export default function AdminCategoriesPage() {
                           Modifier
                         </button>
 
-                        {category.isActive ? (
-                          <button
-                            type="button"
-                            disabled={
-                              actionId === category.id
-                            }
-                            onClick={() =>
-                              void deactivateCategory(
-                                category,
-                              )
-                            }
-                            className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
-                          >
-                            Désactiver
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          disabled={
+                            actionId === category.id
+                          }
+                          onClick={() =>
+                            void toggleCategoryActive(
+                              category,
+                            )
+                          }
+                          className={[
+                            "rounded-xl border bg-white px-3 py-2 text-xs font-semibold transition disabled:opacity-50",
+                            category.isActive
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+                          ].join(" ")}
+                        >
+                          {actionId === category.id
+                            ? "Mise à jour…"
+                            : category.isActive
+                              ? "Désactiver"
+                              : "Réactiver"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDeleteCategory(category)
+                          }
+                          className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        >
+                          Supprimer
+                        </button>
                       </div>
                     </div>
 
@@ -1525,22 +1656,39 @@ export default function AdminCategoriesPage() {
                                   Modifier
                                 </button>
 
-                                {child.isActive ? (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      actionId === child.id
-                                    }
-                                    onClick={() =>
-                                      void deactivateCategory(
-                                        child,
-                                      )
-                                    }
-                                    className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
-                                  >
-                                    Désactiver
-                                  </button>
-                                ) : null}
+                                <button
+                                  type="button"
+                                  disabled={
+                                    actionId === child.id
+                                  }
+                                  onClick={() =>
+                                    void toggleCategoryActive(
+                                      child,
+                                    )
+                                  }
+                                  className={[
+                                    "text-xs font-semibold disabled:opacity-50",
+                                    child.isActive
+                                      ? "text-amber-700 hover:text-amber-800"
+                                      : "text-emerald-700 hover:text-emerald-800",
+                                  ].join(" ")}
+                                >
+                                  {actionId === child.id
+                                    ? "Mise à jour…"
+                                    : child.isActive
+                                      ? "Désactiver"
+                                      : "Réactiver"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openDeleteCategory(child)
+                                  }
+                                  className="text-xs font-semibold text-red-600 hover:text-red-700"
+                                >
+                                  Supprimer
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1561,6 +1709,89 @@ export default function AdminCategoriesPage() {
           </div>
         ) : null}
       </section>
+
+
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-[110] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Supprimer définitivement la catégorie"
+        >
+          <button
+            type="button"
+            aria-label="Fermer"
+            onClick={closeDeleteCategory}
+            className="absolute inset-0"
+          />
+
+          <div className="relative z-10 w-full rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">
+              Suppression définitive
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-neutral-950">
+              Supprimer « {deleteTarget.name} » ?
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-600">
+              Cette action est irréversible. Une catégorie qui contient encore
+              des sous-catégories ou des produits ne pourra pas être supprimée.
+              Ses images enregistrées seront également nettoyées.
+            </p>
+
+            <label className="mt-5 block">
+              <span className="text-xs font-semibold text-neutral-700">
+                Tapez SUPPRIMER pour confirmer
+              </span>
+              <input
+                type="text"
+                value={deleteConfirmationText}
+                disabled={isDeletingCategory}
+                onChange={(event) =>
+                  setDeleteConfirmationText(
+                    event.target.value.toUpperCase(),
+                  )
+                }
+                autoComplete="off"
+                placeholder="SUPPRIMER"
+                className="mt-2 h-11 w-full rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-neutral-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:opacity-60"
+              />
+            </label>
+
+            {deleteError ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+                {deleteError}
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={isDeletingCategory}
+                onClick={closeDeleteCategory}
+                className="min-h-11 rounded-xl border border-black/[0.08] bg-white px-4 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  isDeletingCategory ||
+                  deleteConfirmationText !== "SUPPRIMER"
+                }
+                onClick={() =>
+                  void permanentlyDeleteCategory()
+                }
+                className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeletingCategory
+                  ? "Suppression…"
+                  : "Supprimer définitivement"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isFormOpen ? (
         <div
@@ -1842,13 +2073,13 @@ export default function AdminCategoriesPage() {
                 </div>
               </section>
 
-              {/* Photo de présentation - Sous-catégories uniquement */}
-              {isSubcategory && (
-                <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+              {/* Photo de présentation - catégories et sous-catégories */}
+              <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                   <h3 className="text-sm font-semibold text-neutral-950">
                     Image de présentation
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-neutral-400">
+                    Image utilisée pour représenter cette {isSubcategory ? "sous-catégorie" : "catégorie"}.
                     JPEG, PNG, WebP ou AVIF. Maximum 10 Mo.
                   </p>
 
@@ -1977,7 +2208,6 @@ export default function AdminCategoriesPage() {
                     </div>
                   </div>
                 </section>
-              )}
 
               {/* Hero Images - Only for subcategories when editing */}
               {isSubcategory && editingCategory && (

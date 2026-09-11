@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/Badge";
 import { SortSelect } from "@/components/ui/SortSelect";
+import { QuickAddButton } from "@/components/product/QuickAddButton";
 import type { Product, ApiCategory } from "@/lib/api";
 
 type SortKey = "newest" | "price-asc" | "price-desc" | "popular";
@@ -27,13 +28,9 @@ const badgeLabel: Record<string, string> = {
 interface CollectionPageProps {
   title: string;
   description: string;
-  /** Category ID filter — matches product.category field */
   category?: string;
-  /** Pre-fetched products (mapped to frontend Product type) */
   products?: Product[];
-  /** Pre-fetched categories */
   categories?: ApiCategory[];
-  /** True when API request failed — shows error state instead of empty */
   apiError?: boolean;
 }
 
@@ -47,8 +44,11 @@ export function CollectionPage({
 }: CollectionPageProps) {
   const [sort, setSort] = useState<SortKey>("popular");
 
+  // Kept in the public props for compatibility with existing callers.
+  void mainCategories;
+
   const filteredProducts = useMemo(() => {
-    let items = category
+    const items = category
       ? allProducts.filter((p) => p.category === category)
       : [...allProducts];
 
@@ -80,19 +80,17 @@ export function CollectionPage({
 
   return (
     <main className="min-h-screen bg-michket-white">
-      {/* Hero banner */}
       <section className="relative bg-michket-cream py-12 sm:py-16">
-        <div className="michket-container text-center relative z-10">
-          <h1 className="font-display text-3xl sm:text-4xl text-michket-black mb-3">
+        <div className="michket-container relative z-10 text-center">
+          <h1 className="mb-3 font-display text-3xl text-michket-black sm:text-4xl">
             {title}
           </h1>
-          <p className="text-sm sm:text-base text-michket-charcoal/60 max-w-xl mx-auto">
+          <p className="mx-auto max-w-xl text-sm text-michket-charcoal/60 sm:text-base">
             {description}
           </p>
         </div>
       </section>
 
-      {/* Breadcrumb */}
       <div className="michket-container py-4">
         <nav
           aria-label="Fil d'ariane"
@@ -102,7 +100,7 @@ export function CollectionPage({
             <li>
               <Link
                 href="/"
-                className="hover:text-michket-gold transition-colors"
+                className="transition-colors hover:text-michket-gold"
               >
                 Accueil
               </Link>
@@ -111,7 +109,7 @@ export function CollectionPage({
             <li>
               <Link
                 href="/collections/all"
-                className="hover:text-michket-gold transition-colors"
+                className="transition-colors hover:text-michket-gold"
               >
                 Collections
               </Link>
@@ -119,14 +117,13 @@ export function CollectionPage({
             {category && (
               <>
                 <li aria-hidden="true">/</li>
-                <li className="text-michket-black font-medium">{title}</li>
+                <li className="font-medium text-michket-black">{title}</li>
               </>
             )}
           </ol>
         </nav>
       </div>
 
-      {/* Toolbar */}
       <div className="michket-container pb-6">
         <div className="flex items-center justify-between border-b border-michket-ivory pb-4">
           <p className="text-sm text-michket-charcoal/60">
@@ -136,12 +133,11 @@ export function CollectionPage({
           <SortSelect
             options={sortOptions}
             value={sort}
-            onChange={(v) => setSort(v as SortKey)}
+            onChange={(value) => setSort(value as SortKey)}
           />
         </div>
       </div>
 
-      {/* Product grid */}
       <div className="michket-container pb-16">
         {filteredProducts.length === 0 ? (
           apiError ? (
@@ -173,27 +169,58 @@ export function CollectionPage({
 }
 
 function formatPrice(price: number): string {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-  }).format(price);
+  return `${new Intl.NumberFormat("fr-DZ", {
+    minimumFractionDigits: Number.isInteger(price) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(price)} DA`;
 }
 
 function ProductCard({ product }: { product: Product }) {
   const mainImage = product.images[0];
 
   return (
-    <Link href={`/produits/${product.slug}`} className="group block">
+    <article className="group">
       <div className="relative mb-3 aspect-square overflow-hidden bg-michket-cream">
-        <Image
-          src={mainImage?.src ?? "/images/placeholder.png"}
-          alt={mainImage?.alt ?? product.title}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-        />
+        <Link
+          href={`/produits/${product.slug}`}
+          className="absolute inset-0"
+          aria-label={`Voir ${product.title}`}
+        >
+          {mainImage ? (
+            <Image
+              src={mainImage.src}
+              alt={mainImage.alt}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-michket-charcoal/25">
+              <svg
+                className="h-9 w-9"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.4}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15 14.69m-1.5-1.5 1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38"
+                />
+              </svg>
+            </div>
+          )}
+        </Link>
+
         {product.badge && (
-          <div className="absolute left-2 top-2">
+          <div className="pointer-events-none absolute left-2 top-2 z-10">
             <Badge
               variant={
                 product.badge === "BEST SELLER"
@@ -209,15 +236,25 @@ function ProductCard({ product }: { product: Product }) {
             </Badge>
           </div>
         )}
+
+        <QuickAddButton
+          product={product}
+          className="absolute bottom-2 right-2 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-black/60 text-white shadow-md backdrop-blur-sm transition hover:scale-105 hover:bg-michket-black hover:text-michket-gold disabled:cursor-wait disabled:opacity-70 sm:h-11 sm:w-11"
+        />
       </div>
+
       <div className="space-y-1">
-        <h3 className="text-sm font-medium text-michket-black transition-colors group-hover:text-michket-gold line-clamp-2">
-          {product.title}
-        </h3>
+        <Link href={`/produits/${product.slug}`} className="block">
+          <h3 className="line-clamp-2 text-sm font-medium text-michket-black transition-colors group-hover:text-michket-gold">
+            {product.title}
+          </h3>
+        </Link>
+
         <div className="flex items-baseline gap-2">
           <span className="text-base font-semibold text-michket-black">
             {formatPrice(product.price)}
           </span>
+
           {product.compareAtPrice && (
             <span className="text-xs text-michket-charcoal/40 line-through">
               {formatPrice(product.compareAtPrice)}
@@ -225,6 +262,6 @@ function ProductCard({ product }: { product: Product }) {
           )}
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

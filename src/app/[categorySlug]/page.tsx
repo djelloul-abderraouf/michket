@@ -40,6 +40,24 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
+function getTitleParts(name: string, pageTitle: string | null) {
+  const fullTitle = pageTitle?.trim() || name;
+
+  if (
+    fullTitle.toLocaleLowerCase("fr").startsWith(name.toLocaleLowerCase("fr"))
+  ) {
+    return {
+      primary: name,
+      accent: fullTitle.slice(name.length).trim(),
+    };
+  }
+
+  return {
+    primary: fullTitle,
+    accent: "",
+  };
+}
+
 export default async function GenericCategoryPage({
   params,
 }: {
@@ -57,12 +75,21 @@ export default async function GenericCategoryPage({
   let apiError = false;
 
   try {
-    products = await fetchProductsForCategory(categorySlug);
+    products = await fetchProductsForCategory(category.slug);
   } catch {
     apiError = true;
   }
 
-  const displayName = category.productsTitle || category.name;
+  const subcategories = category.children
+    .filter((child) => child.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const displayName =
+    category.productsTitle?.trim() ||
+    category.pageTitle?.trim() ||
+    category.name;
+
+  const titleParts = getTitleParts(category.name, category.pageTitle);
 
   return (
     <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
@@ -88,7 +115,13 @@ export default async function GenericCategoryPage({
             </div>
 
             <h1 className="mt-2.5 font-body text-[27px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[34px] lg:text-[39px]">
-              {category.name}
+              {titleParts.primary}
+              {titleParts.accent && (
+                <>
+                  {" "}
+                  <span className="text-[#8A6A20]">{titleParts.accent}</span>
+                </>
+              )}
             </h1>
 
             {category.description && (
@@ -98,7 +131,68 @@ export default async function GenericCategoryPage({
             )}
           </div>
 
-          {products.length > 0 && (
+          {subcategories.length > 0 ? (
+            <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-center">
+                {subcategories.map((child) => (
+                  <Link
+                    key={child.id}
+                    href={`/${category.slug}/${child.slug}`}
+                    className="group w-[166px] flex-none snap-start sm:w-[205px] lg:w-[220px]"
+                  >
+                    <article className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]">
+                      <div className="relative aspect-[5/4] overflow-hidden">
+                        {child.imageUrl ? (
+                          <Image
+                            src={child.imageUrl}
+                            alt={child.name}
+                            fill
+                            className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
+                            sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
+                          />
+                        ) : (
+                          <div
+                            className="absolute inset-0 bg-gradient-to-br from-[#4A342B] to-[#21130F]"
+                            aria-hidden="true"
+                          />
+                        )}
+
+                        <div
+                          className="absolute inset-0 bg-gradient-to-t from-[#21130F]/80 via-[#21130F]/18 to-transparent"
+                          aria-hidden="true"
+                        />
+
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
+                          <span className="line-clamp-2 text-[10px] font-semibold leading-4 text-white sm:text-[11px]">
+                            {child.name}
+                          </span>
+
+                          <span
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/14 text-white backdrop-blur-sm transition-all group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
+                            aria-hidden="true"
+                          >
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={1.9}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 12h14M13 6l6 6-6 6"
+                              />
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : products.length > 0 ? (
             <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-center">
                 {products.slice(0, 8).map((product) => (
@@ -154,7 +248,7 @@ export default async function GenericCategoryPage({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -249,7 +343,7 @@ export default async function GenericCategoryPage({
 
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                        {category.name}
+                        {product.categoryName ?? category.name}
                       </p>
 
                       <Link href={`/produits/${product.slug}`}>

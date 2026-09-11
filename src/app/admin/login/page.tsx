@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,8 +11,8 @@ type MeResponse = {
 };
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  // Keep one Supabase browser client for the lifetime of this page.
+  const [supabase] = useState(() => createClient());
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +21,8 @@ export default function AdminLoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isLoading) return;
 
     setErrorMessage("");
     setIsLoading(true);
@@ -45,19 +46,59 @@ export default function AdminLoginPage() {
         return;
       }
 
-      const response = await fetch(`${apiUrl}/auth/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
-        },
-        cache: "no-store",
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+      }, 10000);
+
+      let response: Response;
+
+      try {
+        response = await fetch(`${apiUrl}/auth/me`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setErrorMessage(
+            "Le serveur Michket met trop de temps à répondre. Vérifiez que le backend fonctionne sur le port 3000.",
+          );
+        } else {
+          setErrorMessage(
+            "Impossible de contacter le serveur Michket.",
+          );
+        }
+
+        return;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         await supabase.auth.signOut();
-        setErrorMessage(
-          "Connexion réussie, mais le profil Michket est inaccessible.",
-        );
+
+        let message =
+          "Connexion réussie, mais le profil Michket est inaccessible.";
+
+        try {
+          const payload = (await response.json()) as {
+            message?: string | string[];
+          };
+
+          if (typeof payload.message === "string" && payload.message.trim()) {
+            message = payload.message;
+          } else if (Array.isArray(payload.message)) {
+            message = payload.message.join(", ");
+          }
+        } catch {
+          // Keep the user-friendly fallback message.
+        }
+
+        setErrorMessage(message);
         return;
       }
 
@@ -71,8 +112,12 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.replace("/admin");
-      router.refresh();
+      /*
+       * Use a full browser navigation instead of Next.js router.replace().
+       * This guarantees that the Supabase auth cookies written by the browser
+       * client are available to src/proxy.ts before /admin is rendered.
+       */
+      window.location.replace("/admin");
     } catch {
       setErrorMessage(
         "Une erreur est survenue pendant la connexion.",
@@ -83,21 +128,39 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-10" style={{ background: "var(--admin-bg)" }}>
+    <main
+      className="min-h-screen flex items-center justify-center px-4 py-10"
+      style={{ background: "var(--admin-bg)" }}
+    >
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center mb-10">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl" style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)" }}>
-              <span className="text-base font-bold tracking-wider" style={{ color: "var(--admin-accent)" }}>
+            <div
+              className="flex items-center justify-center w-11 h-11 rounded-xl"
+              style={{
+                background: "var(--admin-surface)",
+                border: "1px solid var(--admin-border)",
+              }}
+            >
+              <span
+                className="text-base font-bold tracking-wider"
+                style={{ color: "var(--admin-accent)" }}
+              >
                 M
               </span>
             </div>
             <div>
-              <p className="text-base font-semibold" style={{ color: "var(--admin-text-primary)" }}>
+              <p
+                className="text-base font-semibold"
+                style={{ color: "var(--admin-text-primary)" }}
+              >
                 Michket
               </p>
-              <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
+              <p
+                className="text-xs"
+                style={{ color: "var(--admin-text-muted)" }}
+              >
                 Administration
               </p>
             </div>
@@ -201,8 +264,12 @@ export default function AdminLoginPage() {
               disabled={isLoading}
               className="w-full px-4 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               style={{
-                background: isLoading ? "var(--admin-surface-hover)" : "var(--admin-accent)",
-                color: isLoading ? "var(--admin-text-secondary)" : "#0A0A0A",
+                background: isLoading
+                  ? "var(--admin-surface-hover)"
+                  : "var(--admin-accent)",
+                color: isLoading
+                  ? "var(--admin-text-secondary)"
+                  : "#0A0A0A",
                 borderRadius: "var(--admin-radius)",
                 minHeight: "44px",
               }}

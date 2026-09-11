@@ -145,6 +145,20 @@ export default function AdminProductDetailsPage() {
   const [error, setError] =
     useState<string | null>(null);
 
+  // Product activation / permanent deletion state
+  const [updatingProductStatus, setUpdatingProductStatus] =
+    useState(false);
+  const [statusError, setStatusError] =
+    useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] =
+    useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState("");
+  const [deletingProduct, setDeletingProduct] =
+    useState(false);
+  const [deleteError, setDeleteError] =
+    useState<string | null>(null);
+
   // Variant CRUD state
   const [showVariantForm, setShowVariantForm] =
     useState(false);
@@ -159,6 +173,8 @@ export default function AdminProductDetailsPage() {
     });
   const [savingVariant, setSavingVariant] =
     useState(false);
+  const [variantError, setVariantError] =
+    useState<string | null>(null);
   const [deletingVariantId, setDeletingVariantId] =
     useState<string | null>(null);
   const [confirmDeleteVariantId, setConfirmDeleteVariantId] =
@@ -276,6 +292,7 @@ export default function AdminProductDetailsPage() {
 
   const handleOpenAddVariant = useCallback(() => {
     setEditingVariant(null);
+    setVariantError(null);
     setVariantForm({
       name: "",
       colorName: "",
@@ -288,6 +305,7 @@ export default function AdminProductDetailsPage() {
   const handleOpenEditVariant = useCallback(
     (variant: ProductVariant) => {
       setEditingVariant(variant);
+      setVariantError(null);
       setVariantForm({
         name: variant.name,
         colorName: variant.colorName ?? "",
@@ -303,7 +321,7 @@ export default function AdminProductDetailsPage() {
     if (!variantForm.name.trim()) return;
 
     setSavingVariant(true);
-    setError(null);
+    setVariantError(null);
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -345,9 +363,10 @@ export default function AdminProductDetailsPage() {
 
       setShowVariantForm(false);
       setEditingVariant(null);
+      setVariantError(null);
       await loadProduct();
     } catch (err) {
-      setError(
+      setVariantError(
         err instanceof Error ? err.message : "Erreur inconnue.",
       );
     } finally {
@@ -358,7 +377,7 @@ export default function AdminProductDetailsPage() {
   const handleDeleteVariant = useCallback(
     async (variantId: string) => {
       setDeletingVariantId(variantId);
-      setError(null);
+      setVariantError(null);
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -381,9 +400,10 @@ export default function AdminProductDetailsPage() {
         }
 
         setConfirmDeleteVariantId(null);
+        setVariantError(null);
         await loadProduct();
       } catch (err) {
-        setError(
+        setVariantError(
           err instanceof Error ? err.message : "Erreur inconnue.",
         );
       } finally {
@@ -392,6 +412,170 @@ export default function AdminProductDetailsPage() {
     },
     [token, productId, loadProduct],
   );
+
+  const handleToggleProductActive = useCallback(async () => {
+    if (!product || updatingProductStatus) return;
+
+    setUpdatingProductStatus(true);
+    setStatusError(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        setStatusError(
+          "NEXT_PUBLIC_API_URL n'est pas configurée.",
+        );
+        return;
+      }
+
+      if (!token) {
+        setStatusError(
+          "Votre session administrateur n'est plus disponible. Reconnectez-vous.",
+        );
+        return;
+      }
+
+      const response = await fetch(
+        `${apiUrl}/admin/products/${productId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            isActive: !product.isActive,
+          }),
+        },
+      );
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        await supabase.auth.signOut();
+        window.location.replace("/admin/login");
+        return;
+      }
+
+      if (!response.ok) {
+        let payload: ApiErrorPayload | null = null;
+
+        try {
+          payload =
+            (await response.json()) as ApiErrorPayload;
+        } catch {}
+
+        setStatusError(
+          apiMessage(
+            payload,
+            product.isActive
+              ? "Impossible de désactiver ce produit."
+              : "Impossible de réactiver ce produit.",
+          ),
+        );
+        return;
+      }
+
+      await loadProduct();
+    } catch {
+      setStatusError(
+        product.isActive
+          ? "Une erreur est survenue pendant la désactivation du produit."
+          : "Une erreur est survenue pendant la réactivation du produit.",
+      );
+    } finally {
+      setUpdatingProductStatus(false);
+    }
+  }, [
+    loadProduct,
+    product,
+    productId,
+    supabase,
+    token,
+    updatingProductStatus,
+  ]);
+
+  const handleDeleteProduct = useCallback(async () => {
+    if (
+      deletingProduct ||
+      deleteConfirmationText !== "SUPPRIMER"
+    ) {
+      return;
+    }
+
+    setDeletingProduct(true);
+    setDeleteError(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        setDeleteError(
+          "NEXT_PUBLIC_API_URL n'est pas configurée.",
+        );
+        return;
+      }
+
+      if (!token) {
+        setDeleteError(
+          "Votre session administrateur n'est plus disponible. Reconnectez-vous.",
+        );
+        return;
+      }
+
+      const response = await fetch(
+        `${apiUrl}/admin/products/${productId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        await supabase.auth.signOut();
+        window.location.replace("/admin/login");
+        return;
+      }
+
+      if (!response.ok) {
+        let payload: ApiErrorPayload | null = null;
+
+        try {
+          payload =
+            (await response.json()) as ApiErrorPayload;
+        } catch {}
+
+        setDeleteError(
+          apiMessage(
+            payload,
+            "Impossible de supprimer ce produit.",
+          ),
+        );
+        return;
+      }
+
+      window.location.replace("/admin/products");
+    } catch {
+      setDeleteError(
+        "Une erreur est survenue pendant la suppression du produit.",
+      );
+    } finally {
+      setDeletingProduct(false);
+    }
+  }, [
+    deleteConfirmationText,
+    deletingProduct,
+    productId,
+    supabase,
+    token,
+  ]);
 
   useEffect(() => {
     void loadProduct();
@@ -517,9 +701,114 @@ export default function AdminProductDetailsPage() {
             >
               Modifier
             </Link>
+            <button
+              type="button"
+              disabled={updatingProductStatus}
+              onClick={() => void handleToggleProductActive()}
+              className={[
+                "inline-flex min-h-11 items-center justify-center rounded-xl border bg-white px-4 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50",
+                product.isActive
+                  ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+              ].join(" ")}
+            >
+              {updatingProductStatus
+                ? "Mise à jour..."
+                : product.isActive
+                  ? "Désactiver"
+                  : "Réactiver"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteConfirmationText("");
+                setShowDeleteConfirmation(true);
+              }}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+            >
+              Supprimer définitivement
+            </button>
           </div>
         }
       />
+
+      {statusError ? (
+        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
+          {statusError}
+        </div>
+      ) : null}
+
+      {showDeleteConfirmation ? (
+        <section className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                Supprimer définitivement ce produit ?
+              </p>
+              <p className="mt-1 text-sm leading-6 text-red-700">
+                « {product.name} » sera supprimé du catalogue, avec ses variantes,
+                son inventaire et ses lignes de panier. Les anciennes commandes
+                restent conservées grâce à leurs snapshots.
+              </p>
+
+              <label className="mt-4 block">
+                <span className="mb-1.5 block text-xs font-semibold text-red-800">
+                  Tapez SUPPRIMER pour confirmer
+                </span>
+                <input
+                  type="text"
+                  value={deleteConfirmationText}
+                  disabled={deletingProduct}
+                  onChange={(event) =>
+                    setDeleteConfirmationText(
+                      event.target.value.toUpperCase(),
+                    )
+                  }
+                  className="min-h-10 w-full rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-neutral-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:opacity-60"
+                  placeholder="SUPPRIMER"
+                  autoComplete="off"
+                />
+              </label>
+
+              {deleteError ? (
+                <p className="mt-3 text-sm font-medium text-red-800">
+                  {deleteError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <button
+                type="button"
+                disabled={
+                  deletingProduct ||
+                  deleteConfirmationText !== "SUPPRIMER"
+                }
+                onClick={() => void handleDeleteProduct()}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingProduct
+                  ? "Suppression..."
+                  : "Supprimer définitivement"}
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingProduct}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteConfirmationText("");
+                  setShowDeleteConfirmation(false);
+                }}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 text-sm font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="mb-5 flex flex-wrap gap-2">
         <span
@@ -719,6 +1008,12 @@ export default function AdminProductDetailsPage() {
               </div>
             </div>
 
+            {variantError ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {variantError}
+              </div>
+            ) : null}
+
             {showVariantForm && (
               <div className="mt-5 rounded-xl border border-black/[0.08] bg-[#faf9f6] p-4">
                 <p className="text-xs font-semibold text-neutral-700">
@@ -798,7 +1093,11 @@ export default function AdminProductDetailsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowVariantForm(false); setEditingVariant(null); }}
+                    onClick={() => {
+                      setShowVariantForm(false);
+                      setEditingVariant(null);
+                      setVariantError(null);
+                    }}
                     className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50"
                   >
                     Annuler

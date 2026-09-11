@@ -15,9 +15,32 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
+function getCategoryLabel(product: {
+  category: string;
+  categoryName?: string;
+}): string {
+  if (product.categoryName) return product.categoryName;
+
+  switch (product.category) {
+    case "lampes-3d":
+      return "Lampe 3D";
+    case "trophees":
+      return "Trophée";
+    case "neon-led":
+      return "Néon LED";
+    case "cartes-du-monde":
+      return "Carte du Monde";
+    default:
+      return product.category
+        ? product.category.replaceAll("-", " ")
+        : "Michket";
+  }
+}
+
 export default async function NouveautesPage() {
   let newProducts: Awaited<ReturnType<typeof fetchProductsByBadge>> = [];
   let apiError = false;
+
   try {
     newProducts = await fetchProductsByBadge("NOUVEAU", { limit: 50 });
   } catch {
@@ -26,7 +49,6 @@ export default async function NouveautesPage() {
 
   return (
     <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
-      {/* TOP */}
       <section
         className="relative border-b border-[#2A1B16]/[0.08]"
         style={{
@@ -59,7 +81,6 @@ export default async function NouveautesPage() {
         </div>
       </section>
 
-      {/* CATALOGUE */}
       <section
         id="produits"
         className="py-7 sm:py-9 lg:py-11"
@@ -102,16 +123,7 @@ export default async function NouveautesPage() {
                     )
                   : null;
 
-                const categoryLabel =
-                  product.category === "lampes-3d"
-                    ? "Lampe 3D"
-                    : product.category === "trophees"
-                      ? "Trophée"
-                      : product.category === "neon-led"
-                        ? "Néon LED"
-                        : product.category === "cartes-du-monde"
-                          ? "Carte du Monde"
-                          : "Michket";
+                const categoryLabel = getCategoryLabel(product);
 
                 return (
                   <article
@@ -122,14 +134,38 @@ export default async function NouveautesPage() {
                       href={`/produits/${product.slug}`}
                       className="relative block aspect-[4/5] overflow-hidden bg-[#EEE5DA]"
                     >
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        priority={index < 2}
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
-                      />
+                      {image ? (
+                        <Image
+                          src={image.src}
+                          alt={image.alt}
+                          fill
+                          priority={index < 2}
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[#2A1B16]/25">
+                          <svg
+                            className="h-10 w-10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.4}
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15 14.69m-1.5-1.5 1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38"
+                            />
+                          </svg>
+                        </div>
+                      )}
 
                       <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/24 via-transparent to-transparent"

@@ -173,13 +173,39 @@ export function CartDrawer({
                       onClick={onClose}
                       className="relative h-[92px] w-[82px] shrink-0 overflow-hidden rounded-[9px] bg-[#EFE9DF] sm:h-[104px] sm:w-[92px]"
                     >
-                      <Image
-                        src={item.image}
-                        alt={item.title}
-                        fill
-                        className="object-cover transition-transform duration-300 hover:scale-[1.035]"
-                        sizes="92px"
-                      />
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.title}
+                          fill
+                          className="object-cover transition-transform duration-300 hover:scale-[1.035]"
+                          sizes="92px"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-full w-full items-center justify-center text-black/25"
+                          aria-hidden="true"
+                        >
+                          <svg
+                            className="h-7 w-7"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.4}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15 14.69m-1.5-1.5 1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38"
+                            />
+                          </svg>
+                        </div>
+                      )}
                     </Link>
 
                     <div className="flex min-w-0 flex-1 flex-col">
