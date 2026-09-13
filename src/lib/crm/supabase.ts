@@ -59,5 +59,6 @@ export const crmTables = {
   production: "crm_production_jobs",
   tasks: "crm_tasks",
   activities: "crm_activities",
+  projects: "crm_projects",
   loginAudit: "crm_login_audit",
 };

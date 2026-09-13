@@ -61,6 +61,7 @@ const supabaseTableMap: Partial<Record<CrmResource, string>> = {
   production: crmTables.production,
   tasks: crmTables.tasks,
   activities: crmTables.activities,
+  projects: crmTables.projects,
 };
 
 export async function listCrmResource(resource: CrmResource) {
