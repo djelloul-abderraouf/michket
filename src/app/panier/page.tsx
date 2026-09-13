@@ -190,13 +190,24 @@ export default function CartPage() {
                       <div className="mt-1 flex items-center gap-1.5">
                         <span
                           className="inline-block h-3.5 w-3.5 rounded-full border border-black/10"
-                          style={{
-                            backgroundColor: item.selectedColorHex ?? "#ccc",
-                          }}
+                          style={
+                            item.selectedIsMulticolor
+                              ? {
+                                  background:
+                                    "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                                }
+                              : {
+                                  backgroundColor:
+                                    item.selectedColorHex ?? "#ccc",
+                                }
+                          }
                           aria-hidden="true"
                         />
                         <span className="text-[11px] text-[#251713]/45">
-                          {item.selectedColorName ?? "Couleur"}
+                          {item.selectedColorName ??
+                            (item.selectedIsMulticolor
+                              ? "Multicolore"
+                              : "Couleur")}
                         </span>
                       </div>
                     )}

@@ -5,7 +5,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import Link from "next/link";
@@ -26,16 +25,6 @@ type ProductImage = {
   variantId: string | null;
 };
 
-type InventoryRow = {
-  id: string;
-  productId: string;
-  variantId: string | null;
-  quantity: number;
-  reserved: number;
-  lowStockThreshold: number;
-  trackInventory: boolean;
-};
-
 type ProductVariant = {
   id: string;
   productId: string;
@@ -43,17 +32,19 @@ type ProductVariant = {
   sku: string | null;
   colorName: string | null;
   colorHex: string | null;
+  isMulticolor: boolean;
   priceCents: number | null;
   sortOrder: number;
   isActive: boolean;
-  inventory: InventoryRow | null;
 };
 
 type VariantFormData = {
   name: string;
   colorName: string;
   colorHex: string;
+  isMulticolor: boolean;
   sku: string;
+  price: string;
 };
 
 type ProductDetails = {
@@ -77,7 +68,6 @@ type ProductDetails = {
   createdAt: string;
   updatedAt: string;
   images: ProductImage[];
-  inventory: InventoryRow | null;
   variants: ProductVariant[];
 };
 
@@ -109,6 +99,30 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
 
 function formatMoney(value: number) {
   return moneyFormatter.format(value / 100);
+}
+
+function parseMoneyToCents(value: string): number | null {
+  const normalized = value
+    .trim()
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
+  if (!normalized) return null;
+
+  const amount = Number(normalized);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    return null;
+  }
+
+  return Math.round(amount * 100);
+}
+
+function formatCentsForInput(value: number): string {
+  const amount = value / 100;
+  return Number.isInteger(amount)
+    ? String(amount)
+    : amount.toFixed(2);
 }
 
 function formatDate(value: string) {
@@ -169,7 +183,9 @@ export default function AdminProductDetailsPage() {
       name: "",
       colorName: "",
       colorHex: "#ECAB1C",
+      isMulticolor: false,
       sku: "",
+      price: "",
     });
   const [savingVariant, setSavingVariant] =
     useState(false);
@@ -297,7 +313,9 @@ export default function AdminProductDetailsPage() {
       name: "",
       colorName: "",
       colorHex: "#ECAB1C",
+      isMulticolor: false,
       sku: "",
+      price: "",
     });
     setShowVariantForm(true);
   }, []);
@@ -310,7 +328,12 @@ export default function AdminProductDetailsPage() {
         name: variant.name,
         colorName: variant.colorName ?? "",
         colorHex: variant.colorHex ?? "#ECAB1C",
+        isMulticolor: variant.isMulticolor,
         sku: variant.sku ?? "",
+        price:
+          variant.priceCents != null
+            ? formatCentsForInput(variant.priceCents)
+            : "",
       });
       setShowVariantForm(true);
     },
@@ -319,6 +342,21 @@ export default function AdminProductDetailsPage() {
 
   const handleSaveVariant = useCallback(async () => {
     if (!variantForm.name.trim()) return;
+
+    const variantPrice =
+      variantForm.price.trim() === ""
+        ? null
+        : parseMoneyToCents(variantForm.price);
+
+    if (
+      variantForm.price.trim() !== "" &&
+      variantPrice === null
+    ) {
+      setVariantError(
+        "Le prix de la variante est invalide.",
+      );
+      return;
+    }
 
     setSavingVariant(true);
     setVariantError(null);
@@ -332,9 +370,17 @@ export default function AdminProductDetailsPage() {
 
       const body = {
         name: variantForm.name.trim(),
-        colorName: variantForm.colorName.trim() || null,
-        colorHex: variantForm.colorHex.trim() || null,
+        colorName:
+          variantForm.colorName.trim() ||
+          (variantForm.isMulticolor
+            ? "Multicolore"
+            : null),
+        colorHex: variantForm.isMulticolor
+          ? null
+          : variantForm.colorHex.trim() || null,
+        isMulticolor: variantForm.isMulticolor,
         sku: variantForm.sku.trim() || null,
+        priceCents: variantPrice,
       };
 
       let res: Response;
@@ -342,22 +388,35 @@ export default function AdminProductDetailsPage() {
       if (editingVariant) {
         res = await fetch(
           `${apiUrl}/admin/products/${productId}/variants/${editingVariant.id}`,
-          { method: "PUT", headers, body: JSON.stringify(body) },
+          {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(body),
+          },
         );
       } else {
         res = await fetch(
           `${apiUrl}/admin/products/${productId}/variants`,
-          { method: "POST", headers, body: JSON.stringify(body) },
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          },
         );
       }
 
       if (!res.ok) {
         let payload: ApiErrorPayload | null = null;
+
         try {
           payload = (await res.json()) as ApiErrorPayload;
         } catch {}
+
         throw new Error(
-          apiMessage(payload, "Échec de l'enregistrement de la variante."),
+          apiMessage(
+            payload,
+            "Échec de l'enregistrement de la variante.",
+          ),
         );
       }
 
@@ -367,12 +426,20 @@ export default function AdminProductDetailsPage() {
       await loadProduct();
     } catch (err) {
       setVariantError(
-        err instanceof Error ? err.message : "Erreur inconnue.",
+        err instanceof Error
+          ? err.message
+          : "Erreur inconnue.",
       );
     } finally {
       setSavingVariant(false);
     }
-  }, [variantForm, editingVariant, token, productId, loadProduct]);
+  }, [
+    editingVariant,
+    loadProduct,
+    productId,
+    token,
+    variantForm,
+  ]);
 
   const handleDeleteVariant = useCallback(
     async (variantId: string) => {
@@ -581,50 +648,6 @@ export default function AdminProductDetailsPage() {
     void loadProduct();
   }, [loadProduct]);
 
-  const totalStock = useMemo(() => {
-    if (!product) {
-      return {
-        quantity: 0,
-        reserved: 0,
-        available: 0,
-      };
-    }
-
-    if (product.variants.length === 0) {
-      const inventory = product.inventory;
-
-      return {
-        quantity: inventory?.quantity ?? 0,
-        reserved: inventory?.reserved ?? 0,
-        available: Math.max(
-          0,
-          (inventory?.quantity ?? 0) -
-            (inventory?.reserved ?? 0),
-        ),
-      };
-    }
-
-    return product.variants.reduce(
-      (total, variant) => {
-        total.quantity +=
-          variant.inventory?.quantity ?? 0;
-        total.reserved +=
-          variant.inventory?.reserved ?? 0;
-        total.available += Math.max(
-          0,
-          (variant.inventory?.quantity ?? 0) -
-            (variant.inventory?.reserved ?? 0),
-        );
-        return total;
-      },
-      {
-        quantity: 0,
-        reserved: 0,
-        available: 0,
-      },
-    );
-  }, [product]);
-
   if (isLoading) {
     return (
       <div className="space-y-5">
@@ -747,9 +770,9 @@ export default function AdminProductDetailsPage() {
                 Supprimer définitivement ce produit ?
               </p>
               <p className="mt-1 text-sm leading-6 text-red-700">
-                « {product.name} » sera supprimé du catalogue, avec ses variantes,
-                son inventaire et ses lignes de panier. Les anciennes commandes
-                restent conservées grâce à leurs snapshots.
+                « {product.name} » sera supprimé du catalogue, avec ses variantes
+                et ses lignes de panier. Les anciennes commandes restent conservées
+                grâce à leurs snapshots.
               </p>
 
               <label className="mt-4 block">
@@ -953,35 +976,6 @@ export default function AdminProductDetailsPage() {
           </section>
 
           <section className="rounded-2xl border border-black/[0.07] bg-white p-5 shadow-[0_8px_30px_rgba(23,23,20,0.035)] sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
-              Stock
-            </p>
-            <h2 className="mt-1 text-lg font-semibold text-neutral-950">
-              Inventaire
-            </h2>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[
-                ["Quantité", totalStock.quantity],
-                ["Réservé", totalStock.reserved],
-                ["Disponible", totalStock.available],
-              ].map(([label, value]) => (
-                <div
-                  key={String(label)}
-                  className="rounded-xl bg-[#faf9f6] p-4"
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-400">
-                    {label}
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-neutral-950">
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-black/[0.07] bg-white p-5 shadow-[0_8px_30px_rgba(23,23,20,0.035)] sm:p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
@@ -1017,10 +1011,12 @@ export default function AdminProductDetailsPage() {
             {showVariantForm && (
               <div className="mt-5 rounded-xl border border-black/[0.08] bg-[#faf9f6] p-4">
                 <p className="text-xs font-semibold text-neutral-700">
-                  {editingVariant ? "Modifier la variante" : "Nouvelle variante"}
+                  {editingVariant
+                    ? "Modifier la variante"
+                    : "Nouvelle variante"}
                 </p>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
                       Nom *
@@ -1028,7 +1024,12 @@ export default function AdminProductDetailsPage() {
                     <input
                       type="text"
                       value={variantForm.name}
-                      onChange={(e) => handleVariantFormChange("name", e.target.value)}
+                      onChange={(e) =>
+                        handleVariantFormChange(
+                          "name",
+                          e.target.value,
+                        )
+                      }
                       className="min-h-10 w-full rounded-lg border border-black/[0.1] bg-white px-3 text-sm outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
                       placeholder="Ex: Rose Gold"
                     />
@@ -1041,32 +1042,95 @@ export default function AdminProductDetailsPage() {
                     <input
                       type="text"
                       value={variantForm.colorName}
-                      onChange={(e) => handleVariantFormChange("colorName", e.target.value)}
+                      onChange={(e) =>
+                        handleVariantFormChange(
+                          "colorName",
+                          e.target.value,
+                        )
+                      }
                       className="min-h-10 w-full rounded-lg border border-black/[0.1] bg-white px-3 text-sm outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
-                      placeholder="Ex: Rose"
+                      placeholder={
+                        variantForm.isMulticolor
+                          ? "Ex: Multicolore"
+                          : "Ex: Rose"
+                      }
                     />
                   </label>
 
-                  <label className="block">
-                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
-                      Couleur hex
+                  <label className="flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-lg border border-black/[0.1] bg-white px-3">
+                    <span className="text-xs font-semibold text-neutral-600">
+                      Variante multicolore
                     </span>
-                    <div className="flex gap-2">
-                      <input
-                        type="color"
-                        value={variantForm.colorHex}
-                        onChange={(e) => handleVariantFormChange("colorHex", e.target.value)}
-                        className="h-10 w-10 cursor-pointer rounded-lg border border-black/[0.1] bg-white p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={variantForm.colorHex}
-                        onChange={(e) => handleVariantFormChange("colorHex", e.target.value)}
-                        className="min-h-10 flex-1 rounded-lg border border-black/[0.1] bg-white px-3 text-sm font-mono outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
-                        placeholder="#ECAB1C"
-                      />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={variantForm.isMulticolor}
+                      onChange={(e) =>
+                        setVariantForm((prev) => ({
+                          ...prev,
+                          isMulticolor:
+                            e.target.checked,
+                          colorName:
+                            e.target.checked &&
+                            !prev.colorName.trim()
+                              ? "Multicolore"
+                              : prev.colorName,
+                        }))
+                      }
+                      className="h-4 w-4 accent-neutral-950"
+                    />
                   </label>
+
+                  {variantForm.isMulticolor ? (
+                    <div className="block">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
+                        Couleur
+                      </span>
+                      <div className="flex min-h-10 items-center gap-3 rounded-lg border border-black/[0.1] bg-white px-3">
+                        <span
+                          className="h-7 w-7 rounded-full border border-black/[0.08]"
+                          style={{
+                            background:
+                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className="text-xs font-semibold text-neutral-600">
+                          Multicolore
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
+                        Couleur hex
+                      </span>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={variantForm.colorHex}
+                          onChange={(e) =>
+                            handleVariantFormChange(
+                              "colorHex",
+                              e.target.value,
+                            )
+                          }
+                          className="h-10 w-10 cursor-pointer rounded-lg border border-black/[0.1] bg-white p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={variantForm.colorHex}
+                          onChange={(e) =>
+                            handleVariantFormChange(
+                              "colorHex",
+                              e.target.value,
+                            )
+                          }
+                          className="min-h-10 flex-1 rounded-lg border border-black/[0.1] bg-white px-3 text-sm font-mono outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
+                          placeholder="#ECAB1C"
+                        />
+                      </div>
+                    </label>
+                  )}
 
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
@@ -1075,21 +1139,59 @@ export default function AdminProductDetailsPage() {
                     <input
                       type="text"
                       value={variantForm.sku}
-                      onChange={(e) => handleVariantFormChange("sku", e.target.value)}
+                      onChange={(e) =>
+                        handleVariantFormChange(
+                          "sku",
+                          e.target.value,
+                        )
+                      }
                       className="min-h-10 w-full rounded-lg border border-black/[0.1] bg-white px-3 text-sm outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
                       placeholder="Optionnel"
                     />
                   </label>
+
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.055em] text-neutral-400">
+                      Prix spécifique (DZD)
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={variantForm.price}
+                      onChange={(e) =>
+                        handleVariantFormChange(
+                          "price",
+                          e.target.value,
+                        )
+                      }
+                      className="min-h-10 w-full rounded-lg border border-black/[0.1] bg-white px-3 text-sm outline-none focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10"
+                      placeholder="Vide = prix du produit"
+                    />
+                  </label>
                 </div>
+
+                <p className="mt-2 text-[11px] text-neutral-400">
+                  Laissez le prix spécifique vide pour utiliser le prix principal du produit.
+                </p>
 
                 <div className="mt-4 flex gap-2">
                   <button
                     type="button"
-                    disabled={savingVariant || !variantForm.name.trim()}
-                    onClick={() => void handleSaveVariant()}
+                    disabled={
+                      savingVariant ||
+                      !variantForm.name.trim()
+                    }
+                    onClick={() =>
+                      void handleSaveVariant()
+                    }
                     className="inline-flex min-h-9 items-center justify-center rounded-xl bg-neutral-950 px-4 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
                   >
-                    {savingVariant ? "…" : editingVariant ? "Enregistrer" : "Créer"}
+                    {savingVariant
+                      ? "…"
+                      : editingVariant
+                        ? "Enregistrer"
+                        : "Créer"}
                   </button>
                   <button
                     type="button"
@@ -1106,49 +1208,57 @@ export default function AdminProductDetailsPage() {
               </div>
             )}
 
-            {product.variants.length === 0 && !showVariantForm ? (
+            {product.variants.length === 0 &&
+            !showVariantForm ? (
               <div className="mt-5 rounded-xl bg-[#faf9f6] px-4 py-8 text-center text-sm text-neutral-400">
                 Ce produit n’a aucune variante.
               </div>
             ) : (
               <div className="mt-5 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06]">
-                {product.variants.map((variant) => {
-                  const available = Math.max(
-                    0,
-                    (variant.inventory?.quantity ?? 0) -
-                      (variant.inventory?.reserved ?? 0),
-                  );
-
-                  return (
+                {product.variants.map(
+                  (variant) => (
                     <div
                       key={variant.id}
                       className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center gap-3">
-                        {variant.colorHex ? (
+                      <div className="flex min-w-0 items-center gap-3">
+                        {variant.isMulticolor ? (
                           <span
-                            className="h-8 w-8 rounded-lg border border-black/[0.08]"
+                            className="h-8 w-8 shrink-0 rounded-lg border border-black/[0.08]"
+                            style={{
+                              background:
+                                "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                            }}
+                            aria-hidden="true"
+                          />
+                        ) : variant.colorHex ? (
+                          <span
+                            className="h-8 w-8 shrink-0 rounded-lg border border-black/[0.08]"
                             style={{
                               backgroundColor:
                                 variant.colorHex,
                             }}
+                            aria-hidden="true"
                           />
                         ) : null}
 
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-900">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-neutral-900">
                             {variant.name}
                           </p>
                           <p className="mt-0.5 text-xs text-neutral-400">
                             {variant.sku ?? "Sans SKU"}
+                            {" · "}
+                            {variant.priceCents != null
+                              ? formatMoney(
+                                  variant.priceCents,
+                                )
+                              : "Prix du produit"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-[#f1efe9] px-2.5 py-1 text-xs font-semibold text-neutral-600">
-                          Stock {available}
-                        </span>
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={[
                             "rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -1164,27 +1274,45 @@ export default function AdminProductDetailsPage() {
 
                         <button
                           type="button"
-                          onClick={() => handleOpenEditVariant(variant)}
-                          className="ml-2 inline-flex h-8 items-center gap-1 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[10px] font-semibold text-neutral-600 transition hover:bg-neutral-50"
+                          onClick={() =>
+                            handleOpenEditVariant(
+                              variant,
+                            )
+                          }
+                          className="inline-flex h-8 items-center gap-1 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[10px] font-semibold text-neutral-600 transition hover:bg-neutral-50"
+                          aria-label={`Modifier ${variant.name}`}
                         >
-                          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                          </svg>
+                          Modifier
                         </button>
 
-                        {confirmDeleteVariantId === variant.id ? (
+                        {confirmDeleteVariantId ===
+                        variant.id ? (
                           <div className="flex gap-1">
                             <button
                               type="button"
-                              disabled={deletingVariantId === variant.id}
-                              onClick={() => void handleDeleteVariant(variant.id)}
+                              disabled={
+                                deletingVariantId ===
+                                variant.id
+                              }
+                              onClick={() =>
+                                void handleDeleteVariant(
+                                  variant.id,
+                                )
+                              }
                               className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-500 px-2.5 text-[10px] font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
                             >
-                              {deletingVariantId === variant.id ? "…" : "Confirmer"}
+                              {deletingVariantId ===
+                              variant.id
+                                ? "…"
+                                : "Confirmer"}
                             </button>
                             <button
                               type="button"
-                              onClick={() => setConfirmDeleteVariantId(null)}
+                              onClick={() =>
+                                setConfirmDeleteVariantId(
+                                  null,
+                                )
+                              }
                               className="inline-flex h-8 items-center rounded-lg border border-black/[0.08] bg-white px-2.5 text-[10px] font-semibold text-neutral-600 transition hover:bg-neutral-50"
                             >
                               Non
@@ -1193,18 +1321,21 @@ export default function AdminProductDetailsPage() {
                         ) : (
                           <button
                             type="button"
-                            onClick={() => setConfirmDeleteVariantId(variant.id)}
+                            onClick={() =>
+                              setConfirmDeleteVariantId(
+                                variant.id,
+                              )
+                            }
                             className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 text-[10px] font-semibold text-red-600 transition hover:bg-red-50"
+                            aria-label={`Supprimer ${variant.name}`}
                           >
-                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                            </svg>
+                            Supprimer
                           </button>
                         )}
                       </div>
                     </div>
-                  );
-                })}
+                  ),
+                )}
               </div>
             )}
           </section>
@@ -1231,14 +1362,6 @@ export default function AdminProductDetailsPage() {
                 </span>
                 <span className="font-semibold text-neutral-800">
                   {product.variants.length}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">
-                  Stock disponible
-                </span>
-                <span className="font-semibold text-neutral-800">
-                  {totalStock.available}
                 </span>
               </div>
             </div>

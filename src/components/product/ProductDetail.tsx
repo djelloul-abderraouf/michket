@@ -109,8 +109,17 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
 
   const communes = selectedWilaya?.communes ?? [];
   const activeImage = filteredImages[selectedImage] ?? filteredImages[0];
-  const subtotal = product.price * quantity;
-  const total = deliveryFee === null ? null : subtotal + deliveryFee;
+
+  // A selected variant can override the base product price.
+  // Example: product = 4 000 DA, red variant = 4 500 DA.
+  const effectiveUnitPrice =
+    selectedVariant?.price ?? product.price;
+
+  const subtotal = effectiveUnitPrice * quantity;
+  const total =
+    deliveryFee === null
+      ? null
+      : subtotal + deliveryFee;
 
   useEffect(() => {
     setCommune("");
@@ -193,6 +202,18 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (
+      product.variants &&
+      product.variants.length > 0 &&
+      !selectedVariant
+    ) {
+      setOrderState({
+        status: "error",
+        message: "Sélectionnez une variante avant de commander.",
+      });
+      return;
+    }
+
     if (!selectedWilaya || !commune || deliveryFee === null) {
       setOrderState({
         status: "error",
@@ -225,6 +246,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productSlug: product.slug,
+          variantId: selectedVariant?.id ?? null,
           quantity,
           firstName,
           lastName,
@@ -321,7 +343,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
         productId: product.id,
         slug: product.slug,
         title: product.title,
-        price: product.price,
+        price: effectiveUnitPrice,
         image: filteredImages[0]?.src ?? null,
         variantId: selectedVariant?.id,
         personalization: personalizationPayload,
@@ -339,6 +361,9 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   const canSubmit =
     Boolean(firstName.trim()) &&
     Boolean(lastName.trim()) &&
+    (!product.variants ||
+      product.variants.length === 0 ||
+      Boolean(selectedVariant)) &&
     Boolean(phone.trim()) &&
     Boolean(wilayaCode) &&
     Boolean(commune) &&
@@ -437,10 +462,27 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                           : "border-[#251713]/10 hover:border-[#251713]/25"
                       }`}
                     >
-                      {variant.colorHex && (
+                      {variant.isMulticolor ? (
                         <span
                           className="absolute inset-1 rounded-full"
-                          style={{ backgroundColor: variant.colorHex }}
+                          style={{
+                            background:
+                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                          }}
+                          aria-hidden="true"
+                        />
+                      ) : variant.colorHex ? (
+                        <span
+                          className="absolute inset-1 rounded-full"
+                          style={{
+                            backgroundColor: variant.colorHex,
+                          }}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span
+                          className="absolute inset-1 rounded-full bg-[#E7DED3]"
+                          aria-hidden="true"
                         />
                       )}
                     </button>
@@ -487,11 +529,11 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
 
               <div className="mt-3 flex items-end gap-3 sm:mt-4">
                 <span className="text-[26px] font-extrabold tracking-[-0.04em] sm:text-[28px]">
-                  {formatPriceDA(product.price)}
+                  {formatPriceDA(effectiveUnitPrice)}
                 </span>
 
                 {product.compareAtPrice &&
-                  product.compareAtPrice > product.price && (
+                  product.compareAtPrice > effectiveUnitPrice && (
                     <span className="pb-1 text-sm text-[#251713]/30 line-through">
                       {formatPriceDA(product.compareAtPrice)}
                     </span>
@@ -544,7 +586,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                 </div>
 
                 <span className="shrink-0 text-[21px] font-extrabold">
-                  {formatPriceDA(product.price)}
+                  {formatPriceDA(effectiveUnitPrice)}
                 </span>
               </div>
             </div>

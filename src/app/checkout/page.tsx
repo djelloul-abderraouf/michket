@@ -765,18 +765,28 @@ export default function CheckoutPage() {
                           </p>
 
                           {/* Variant swatch */}
-                          {item.selectedColorName && (
+                          {item.variantId && (
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              {item.selectedColorHex && (
-                                <span
-                                  className="inline-block w-3 h-3 rounded-full border border-michket-gold/20"
-                                  style={{
-                                    backgroundColor: item.selectedColorHex,
-                                  }}
-                                />
-                              )}
+                              <span
+                                className="inline-block w-3 h-3 rounded-full border border-michket-gold/20"
+                                style={
+                                  item.selectedIsMulticolor
+                                    ? {
+                                        background:
+                                          "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                                      }
+                                    : {
+                                        backgroundColor:
+                                          item.selectedColorHex ?? "#ccc",
+                                      }
+                                }
+                                aria-hidden="true"
+                              />
                               <span className="text-xs text-michket-charcoal/60">
-                                {item.selectedColorName}
+                                {item.selectedColorName ??
+                                  (item.selectedIsMulticolor
+                                    ? "Multicolore"
+                                    : "Variante")}
                               </span>
                             </div>
                           )}

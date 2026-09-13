@@ -44,16 +44,6 @@ type ProductImage = {
   variantId: string | null;
 };
 
-type InventoryRow = {
-  id: string;
-  productId: string;
-  variantId: string | null;
-  quantity: number;
-  reserved: number;
-  lowStockThreshold: number;
-  trackInventory: boolean;
-};
-
 type ProductVariant = {
   id: string;
   productId: string;
@@ -61,10 +51,10 @@ type ProductVariant = {
   sku: string | null;
   colorName: string | null;
   colorHex: string | null;
+  isMulticolor: boolean;
   priceCents: number | null;
   sortOrder: number;
   isActive: boolean;
-  inventory: InventoryRow | null;
 };
 
 type ProductDetails = {
@@ -88,7 +78,6 @@ type ProductDetails = {
   metaTitle: string | null;
   metaDescription: string | null;
   images: ProductImage[];
-  inventory: InventoryRow | null;
   variants: ProductVariant[];
 };
 
@@ -101,11 +90,9 @@ type VariantFormData = {
   name: string;
   colorName: string;
   colorHex: string;
+  isMulticolor: boolean;
   sku: string;
   price: string;
-  quantity: string;
-  lowStockThreshold: string;
-  trackInventory: boolean;
 };
 
 const BADGES = [
@@ -152,16 +139,6 @@ function getApiErrorMessage(
   return Array.isArray(payload.message)
     ? payload.message.join(" ")
     : payload.message;
-}
-
-function parseNonNegativeInteger(value: string) {
-  const parsed = Number(value);
-
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return null;
-  }
-
-  return parsed;
 }
 
 export default function EditAdminProductPage() {
@@ -217,14 +194,6 @@ export default function EditAdminProductPage() {
   const personalizationRef =
     useRef<PersonalizationSectionHandle>(null);
 
-  const [trackInventory, setTrackInventory] =
-    useState(true);
-  const [quantity, setQuantity] = useState("0");
-  const [lowStockThreshold, setLowStockThreshold] =
-    useState("5");
-  const [savingProductInventory, setSavingProductInventory] =
-    useState(false);
-
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] =
     useState("");
@@ -238,11 +207,9 @@ export default function EditAdminProductPage() {
       name: "",
       colorName: "",
       colorHex: "#ECAB1C",
+      isMulticolor: false,
       sku: "",
       price: "",
-      quantity: "0",
-      lowStockThreshold: "5",
-      trackInventory: true,
     });
   const [savingVariant, setSavingVariant] =
     useState(false);
@@ -305,22 +272,6 @@ export default function EditAdminProductPage() {
         data.metaDescription ?? "",
       );
 
-      if (
-        data.variants.length === 0 &&
-        data.inventory
-      ) {
-        setTrackInventory(
-          data.inventory.trackInventory,
-        );
-        setQuantity(
-          String(data.inventory.quantity),
-        );
-        setLowStockThreshold(
-          String(
-            data.inventory.lowStockThreshold,
-          ),
-        );
-      }
     },
     [],
   );
@@ -426,22 +377,6 @@ export default function EditAdminProductPage() {
 
       setProduct(data);
 
-      if (
-        data.variants.length === 0 &&
-        data.inventory
-      ) {
-        setTrackInventory(
-          data.inventory.trackInventory,
-        );
-        setQuantity(
-          String(data.inventory.quantity),
-        );
-        setLowStockThreshold(
-          String(
-            data.inventory.lowStockThreshold,
-          ),
-        );
-      }
     },
     [productId, token],
   );
@@ -758,123 +693,16 @@ export default function EditAdminProductPage() {
     }
   }
 
-  async function handleSaveProductInventory() {
-    if (
-      !product ||
-      !token ||
-      product.variants.length > 0
-    ) {
-      return;
-    }
-
-    const parsedQuantity =
-      parseNonNegativeInteger(
-        quantity,
-      );
-    const parsedThreshold =
-      parseNonNegativeInteger(
-        lowStockThreshold,
-      );
-
-    if (
-      parsedQuantity === null ||
-      parsedThreshold === null
-    ) {
-      setError(
-        "Vérifiez la quantité et le seuil de stock.",
-      );
-      return;
-    }
-
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL;
-
-    if (!apiUrl) {
-      setError(
-        "NEXT_PUBLIC_API_URL n'est pas configurée.",
-      );
-      return;
-    }
-
-    setSavingProductInventory(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const response = await fetch(
-        `${apiUrl}/admin/products/${productId}/inventory`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            quantity: parsedQuantity,
-            lowStockThreshold:
-              parsedThreshold,
-            trackInventory,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        let payload:
-          | ApiErrorPayload
-          | null = null;
-
-        try {
-          payload =
-            (await response.json()) as ApiErrorPayload;
-        } catch {}
-
-        throw new Error(
-          getApiErrorMessage(
-            payload,
-            "Impossible de mettre à jour le stock.",
-          ),
-        );
-      }
-
-      await reloadProduct();
-      setSuccess(
-        "Le stock du produit a été mis à jour.",
-      );
-    } catch (inventoryError) {
-      setError(
-        inventoryError instanceof Error
-          ? inventoryError.message
-          : "Impossible de mettre à jour le stock.",
-      );
-    } finally {
-      setSavingProductInventory(false);
-    }
-  }
-
   function openAddVariant() {
-    const productInventory =
-      product?.inventory;
-
     setEditingVariant(null);
     setVariantError(null);
     setVariantForm({
       name: "",
       colorName: "",
       colorHex: "#ECAB1C",
+      isMulticolor: false,
       sku: "",
       price: "",
-      quantity: String(
-        productInventory?.quantity ?? 0,
-      ),
-      lowStockThreshold: String(
-        productInventory?.lowStockThreshold ??
-          5,
-      ),
-      trackInventory:
-        productInventory?.trackInventory ??
-        true,
     });
     setShowVariantForm(true);
   }
@@ -890,6 +718,8 @@ export default function EditAdminProductPage() {
         variant.colorName ?? "",
       colorHex:
         variant.colorHex ?? "#ECAB1C",
+      isMulticolor:
+        variant.isMulticolor,
       sku: variant.sku ?? "",
       price:
         variant.priceCents != null
@@ -897,16 +727,6 @@ export default function EditAdminProductPage() {
               variant.priceCents,
             )
           : "",
-      quantity: String(
-        variant.inventory?.quantity ?? 0,
-      ),
-      lowStockThreshold: String(
-        variant.inventory
-          ?.lowStockThreshold ?? 5,
-      ),
-      trackInventory:
-        variant.inventory?.trackInventory ??
-        true,
     });
     setShowVariantForm(true);
   }
@@ -922,25 +742,6 @@ export default function EditAdminProductPage() {
     if (!variantName) {
       setVariantError(
         "Le nom de la variante est obligatoire.",
-      );
-      return;
-    }
-
-    const quantityValue =
-      parseNonNegativeInteger(
-        variantForm.quantity,
-      );
-    const thresholdValue =
-      parseNonNegativeInteger(
-        variantForm.lowStockThreshold,
-      );
-
-    if (
-      quantityValue === null ||
-      thresholdValue === null
-    ) {
-      setVariantError(
-        "Le stock et le seuil doivent être des entiers positifs ou égaux à 0.",
       );
       return;
     }
@@ -977,133 +778,66 @@ export default function EditAdminProductPage() {
 
     try {
       const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        Authorization:
+          `Bearer ${token}`,
+        "Content-Type":
+          "application/json",
       };
 
-      if (editingVariant) {
-        const variantResponse = await fetch(
-          `${apiUrl}/admin/products/${productId}/variants/${editingVariant.id}`,
-          {
-            method: "PUT",
-            headers,
-            body: JSON.stringify({
-              name: variantName,
-              sku:
-                variantForm.sku.trim() ||
-                null,
-              colorName:
-                variantForm.colorName.trim() ||
-                null,
-              colorHex:
-                variantForm.colorHex.trim() ||
-                null,
-              priceCents:
-                variantPrice ?? undefined,
-            }),
-          },
+      const variantPayload = {
+        name: variantName,
+        sku:
+          variantForm.sku.trim() ||
+          null,
+        colorName:
+          variantForm.colorName.trim() ||
+          (variantForm.isMulticolor
+            ? "Multicolore"
+            : null),
+        colorHex:
+          variantForm.isMulticolor
+            ? null
+            : variantForm.colorHex.trim() ||
+              null,
+        isMulticolor:
+          variantForm.isMulticolor,
+        priceCents: variantPrice,
+      };
+
+      const response = await fetch(
+        editingVariant
+          ? `${apiUrl}/admin/products/${productId}/variants/${editingVariant.id}`
+          : `${apiUrl}/admin/products/${productId}/variants`,
+        {
+          method:
+            editingVariant
+              ? "PUT"
+              : "POST",
+          headers,
+          body: JSON.stringify(
+            variantPayload,
+          ),
+        },
+      );
+
+      if (!response.ok) {
+        let payload:
+          | ApiErrorPayload
+          | null = null;
+
+        try {
+          payload =
+            (await response.json()) as ApiErrorPayload;
+        } catch {}
+
+        throw new Error(
+          getApiErrorMessage(
+            payload,
+            editingVariant
+              ? "Impossible de modifier la variante."
+              : "Impossible de créer la variante.",
+          ),
         );
-
-        if (!variantResponse.ok) {
-          let payload:
-            | ApiErrorPayload
-            | null = null;
-
-          try {
-            payload =
-              (await variantResponse.json()) as ApiErrorPayload;
-          } catch {}
-
-          throw new Error(
-            getApiErrorMessage(
-              payload,
-              "Impossible de modifier la variante.",
-            ),
-          );
-        }
-
-        const inventoryResponse =
-          await fetch(
-            `${apiUrl}/admin/products/${productId}/inventory`,
-            {
-              method: "PUT",
-              headers,
-              body: JSON.stringify({
-                variantId:
-                  editingVariant.id,
-                quantity: quantityValue,
-                lowStockThreshold:
-                  thresholdValue,
-                trackInventory:
-                  variantForm.trackInventory,
-              }),
-            },
-          );
-
-        if (!inventoryResponse.ok) {
-          let payload:
-            | ApiErrorPayload
-            | null = null;
-
-          try {
-            payload =
-              (await inventoryResponse.json()) as ApiErrorPayload;
-          } catch {}
-
-          throw new Error(
-            getApiErrorMessage(
-              payload,
-              "La variante a été modifiée, mais son stock n'a pas pu être mis à jour.",
-            ),
-          );
-        }
-      } else {
-        const response = await fetch(
-          `${apiUrl}/admin/products/${productId}/variants`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              name: variantName,
-              sku:
-                variantForm.sku.trim() ||
-                undefined,
-              colorName:
-                variantForm.colorName.trim() ||
-                undefined,
-              colorHex:
-                variantForm.colorHex.trim() ||
-                undefined,
-              priceCents:
-                variantPrice ?? undefined,
-              inventory: {
-                quantity: quantityValue,
-                lowStockThreshold:
-                  thresholdValue,
-                trackInventory:
-                  variantForm.trackInventory,
-              },
-            }),
-          },
-        );
-
-        if (!response.ok) {
-          let payload:
-            | ApiErrorPayload
-            | null = null;
-
-          try {
-            payload =
-              (await response.json()) as ApiErrorPayload;
-          } catch {}
-
-          throw new Error(
-            getApiErrorMessage(
-              payload,
-              "Impossible de créer la variante.",
-            ),
-          );
-        }
       }
 
       setShowVariantForm(false);
@@ -1113,7 +847,7 @@ export default function EditAdminProductPage() {
 
       setSuccess(
         editingVariant
-          ? "La variante et son stock ont été mis à jour."
+          ? "La variante a été mise à jour."
           : "La variante a été ajoutée.",
       );
     } catch (variantSaveError) {
@@ -1246,14 +980,12 @@ export default function EditAdminProductPage() {
     );
   }
 
-  const productHasVariants =
-    product.variants.length > 0;
 
   return (
     <div>
       <PageHeader
         title={`Modifier « ${product.name} »`}
-        description="Toutes les fonctions produit sont disponibles ici : informations, catégorie, personnalisation, stock, variantes et images."
+        description="Toutes les fonctions produit sont disponibles ici : informations, catégorie, personnalisation, variantes, prix et images."
         action={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -1614,12 +1346,12 @@ export default function EditAdminProductPage() {
                 </p>
 
                 <h2 className="mt-1 text-lg font-semibold text-neutral-950">
-                  Déclinaisons et stock
+                  Déclinaisons et prix
                 </h2>
 
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-500">
                   Ajoutez ou modifiez les couleurs et modèles ici.
-                  Chaque variante peut avoir son propre stock.
+                  Chaque variante peut avoir son propre prix.
                 </p>
               </div>
 
@@ -1665,18 +1397,16 @@ export default function EditAdminProductPage() {
                     <label className={labelClassName}>
                       Nom *
                     </label>
-
                     <input
                       type="text"
                       value={variantForm.name}
                       onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }),
-                        )
+                        setVariantForm((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
                       }
+                      placeholder="Ex. Rouge"
                       className={inputClassName}
                     />
                   </div>
@@ -1685,77 +1415,112 @@ export default function EditAdminProductPage() {
                     <label className={labelClassName}>
                       Nom de couleur
                     </label>
-
                     <input
                       type="text"
                       value={variantForm.colorName}
                       onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            colorName:
-                              event.target.value,
-                          }),
-                        )
+                        setVariantForm((current) => ({
+                          ...current,
+                          colorName: event.target.value,
+                        }))
+                      }
+                      placeholder={
+                        variantForm.isMulticolor
+                          ? "Ex. Multicolore"
+                          : "Ex. Rouge"
                       }
                       className={inputClassName}
                     />
                   </div>
 
-                  <div>
-                    <label className={labelClassName}>
-                      Couleur
-                    </label>
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-white px-4">
+                    <span className="text-sm font-medium text-neutral-700">
+                      Variante multicolore
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={variantForm.isMulticolor}
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          isMulticolor: event.target.checked,
+                          colorName:
+                            event.target.checked &&
+                            !current.colorName.trim()
+                              ? "Multicolore"
+                              : current.colorName,
+                        }))
+                      }
+                      className="h-4 w-4 accent-neutral-950"
+                    />
+                  </label>
 
-                    <div className="flex gap-2">
-                      <input
-                        type="color"
-                        value={variantForm.colorHex}
-                        onChange={(event) =>
-                          setVariantForm(
-                            (current) => ({
-                              ...current,
-                              colorHex:
-                                event.target.value,
-                            }),
-                          )
-                        }
-                        className="h-11 w-12 rounded-xl border border-black/[0.09] bg-white p-1"
-                      />
-
-                      <input
-                        type="text"
-                        value={variantForm.colorHex}
-                        onChange={(event) =>
-                          setVariantForm(
-                            (current) => ({
-                              ...current,
-                              colorHex:
-                                event.target.value,
-                            }),
-                          )
-                        }
-                        className={inputClassName}
-                      />
+                  {variantForm.isMulticolor ? (
+                    <div>
+                      <span className={labelClassName}>
+                        Aperçu couleur
+                      </span>
+                      <div className="flex h-11 items-center gap-3 rounded-xl border border-black/[0.08] bg-white px-3.5">
+                        <span
+                          className="h-7 w-7 rounded-full border border-black/[0.08]"
+                          style={{
+                            background:
+                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className="text-sm text-neutral-600">
+                          Multicolore
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <label className={labelClassName}>
+                        Couleur
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={variantForm.colorHex}
+                          onChange={(event) =>
+                            setVariantForm((current) => ({
+                              ...current,
+                              colorHex: event.target.value,
+                            }))
+                          }
+                          className="h-11 w-12 rounded-xl border border-black/[0.09] bg-white p-1"
+                        />
+                        <input
+                          type="text"
+                          value={variantForm.colorHex}
+                          onChange={(event) =>
+                            setVariantForm((current) => ({
+                              ...current,
+                              colorHex: event.target.value,
+                            }))
+                          }
+                          placeholder="#FF0000"
+                          className={inputClassName}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className={labelClassName}>
                       SKU
                     </label>
-
                     <input
                       type="text"
                       value={variantForm.sku}
                       onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            sku: event.target.value,
-                          }),
-                        )
+                        setVariantForm((current) => ({
+                          ...current,
+                          sku: event.target.value,
+                        }))
                       }
+                      placeholder="Optionnel"
                       className={inputClassName}
                     />
                   </div>
@@ -1764,95 +1529,24 @@ export default function EditAdminProductPage() {
                     <label className={labelClassName}>
                       Prix spécifique (DZD)
                     </label>
-
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={variantForm.price}
                       onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            price: event.target.value,
-                          }),
-                        )
+                        setVariantForm((current) => ({
+                          ...current,
+                          price: event.target.value,
+                        }))
                       }
                       placeholder="Vide = prix du produit"
                       className={inputClassName}
                     />
+                    <p className="mt-1.5 text-[11px] text-neutral-400">
+                      Laissez vide pour utiliser le prix principal du produit.
+                    </p>
                   </div>
-
-                  <div>
-                    <label className={labelClassName}>
-                      Quantité *
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={variantForm.quantity}
-                      onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            quantity:
-                              event.target.value,
-                          }),
-                        )
-                      }
-                      className={inputClassName}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClassName}>
-                      Seuil stock faible *
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={
-                        variantForm.lowStockThreshold
-                      }
-                      onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            lowStockThreshold:
-                              event.target.value,
-                          }),
-                        )
-                      }
-                      className={inputClassName}
-                    />
-                  </div>
-
-                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-white px-4">
-                    <span className="text-sm font-medium text-neutral-700">
-                      Suivre le stock
-                    </span>
-
-                    <input
-                      type="checkbox"
-                      checked={
-                        variantForm.trackInventory
-                      }
-                      onChange={(event) =>
-                        setVariantForm(
-                          (current) => ({
-                            ...current,
-                            trackInventory:
-                              event.target.checked,
-                          }),
-                        )
-                      }
-                      className="h-4 w-4 accent-neutral-950"
-                    />
-                  </label>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -1892,110 +1586,107 @@ export default function EditAdminProductPage() {
                 <p className="text-sm font-medium text-neutral-500">
                   Aucune variante.
                 </p>
-
-                <p className="mt-1 text-xs text-neutral-400">
-                  Le stock reste actuellement au niveau du produit.
-                </p>
               </div>
             ) : (
               <div className="mt-5 divide-y divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06]">
                 {product.variants.map(
-                  (variant) => {
-                    const available = Math.max(
-                      0,
-                      (variant.inventory?.quantity ??
-                        0) -
-                        (variant.inventory
-                          ?.reserved ?? 0),
-                    );
+                  (variant) => (
+                    <div
+                      key={variant.id}
+                      className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        {variant.isMulticolor ? (
+                          <span
+                            className="h-9 w-9 shrink-0 rounded-xl border border-black/[0.08]"
+                            style={{
+                              background:
+                                "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                            }}
+                            aria-hidden="true"
+                          />
+                        ) : variant.colorHex ? (
+                          <span
+                            className="h-9 w-9 shrink-0 rounded-xl border border-black/[0.08]"
+                            style={{
+                              backgroundColor:
+                                variant.colorHex,
+                            }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
 
-                    return (
-                      <div
-                        key={variant.id}
-                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          {variant.colorHex ? (
-                            <span
-                              className="h-9 w-9 shrink-0 rounded-xl border border-black/[0.08]"
-                              style={{
-                                backgroundColor:
-                                  variant.colorHex,
-                              }}
-                            />
-                          ) : null}
-
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-neutral-900">
-                                {variant.name}
-                              </p>
-
-                              <span
-                                className={[
-                                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                  variant.isActive
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-neutral-100 text-neutral-500",
-                                ].join(" ")}
-                              >
-                                {variant.isActive
-                                  ? "Active"
-                                  : "Inactive"}
-                              </span>
-                            </div>
-
-                            <p className="mt-1 text-xs text-neutral-400">
-                              {variant.sku ??
-                                "Sans SKU"}{" "}
-                              · Stock disponible{" "}
-                              {available}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-neutral-900">
+                              {variant.name}
                             </p>
+
+                            <span
+                              className={[
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                variant.isActive
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-neutral-100 text-neutral-500",
+                              ].join(" ")}
+                            >
+                              {variant.isActive
+                                ? "Active"
+                                : "Inactive"}
+                            </span>
                           </div>
-                        </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openEditVariant(
-                                variant,
-                              )
-                            }
-                            className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50"
-                          >
-                            Modifier
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={
-                              updatingVariantStatusId ===
-                              variant.id
-                            }
-                            onClick={() =>
-                              void toggleVariantActive(
-                                variant,
-                              )
-                            }
-                            className={[
-                              "inline-flex min-h-9 items-center justify-center rounded-xl border bg-white px-3 text-xs font-semibold transition disabled:opacity-50",
-                              variant.isActive
-                                ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
-                            ].join(" ")}
-                          >
-                            {updatingVariantStatusId ===
-                            variant.id
-                              ? "…"
-                              : variant.isActive
-                                ? "Désactiver"
-                                : "Réactiver"}
-                          </button>
+                          <p className="mt-1 text-xs text-neutral-400">
+                            {variant.sku ?? "Sans SKU"}
+                            {" · "}
+                            {variant.priceCents != null
+                              ? `${formatCentsToMoney(variant.priceCents)} DZD`
+                              : "Prix du produit"}
+                          </p>
                         </div>
                       </div>
-                    );
-                  },
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openEditVariant(
+                              variant,
+                            )
+                          }
+                          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50"
+                        >
+                          Modifier
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            updatingVariantStatusId ===
+                            variant.id
+                          }
+                          onClick={() =>
+                            void toggleVariantActive(
+                              variant,
+                            )
+                          }
+                          className={[
+                            "inline-flex min-h-9 items-center justify-center rounded-xl border bg-white px-3 text-xs font-semibold transition disabled:opacity-50",
+                            variant.isActive
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+                          ].join(" ")}
+                        >
+                          {updatingVariantStatusId ===
+                          variant.id
+                            ? "…"
+                            : variant.isActive
+                              ? "Désactiver"
+                              : "Réactiver"}
+                        </button>
+                      </div>
+                    </div>
+                  ),
                 )}
               </div>
             )}
@@ -2059,106 +1750,6 @@ export default function EditAdminProductPage() {
               />
             </label>
           </section>
-
-          {!productHasVariants ? (
-            <section className="rounded-2xl border border-black/[0.07] bg-white p-5 shadow-[0_8px_30px_rgba(23,23,20,0.035)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                Stock
-              </p>
-
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label
-                    htmlFor="quantity"
-                    className={labelClassName}
-                  >
-                    Quantité
-                  </label>
-
-                  <input
-                    id="quantity"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={quantity}
-                    onChange={(event) =>
-                      setQuantity(
-                        event.target.value,
-                      )
-                    }
-                    className={inputClassName}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="lowStockThreshold"
-                    className={labelClassName}
-                  >
-                    Seuil stock faible
-                  </label>
-
-                  <input
-                    id="lowStockThreshold"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={lowStockThreshold}
-                    onChange={(event) =>
-                      setLowStockThreshold(
-                        event.target.value,
-                      )
-                    }
-                    className={inputClassName}
-                  />
-                </div>
-
-                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl bg-[#faf9f6] px-4 py-3">
-                  <span className="text-sm font-medium text-neutral-700">
-                    Suivre le stock
-                  </span>
-
-                  <input
-                    type="checkbox"
-                    checked={trackInventory}
-                    onChange={(event) =>
-                      setTrackInventory(
-                        event.target.checked,
-                      )
-                    }
-                    className="h-4 w-4 accent-neutral-950"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  disabled={savingProductInventory}
-                  onClick={() =>
-                    void handleSaveProductInventory()
-                  }
-                  className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-                >
-                  {savingProductInventory
-                    ? "Enregistrement…"
-                    : "Mettre à jour le stock"}
-                </button>
-              </div>
-
-              <p className="mt-4 text-[11px] leading-5 text-neutral-400">
-                Si vous créez une première variante, le stock produit sera converti vers cette variante par le backend.
-              </p>
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-black/[0.07] bg-white p-5 shadow-[0_8px_30px_rgba(23,23,20,0.035)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                Stock
-              </p>
-
-              <p className="mt-3 text-sm leading-6 text-neutral-600">
-                Ce produit possède des variantes. Le stock est géré directement dans chaque variante.
-              </p>
-            </section>
-          )}
 
           <button
             type="submit"

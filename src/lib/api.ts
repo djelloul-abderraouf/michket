@@ -175,6 +175,7 @@ export interface ApiProductDetail {
     sku: string | null;
     colorName: string | null;
     colorHex: string | null;
+    isMulticolor: boolean;
     priceCents: number | null;
     options: Record<string, unknown> | null;
     sortOrder: number;
@@ -212,6 +213,7 @@ export interface ProductVariant {
   name: string;
   colorName: string | null;
   colorHex: string | null;
+  isMulticolor: boolean;
   sortOrder: number;
   /** Variant price in DZD. Undefined means the product base price applies. */
   price?: number;
@@ -322,6 +324,7 @@ function mapProductDetail(
       name: v.name,
       colorName: v.colorName,
       colorHex: v.colorHex,
+      isMulticolor: v.isMulticolor,
       sortOrder: v.sortOrder,
       price: v.priceCents != null ? centsToDA(v.priceCents) : undefined,
       inventory: v.inventory,
@@ -638,6 +641,8 @@ export interface ApiCartVariant {
   sku: string | null;
   colorName: string | null;
   colorHex: string | null;
+  isMulticolor: boolean;
+  priceCents: number | null;
 }
 
 export interface ApiCartProduct {

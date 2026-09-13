@@ -139,54 +139,79 @@ export default async function GenericSubcategoryPage({
             "linear-gradient(120deg, rgba(236,171,28,0.065) 0%, rgba(248,243,235,0) 28%), linear-gradient(180deg, #FCF8F2 0%, #F6EFE6 100%)",
         }}
       >
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-9">
-          <div className="mx-auto max-w-[760px] text-center">
-            <div className="flex items-center justify-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
-              <Link
-                href="/"
-                className="transition-colors hover:text-[#ECAB1C]"
-              >
-                Accueil
-              </Link>
+        <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
+          <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:gap-10">
+            <div className="max-w-[620px]">
+              <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
+                <Link
+                  href="/"
+                  className="transition-colors hover:text-[#ECAB1C]"
+                >
+                  Accueil
+                </Link>
 
-              <span>/</span>
+                <span>/</span>
 
-              <Link
-                href={`/${parent.slug}`}
-                className="transition-colors hover:text-[#ECAB1C]"
-              >
-                {parent.name}
-              </Link>
+                <Link
+                  href={`/${parent.slug}`}
+                  className="transition-colors hover:text-[#ECAB1C]"
+                >
+                  {parent.name}
+                </Link>
 
-              <span>/</span>
+                <span>/</span>
 
-              <span className="text-[#8A6A20]">
-                {category.name}
-              </span>
+                <span className="text-[#8A6A20]">
+                  {category.name}
+                </span>
+              </div>
+
+              <h1 className="mt-3 font-body text-[31px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[39px] lg:text-[48px]">
+                {category.pageTitle?.trim() ||
+                  category.name}
+              </h1>
+
+              {category.description ? (
+                <p className="mt-4 max-w-[560px] text-[12px] leading-6 text-[#2A1B16]/52 sm:text-[13px]">
+                  {category.description}
+                </p>
+              ) : null}
             </div>
 
-            <h1 className="mt-2.5 font-body text-[27px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[34px] lg:text-[39px]">
-              {category.pageTitle?.trim() ||
-                category.name}
-            </h1>
+            <div className="min-w-0">
+              {category.heroImages.length > 0 ? (
+                <SubcategoryHeroCarousel
+                  images={category.heroImages}
+                  categoryName={category.name}
+                />
+              ) : category.imageUrl ? (
+                <div className="relative min-h-[230px] overflow-hidden rounded-[18px] border border-[#2A1B16]/[0.06] bg-[#EEE5DA] shadow-[0_14px_36px_rgba(42,27,22,0.10)] sm:min-h-[320px] lg:min-h-[390px]">
+                  <Image
+                    src={category.imageUrl}
+                    alt={category.name}
+                    fill
+                    priority
+                    className="object-cover"
+                    sizes="(max-width: 1023px) 100vw, 54vw"
+                  />
 
-            {category.description ? (
-              <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-5 text-[#2A1B16]/48 sm:block">
-                {category.description}
-              </p>
-            ) : null}
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/12 via-transparent to-white/5"
+                    aria-hidden="true"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="min-h-[230px] rounded-[18px] border border-[#2A1B16]/[0.06] bg-gradient-to-br from-[#E8DCCF] via-[#F4ECE3] to-[#D8C7B6] shadow-[0_14px_36px_rgba(42,27,22,0.08)] sm:min-h-[320px] lg:min-h-[390px]"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
           </div>
-
-          {category.heroImages.length > 0 ? (
-            <SubcategoryHeroCarousel
-              images={category.heroImages}
-              categoryName={category.name}
-            />
-          ) : null}
 
           {!hasSubSubcategories &&
           products.length > 0 ? (
-            <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-7 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-center">
                 {products
                   .slice(0, 8)
