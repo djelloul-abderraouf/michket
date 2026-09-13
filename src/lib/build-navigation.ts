@@ -10,7 +10,6 @@
 
 import {
   fetchCategories,
-  fetchCategoryBySlug,
   type ApiCategory,
   type ApiCategoryDetail,
 } from "@/lib/api";
@@ -35,54 +34,93 @@ const STATIC_NAV_ITEMS: NavItemWithMega[] = [
 export interface NavigationData {
   /** Navigation items for header (desktop + mobile) */
   mainNav: NavItemWithMega[];
-  /** All top-level categories with their children (for homepage, etc.) */
+  /** All top-level categories with their direct children (for homepage, etc.) */
   categories: ApiCategoryDetail[];
+}
+
+function sortCategories(items: ApiCategory[]): ApiCategory[] {
+  return [...items].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.name.localeCompare(b.name, "fr"),
+  );
 }
 
 /**
  * Build navigation from backend categories.
  *
- * - Top-level categories (parentId === null) become nav items
- * - Each parent's children become mega menu category cards + column items
- * - Static items (Accueil, Meilleures ventes) are prepended
- * - On API failure: returns only static items (graceful degradation)
+ * Supported hierarchy:
+ * - Level 1: category        (example: Lampes 3D)
+ * - Level 2: subcategory     (example: Médecine)
+ * - Level 3: sub-subcategory (example: Chirurgie)
+ *
+ * The third level is optional. A level-2 category without children keeps
+ * linking directly to its existing page.
+ *
+ * On API failure: returns only static items (graceful degradation).
  */
 export async function buildNavigation(): Promise<NavigationData> {
   try {
-    // 1. Fetch all active categories (flat list)
+    // 1. Fetch every active category as a flat list.
     const allCategories = await fetchCategories();
 
-    // 2. Separate top-level from subcategories
-    const topLevel = allCategories.filter((c) => c.parentId === null);
-    const subcategories = allCategories.filter((c) => c.parentId !== null);
-
-    // 3. Group subcategories by parentId
+    // 2. Group every non-root category by its direct parent.
+    // This works for both level 2 and level 3.
     const childrenByParent = new Map<string, ApiCategory[]>();
-    for (const sub of subcategories) {
-      if (!sub.parentId) continue;
-      const list = childrenByParent.get(sub.parentId) ?? [];
-      list.push(sub);
-      childrenByParent.set(sub.parentId, list);
+
+    for (const category of allCategories) {
+      if (!category.parentId) {
+        continue;
+      }
+
+      const children =
+        childrenByParent.get(category.parentId) ?? [];
+
+      children.push(category);
+      childrenByParent.set(category.parentId, children);
     }
 
-    // 4. Build navigation items for each top-level category
+    for (const [parentId, children] of childrenByParent) {
+      childrenByParent.set(
+        parentId,
+        sortCategories(children),
+      );
+    }
+
+    // 3. Root categories become the main catalogue nav entries.
+    const topLevel = sortCategories(
+      allCategories.filter(
+        (category) => category.parentId === null,
+      ),
+    );
+
     const categoryNavItems: NavItemWithMega[] = [];
 
     for (const category of topLevel) {
-      const children = childrenByParent.get(category.id) ?? [];
+      const subcategories =
+        childrenByParent.get(category.id) ?? [];
 
-      // Category cards for mega menu (children with imageUrl)
-      const megaCategories = children
-        .filter((child) => child.imageUrl) // Only children with images
-        .map((child) => ({
-          label: child.name,
-          href: `/${category.slug}/${child.slug}`,
-          image: child.imageUrl!,
+      /*
+       * Visual cards remain based on level-2 categories.
+       * A level-2 card opens the level-2 page:
+       * /lampes-3d/medecine
+       *
+       * That page can then display its optional level-3 children.
+       */
+      const megaCategories = subcategories
+        .filter((subcategory) => subcategory.imageUrl)
+        .map((subcategory) => ({
+          label: subcategory.name,
+          href: `/${category.slug}/${subcategory.slug}`,
+          image: subcategory.imageUrl!,
           objectPosition: "center" as const,
         }));
 
-      // If parent has no children with images, show the parent itself as a card
-      if (megaCategories.length === 0 && category.imageUrl) {
+      // If there are no illustrated subcategories, keep the root fallback card.
+      if (
+        megaCategories.length === 0 &&
+        category.imageUrl
+      ) {
         megaCategories.push({
           label: category.name,
           href: `/${category.slug}`,
@@ -91,25 +129,64 @@ export async function buildNavigation(): Promise<NavigationData> {
         });
       }
 
-      // Column items: children as text links
-      const columnItems = children.map((child) => ({
-        label: child.name,
-        href: `/${category.slug}/${child.slug}`,
-      }));
+      const columns: NonNullable<
+        NonNullable<NavItemWithMega["mega"]>["columns"]
+      > = [];
 
-      // Build columns — always include a main link column
-      const columns = [];
+      /*
+       * Level-2 categories WITH level-3 children each get their own column.
+       *
+       * Example:
+       * Médecine
+       *   - Toute la catégorie Médecine
+       *   - Chirurgie
+       *   - Dentiste
+       */
+      for (const subcategory of subcategories) {
+        const subSubcategories =
+          childrenByParent.get(subcategory.id) ?? [];
 
-      if (columnItems.length > 0) {
+        if (subSubcategories.length === 0) {
+          continue;
+        }
+
         columns.push({
-          title: `Par occasion`,
-          items: columnItems,
+          title: subcategory.name,
+          items: [
+            {
+              label: `Toute la catégorie ${subcategory.name}`,
+              href: `/${category.slug}/${subcategory.slug}`,
+            },
+            ...subSubcategories.map((subSubcategory) => ({
+              label: subSubcategory.name,
+              href: `/${category.slug}/${subcategory.slug}/${subSubcategory.slug}`,
+            })),
+          ],
         });
       }
 
-      // Add a "Tous les X" column
+      /*
+       * Level-2 categories WITHOUT level-3 children stay directly accessible.
+       * The third level is therefore completely optional.
+       */
+      const directSubcategories = subcategories.filter(
+        (subcategory) =>
+          (childrenByParent.get(subcategory.id) ?? []).length === 0,
+      );
+
+      if (directSubcategories.length > 0) {
+        columns.push({
+          title: "Sous-catégories",
+          items: directSubcategories.map((subcategory) => ({
+            label: subcategory.name,
+            href: `/${category.slug}/${subcategory.slug}`,
+          })),
+        });
+      }
+
+      // Always keep a direct link to the root category.
       columns.push({
-        title: `Tous`,
+        title: "Tous",
         items: [
           {
             label: `Tous les ${category.name.toLowerCase()}`,
@@ -128,52 +205,56 @@ export async function buildNavigation(): Promise<NavigationData> {
       });
     }
 
-    // 5. Insert "Meilleures ventes" with dynamic category cards
+    // 4. "Meilleures ventes" stays based on top-level categories.
     const bestSellersItem: NavItemWithMega = {
       label: "Meilleures ventes",
       href: "/meilleures-ventes",
       badge: "BEST SELLER",
       mega: {
         categories: topLevel
-          .filter((c) => c.imageUrl)
-          .map((c) => ({
-            label: c.name,
-            href: `/${c.slug}`,
-            image: c.imageUrl!,
+          .filter((category) => category.imageUrl)
+          .map((category) => ({
+            label: category.name,
+            href: `/${category.slug}`,
+            image: category.imageUrl!,
             objectPosition: "center" as const,
           })),
         columns: [
           {
             title: "Nos catégories",
-            items: topLevel.map((c) => ({
-              label: c.name,
-              href: `/${c.slug}`,
+            items: topLevel.map((category) => ({
+              label: category.name,
+              href: `/${category.slug}`,
             })),
           },
         ],
       },
     };
 
-    // 6. Final navigation: Accueil + Best sellers + category items
+    // 5. Final navigation.
     const mainNav: NavItemWithMega[] = [
-      STATIC_NAV_ITEMS[0], // Accueil
+      STATIC_NAV_ITEMS[0],
       bestSellersItem,
       ...categoryNavItems,
     ];
 
     return {
       mainNav,
-      categories: topLevel.map((cat) => {
-        const children = childrenByParent.get(cat.id) ?? [];
-        return {
-          ...cat,
-          children,
-          heroImages: [],
-        } as ApiCategoryDetail;
-      }),
+
+      /*
+       * Keep the existing homepage contract: each top-level category exposes
+       * its direct level-2 children. Level-3 children are used by navigation
+       * and will be handled on the level-2 public page in the next step.
+       */
+      categories: topLevel.map((category) => ({
+        ...category,
+        children:
+          childrenByParent.get(category.id) ?? [],
+        heroImages: [],
+      })) as ApiCategoryDetail[],
     };
   } catch {
-    // API unavailable — return only static items (no fake categories)
+    // API unavailable — return only static items (no fake categories).
     return {
       mainNav: STATIC_NAV_ITEMS,
       categories: [],

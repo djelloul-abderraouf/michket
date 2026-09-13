@@ -63,7 +63,7 @@ type ApiErrorPayload = {
 type CategoryFormState = {
   name: string;
   slug: string;
-  kind: "CATEGORY" | "SUBCATEGORY";
+  kind: "CATEGORY" | "SUBCATEGORY" | "SUBSUBCATEGORY";
   parentId: string;
   description: string;
   pageTitle: string;
@@ -272,15 +272,72 @@ export default function AdminCategoriesPage() {
     [categories],
   );
 
-  const parentCandidates = useMemo(
+  const categoryById = useMemo(
     () =>
-      topLevelCategories.filter(
-        (category) =>
-          category.id !== editingCategory?.id &&
-          category.isActive,
+      new Map(
+        categories.map((category) => [
+          category.id,
+          category,
+        ]),
       ),
-    [editingCategory?.id, topLevelCategories],
+    [categories],
   );
+
+  const secondLevelCategories = useMemo(
+    () =>
+      categories
+        .filter((category) => {
+          if (!category.parentId) return false;
+          const parent = categoryById.get(
+            category.parentId,
+          );
+          return Boolean(parent && !parent.parentId);
+        })
+        .sort(
+          (a, b) =>
+            a.sortOrder - b.sortOrder ||
+            a.name.localeCompare(b.name, "fr"),
+        ),
+    [categories, categoryById],
+  );
+
+  const thirdLevelCategories = useMemo(
+    () =>
+      categories
+        .filter((category) => {
+          if (!category.parentId) return false;
+          const parent = categoryById.get(
+            category.parentId,
+          );
+          return Boolean(parent?.parentId);
+        })
+        .sort(
+          (a, b) =>
+            a.sortOrder - b.sortOrder ||
+            a.name.localeCompare(b.name, "fr"),
+        ),
+    [categories, categoryById],
+  );
+
+  const parentCandidates = useMemo(() => {
+    const candidates =
+      form.kind === "SUBSUBCATEGORY"
+        ? secondLevelCategories
+        : form.kind === "SUBCATEGORY"
+          ? topLevelCategories
+          : [];
+
+    return candidates.filter(
+      (category) =>
+        category.id !== editingCategory?.id &&
+        category.isActive,
+    );
+  }, [
+    editingCategory?.id,
+    form.kind,
+    secondLevelCategories,
+    topLevelCategories,
+  ]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Category[]>();
@@ -317,15 +374,24 @@ export default function AdminCategoriesPage() {
       const children =
         childrenByParent.get(category.id) ?? [];
 
+      const descendants = children.flatMap(
+        (child) => [
+          child,
+          ...(childrenByParent.get(child.id) ?? []),
+        ],
+      );
+
       return (
         category.name.toLowerCase().includes(query) ||
         category.pageTitle
           ?.toLowerCase()
           .includes(query) ||
-        children.some(
-          (child) =>
-            child.name.toLowerCase().includes(query) ||
-            child.pageTitle
+        descendants.some(
+          (descendant) =>
+            descendant.name
+              .toLowerCase()
+              .includes(query) ||
+            descendant.pageTitle
               ?.toLowerCase()
               .includes(query),
         )
@@ -380,7 +446,10 @@ export default function AdminCategoriesPage() {
       name: category.name,
       slug: category.slug,
       kind: category.parentId
-        ? "SUBCATEGORY"
+        ? categoryById.get(category.parentId)
+            ?.parentId
+          ? "SUBSUBCATEGORY"
+          : "SUBCATEGORY"
         : "CATEGORY",
       parentId: category.parentId ?? "",
       description: category.description ?? "",
@@ -397,7 +466,7 @@ export default function AdminCategoriesPage() {
         category.metaDescription ?? "",
     });
 
-    // Load hero images for subcategories
+    // Load hero images for nested category levels (2 and 3)
     if (category.parentId) {
       await loadHeroImages(category.id);
     } else {
@@ -936,11 +1005,13 @@ export default function AdminCategoriesPage() {
     }
 
     if (
-      form.kind === "SUBCATEGORY" &&
+      form.kind !== "CATEGORY" &&
       !form.parentId
     ) {
       setFormError(
-        "Choisissez la catégorie parente.",
+        form.kind === "SUBSUBCATEGORY"
+          ? "Choisissez la sous-catégorie parente."
+          : "Choisissez la catégorie parente.",
       );
       return;
     }
@@ -1014,9 +1085,9 @@ export default function AdminCategoriesPage() {
         imageStoragePath: imageStoragePathValue,
         href: form.href.trim() || undefined,
         parentId:
-          form.kind === "SUBCATEGORY"
-            ? form.parentId
-            : null,
+          form.kind === "CATEGORY"
+            ? null
+            : form.parentId,
         isActive: form.isActive,
         sortOrder,
         metaTitle:
@@ -1081,10 +1152,11 @@ export default function AdminCategoriesPage() {
       setPendingProfileUrl(null);
       setPendingProfileStoragePath(null);
 
-      const wasCreatingSubcategory =
-        !editingCategory && form.kind === "SUBCATEGORY";
+      const wasCreatingNestedCategory =
+        !editingCategory &&
+        form.kind !== "CATEGORY";
 
-      if (wasCreatingSubcategory) {
+      if (wasCreatingNestedCategory) {
         // A hero image needs a real category id. Keep the modal open after
         // the first save and switch immediately into edit mode so the admin
         // can upload the carousel images without closing/reopening the form.
@@ -1096,7 +1168,7 @@ export default function AdminCategoriesPage() {
         setForm({
           name: savedCategory.name,
           slug: savedCategory.slug,
-          kind: "SUBCATEGORY",
+          kind: form.kind,
           parentId: savedCategory.parentId ?? form.parentId,
           description: savedCategory.description ?? "",
           pageTitle: savedCategory.pageTitle ?? "",
@@ -1113,7 +1185,9 @@ export default function AdminCategoriesPage() {
             savedCategory.metaDescription ?? "",
         });
         setFormSuccess(
-          "Sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous.",
+          form.kind === "SUBSUBCATEGORY"
+            ? "Sous-sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous."
+            : "Sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous.",
         );
       } else {
         closeForm();
@@ -1325,12 +1399,16 @@ export default function AdminCategoriesPage() {
   }
 
   const isSubcategory = form.kind === "SUBCATEGORY";
+  const isSubSubcategory =
+    form.kind === "SUBSUBCATEGORY";
+  const isNestedCategory =
+    form.kind !== "CATEGORY";
 
   return (
     <div>
       <PageHeader
         title="Catégories"
-        description="Organisez le catalogue en catégories et sous-catégories."
+        description="Organisez le catalogue en catégories, sous-catégories et sous-sous-catégories."
         action={
           <button
             type="button"
@@ -1354,7 +1432,7 @@ export default function AdminCategoriesPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
           <p className="text-xs font-medium text-neutral-400">
             Catégories principales
@@ -1369,11 +1447,16 @@ export default function AdminCategoriesPage() {
             Sous-catégories
           </p>
           <p className="mt-2 text-2xl font-semibold text-neutral-950">
-            {
-              categories.filter(
-                (category) => category.parentId,
-              ).length
-            }
+            {secondLevelCategories.length}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+          <p className="text-xs font-medium text-neutral-400">
+            Sous-sous-catégories
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-neutral-950">
+            {thirdLevelCategories.length}
           </p>
         </div>
 
@@ -1398,7 +1481,7 @@ export default function AdminCategoriesPage() {
               Structure du catalogue
             </h2>
             <p className="mt-1 text-xs text-neutral-400">
-              Une catégorie principale peut contenir plusieurs sous-catégories.
+              Une catégorie principale peut contenir des sous-catégories, qui peuvent elles-mêmes contenir des sous-sous-catégories optionnelles.
             </p>
           </div>
 
@@ -1590,6 +1673,7 @@ export default function AdminCategoriesPage() {
                             });
                             setSlugTouched(false);
                             setFormError(null);
+                            setFormSuccess(null);
                             setProfileFile(null);
                             setProfilePreview(null);
                             setProfileUploadError(null);
@@ -1695,7 +1779,31 @@ export default function AdminCategoriesPage() {
                                 />
                               </div>
 
-                              <div className="mt-3 flex gap-2">
+                              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCategory(null);
+                                    setForm({
+                                      ...EMPTY_FORM,
+                                      kind: "SUBSUBCATEGORY",
+                                      parentId: child.id,
+                                    });
+                                    setSlugTouched(false);
+                                    setFormError(null);
+                                    setFormSuccess(null);
+                                    setProfileFile(null);
+                                    setProfilePreview(null);
+                                    setProfileUploadError(null);
+                                    setHeroImages([]);
+                                    setHeroUploadError(null);
+                                    setIsFormOpen(true);
+                                  }}
+                                  className="text-xs font-semibold text-[#8A6A20] hover:text-neutral-950"
+                                >
+                                  + Sous-sous-catégorie
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1740,6 +1848,110 @@ export default function AdminCategoriesPage() {
                                   Supprimer
                                 </button>
                               </div>
+
+                              {(childrenByParent.get(child.id) ?? []).length > 0 ? (
+                                <div className="mt-3 space-y-2 border-l border-black/[0.08] pl-3">
+                                  {(childrenByParent.get(child.id) ?? []).map(
+                                    (grandchild) => (
+                                      <div
+                                        key={grandchild.id}
+                                        className="rounded-lg border border-black/[0.06] bg-white p-2.5"
+                                      >
+                                        <div className="flex items-start gap-2.5">
+                                          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f3f1ec]">
+                                            {grandchild.imageUrl ? (
+                                              <img
+                                                src={grandchild.imageUrl}
+                                                alt={grandchild.name}
+                                                className="h-full w-full object-cover"
+                                              />
+                                            ) : (
+                                              <div className="grid h-full w-full place-items-center text-[8px] font-bold text-neutral-400">
+                                                N3
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-2">
+                                              <div className="min-w-0">
+                                                <p className="truncate text-xs font-semibold text-neutral-900">
+                                                  {grandchild.name}
+                                                </p>
+                                                <p className="mt-0.5 truncate text-[10px] text-neutral-400">
+                                                  /{grandchild.slug}
+                                                </p>
+                                              </div>
+
+                                              <span
+                                                className={[
+                                                  "mt-0.5 h-2 w-2 shrink-0 rounded-full",
+                                                  grandchild.isActive
+                                                    ? "bg-emerald-500"
+                                                    : "bg-neutral-300",
+                                                ].join(" ")}
+                                                title={
+                                                  grandchild.isActive
+                                                    ? "Active"
+                                                    : "Inactive"
+                                                }
+                                              />
+                                            </div>
+
+                                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  void openEditForm(grandchild)
+                                                }
+                                                className="text-[11px] font-semibold text-neutral-600 hover:text-neutral-950"
+                                              >
+                                                Modifier
+                                              </button>
+
+                                              <button
+                                                type="button"
+                                                disabled={
+                                                  actionId === grandchild.id
+                                                }
+                                                onClick={() =>
+                                                  void toggleCategoryActive(
+                                                    grandchild,
+                                                  )
+                                                }
+                                                className={[
+                                                  "text-[11px] font-semibold disabled:opacity-50",
+                                                  grandchild.isActive
+                                                    ? "text-amber-700 hover:text-amber-800"
+                                                    : "text-emerald-700 hover:text-emerald-800",
+                                                ].join(" ")}
+                                              >
+                                                {actionId === grandchild.id
+                                                  ? "Mise à jour…"
+                                                  : grandchild.isActive
+                                                    ? "Désactiver"
+                                                    : "Réactiver"}
+                                              </button>
+
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  openDeleteCategory(
+                                                    grandchild,
+                                                  )
+                                                }
+                                                className="text-[11px] font-semibold text-red-600 hover:text-red-700"
+                                              >
+                                                Supprimer
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         ))}
@@ -1783,8 +1995,8 @@ export default function AdminCategoriesPage() {
               Supprimer « {deleteTarget.name} » ?
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600">
-              Cette action est irréversible. Une catégorie qui contient encore
-              des sous-catégories ou des produits ne pourra pas être supprimée.
+              Cette action est irréversible. Une catégorie qui contient encore des catégories enfants
+              (sous-catégories ou sous-sous-catégories) ou des produits ne pourra pas être supprimée.
               Ses images enregistrées seront également nettoyées.
             </p>
 
@@ -1904,7 +2116,7 @@ export default function AdminCategoriesPage() {
                   Type
                 </h3>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <button
                     type="button"
                     onClick={() =>
@@ -1939,10 +2151,14 @@ export default function AdminCategoriesPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      updateForm(
-                        "kind",
-                        "SUBCATEGORY",
-                      )
+                      setForm((current) => ({
+                        ...current,
+                        kind: "SUBCATEGORY",
+                        parentId:
+                          current.kind === "SUBCATEGORY"
+                            ? current.parentId
+                            : "",
+                      }))
                     }
                     className={[
                       "rounded-xl border p-4 text-left transition",
@@ -1965,12 +2181,45 @@ export default function AdminCategoriesPage() {
                       Exemple : Anniversaire
                     </p>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        kind: "SUBSUBCATEGORY",
+                        parentId: "",
+                      }))
+                    }
+                    className={[
+                      "rounded-xl border p-4 text-left transition",
+                      form.kind === "SUBSUBCATEGORY"
+                        ? "border-neutral-950 bg-neutral-950 text-white"
+                        : "border-black/[0.07] bg-[#faf9f6] text-neutral-800",
+                    ].join(" ")}
+                  >
+                    <p className="text-sm font-semibold">
+                      Sous-sous-catégorie
+                    </p>
+                    <p
+                      className={[
+                        "mt-1 text-xs leading-5",
+                        form.kind === "SUBSUBCATEGORY"
+                          ? "text-white/60"
+                          : "text-neutral-400",
+                      ].join(" ")}
+                    >
+                      Exemple : Chirurgie
+                    </p>
+                  </button>
                 </div>
 
-                {form.kind === "SUBCATEGORY" ? (
+                {form.kind !== "CATEGORY" ? (
                   <label className="mt-4 block">
                     <span className="text-xs font-semibold text-neutral-600">
-                      Catégorie parente *
+                      {form.kind === "SUBSUBCATEGORY"
+                        ? "Sous-catégorie parente *"
+                        : "Catégorie parente *"}
                     </span>
                     <select
                       required
@@ -1987,16 +2236,33 @@ export default function AdminCategoriesPage() {
                         Choisir…
                       </option>
                       {parentCandidates.map(
-                        (category) => (
-                          <option
-                            key={category.id}
-                            value={category.id}
-                          >
-                            {category.name}
-                          </option>
-                        ),
+                        (category) => {
+                          const parent =
+                            category.parentId
+                              ? categoryById.get(
+                                  category.parentId,
+                                )
+                              : null;
+
+                          return (
+                            <option
+                              key={category.id}
+                              value={category.id}
+                            >
+                              {parent
+                                ? `${parent.name} → ${category.name}`
+                                : category.name}
+                            </option>
+                          );
+                        },
                       )}
                     </select>
+
+                    {form.kind === "SUBSUBCATEGORY" ? (
+                      <p className="mt-2 text-xs leading-5 text-neutral-400">
+                        Le niveau 3 est optionnel. Choisissez ici la sous-catégorie qui contiendra cette sous-sous-catégorie.
+                      </p>
+                    ) : null}
                   </label>
                 ) : null}
               </section>
@@ -2047,9 +2313,9 @@ export default function AdminCategoriesPage() {
 
                   <label className="sm:col-span-2">
                     <span className="text-xs font-semibold text-neutral-600">
-                      {form.kind === "SUBCATEGORY"
-                        ? "Titre accrocheur"
-                        : "Titre de la catégorie"}
+                      {form.kind === "CATEGORY"
+                        ? "Titre de la catégorie"
+                        : "Titre accrocheur"}
                     </span>
                     <input
                       maxLength={200}
@@ -2061,9 +2327,11 @@ export default function AdminCategoriesPage() {
                         )
                       }
                       placeholder={
-                        form.kind === "SUBCATEGORY"
-                          ? "Ex : Illuminez chaque anniversaire"
-                          : "Ex : Lampes 3D personnalisées"
+                        form.kind === "SUBSUBCATEGORY"
+                          ? "Ex : Lampes pour chirurgiens"
+                          : form.kind === "SUBCATEGORY"
+                            ? "Ex : Découvrez nos lampes médecine"
+                            : "Ex : Lampes 3D personnalisées"
                       }
                       className="mt-2 h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm outline-none focus:border-neutral-300"
                     />
@@ -2135,7 +2403,12 @@ export default function AdminCategoriesPage() {
                     Image de présentation
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-neutral-400">
-                    Image utilisée pour représenter cette {isSubcategory ? "sous-catégorie" : "catégorie"}.
+                    Image utilisée pour représenter cette{" "}
+                    {isSubSubcategory
+                      ? "sous-sous-catégorie"
+                      : isSubcategory
+                        ? "sous-catégorie"
+                        : "catégorie"}.
                     JPEG, PNG, WebP ou AVIF. Maximum 10 Mo.
                   </p>
 
@@ -2265,16 +2538,16 @@ export default function AdminCategoriesPage() {
                   </div>
                 </section>
 
-              {/* Hero Images - Only for subcategories when editing */}
-              {isSubcategory && editingCategory && (
+              {/* Hero Images - pour les niveaux 2 et 3 lorsqu’ils existent en base */}
+              {isNestedCategory && editingCategory && (
                 <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-neutral-950">
-                        Carrousel Hero de la sous-catégorie
+                        Carrousel Hero de cette page
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-neutral-400">
-                        Ces images défilent automatiquement en haut de la page publique de cette sous-catégorie.
+                        Ces images défilent automatiquement en haut de la page publique correspondante.
                         Maximum 10 images. JPEG, PNG, WebP ou AVIF. Max 10 Mo.
                       </p>
                     </div>
@@ -2377,7 +2650,7 @@ export default function AdminCategoriesPage() {
                   ) : (
                     <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
                       <p className="text-xs text-neutral-400">
-                        Aucune image hero. Ajoutez une image pour le hero de cette sous-catégorie.
+                        Aucune image hero. Ajoutez une image pour le carrousel de cette page.
                       </p>
                     </div>
                   )}
