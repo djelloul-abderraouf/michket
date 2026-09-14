@@ -8,6 +8,7 @@
  */
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
@@ -53,7 +54,7 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-export function ProductDetail({ product }: ProductDetailProps) {
+export function ProductDetail({ product, relatedProducts = [] }: ProductDetailProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
@@ -62,37 +63,23 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [selectedVariant, setSelectedVariant] =
     useState<ProductVariant | null>(null);
 
-  // Filter images by selected variant, fallback to general images (variantId=null)
-  const filteredImages = useMemo(() => {
-    if (!selectedVariant) {
-      const generalImages = product.images.filter(
-        (img) => img.variantId === null,
-      );
-
-      return generalImages.length > 0 ? generalImages : product.images;
-    }
-
-    const variantImages = product.images.filter(
-      (img) => img.variantId === selectedVariant.id,
-    );
-
-    if (variantImages.length === 0) {
-      const generalImages = product.images.filter(
-        (img) => img.variantId === null,
-      );
-
-      return generalImages.length > 0 ? generalImages : product.images;
-    }
-
-    return variantImages;
-  }, [product.images, selectedVariant]);
+  // Keep the complete gallery visible at all times.
+  // Choosing a color only changes the large/main image.
+  const galleryImages = product.images;
 
   const [cartMessage, setCartMessage] = useState<string | null>(null);
 
-  // Reset image selection when variant changes
-  useEffect(() => {
-    setSelectedImage(0);
-  }, [selectedVariant]);
+  function handleVariantSelect(variant: ProductVariant) {
+    setSelectedVariant(variant);
+
+    const variantImageIndex = product.images.findIndex(
+      (image) => image.variantId === variant.id,
+    );
+
+    if (variantImageIndex >= 0) {
+      setSelectedImage(variantImageIndex);
+    }
+  }
 
   // Auto-dismiss cart message after 3s
   useEffect(() => {
@@ -137,7 +124,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
     [communeId, communes],
   );
 
-  const activeImage = filteredImages[selectedImage] ?? filteredImages[0];
+  const activeImage = galleryImages[selectedImage] ?? galleryImages[0];
 
   // A selected variant can override the base product price.
   // Example: product = 4 000 DA, red variant = 4 500 DA.
@@ -480,7 +467,15 @@ export function ProductDetail({ product }: ProductDetailProps) {
         slug: product.slug,
         title: product.title,
         price: effectiveUnitPrice,
-        image: filteredImages[0]?.src ?? null,
+        image:
+          (selectedVariant
+            ? product.images.find(
+                (image) => image.variantId === selectedVariant.id,
+              )?.src
+            : undefined) ??
+          product.images.find((image) => image.variantId === null)?.src ??
+          product.images[0]?.src ??
+          null,
         variantId: selectedVariant?.id,
         personalization: personalizationPayload,
       },
@@ -583,9 +578,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
             </button>
 
             {/* Miniatures : visibles aussi sur mobile */}
-            {filteredImages.length > 1 && (
+            {galleryImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0">
-                {filteredImages.map((image, index) => (
+                {galleryImages.map((image, index) => (
                   <button
                     key={`${image.src}-${index}`}
                     type="button"
@@ -607,6 +602,67 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     </div>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Choix de couleur : juste après les photos */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="rounded-[14px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_10px_28px_rgba(37,23,19,0.04)]">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#251713]/55">
+                      Choisissez la couleur
+                    </p>
+                    <p className="mt-1 text-[11px] text-[#251713]/45">
+                      Touchez une couleur pour afficher sa photo principale.
+                    </p>
+                  </div>
+
+                  {selectedVariant && (
+                    <span className="shrink-0 text-[11px] font-bold text-[#8A6A20]">
+                      {selectedVariant.colorName || selectedVariant.name}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2.5">
+                  {product.variants.map((variant) => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => handleVariantSelect(variant)}
+                      title={variant.colorName || variant.name}
+                      aria-label={`Choisir ${variant.colorName || variant.name}`}
+                      className={`relative h-11 w-11 rounded-full border-2 transition ${
+                        selectedVariant?.id === variant.id
+                          ? "border-[#ECAB1C] ring-4 ring-[#ECAB1C]/15"
+                          : "border-[#251713]/10 hover:border-[#251713]/25"
+                      }`}
+                    >
+                      {variant.isMulticolor ? (
+                        <span
+                          className="absolute inset-1.5 rounded-full"
+                          style={{
+                            background:
+                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                          }}
+                          aria-hidden="true"
+                        />
+                      ) : variant.colorHex ? (
+                        <span
+                          className="absolute inset-1.5 rounded-full"
+                          style={{ backgroundColor: variant.colorHex }}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span
+                          className="absolute inset-1.5 rounded-full bg-[#E7DED3]"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -672,66 +728,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   }
                 />
               </div>
-
-              {/* Variantes clairement visibles avant de commander */}
-              {product.variants && product.variants.length > 0 && (
-                <div className="mt-5 rounded-[14px] border border-[#251713]/[0.08] bg-[#FAF6F0] p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#251713]/55">
-                        Choisissez votre option
-                      </p>
-                      <p className="mt-1 text-[11px] text-[#251713]/45">
-                        Sélectionnez une couleur avant de commander.
-                      </p>
-                    </div>
-                    {selectedVariant && (
-                      <span className="text-[11px] font-bold text-[#8A6A20]">
-                        {selectedVariant.colorName || selectedVariant.name}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2.5">
-                    {product.variants.map((variant) => (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={() => setSelectedVariant(variant)}
-                        title={variant.colorName || variant.name}
-                        aria-label={`Choisir ${variant.colorName || variant.name}`}
-                        className={`relative h-10 w-10 rounded-full border-2 transition ${
-                          selectedVariant?.id === variant.id
-                            ? "border-[#ECAB1C] ring-4 ring-[#ECAB1C]/15"
-                            : "border-[#251713]/10 hover:border-[#251713]/25"
-                        }`}
-                      >
-                        {variant.isMulticolor ? (
-                          <span
-                            className="absolute inset-1.5 rounded-full"
-                            style={{
-                              background:
-                                "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                            }}
-                            aria-hidden="true"
-                          />
-                        ) : variant.colorHex ? (
-                          <span
-                            className="absolute inset-1.5 rounded-full"
-                            style={{ backgroundColor: variant.colorHex }}
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <span
-                            className="absolute inset-1.5 rounded-full bg-[#E7DED3]"
-                            aria-hidden="true"
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                 <button
@@ -1224,6 +1220,69 @@ export function ProductDetail({ product }: ProductDetailProps) {
         </div>
       </section>
 
+      {relatedProducts.length > 0 && (
+        <section className="mx-auto mt-2 max-w-[1240px] px-3 pb-6 sm:px-6 sm:pb-10 lg:px-8">
+          <div className="rounded-[20px] border border-[#251713]/[0.07] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
+            <div className="mb-4">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
+                Vous aimerez aussi
+              </p>
+              <h2 className="mt-1 font-body text-[22px] font-semibold tracking-[-0.035em] sm:text-[27px]">
+                Découvrez aussi ces produits
+              </h2>
+            </div>
+
+            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
+              {relatedProducts.slice(0, 4).map((related) => {
+                const relatedImage =
+                  related.images.find((image) => image.variantId === null) ??
+                  related.images[0];
+
+                return (
+                  <Link
+                    key={related.id}
+                    href={`/produits/${related.slug}`}
+                    className="group w-[72vw] max-w-[260px] shrink-0 overflow-hidden rounded-[15px] border border-[#251713]/[0.08] bg-[#FFFCF8] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,23,19,0.08)] sm:w-auto sm:max-w-none"
+                  >
+                    <div className="relative aspect-square bg-[#EDE3D7]">
+                      {relatedImage ? (
+                        <Image
+                          src={relatedImage.src}
+                          alt={relatedImage.alt || related.title}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                          sizes="(max-width: 639px) 72vw, (max-width: 1023px) 50vw, 25vw"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-[#251713]/30">
+                          Image indisponible
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-3.5">
+                      <h3 className="line-clamp-2 min-h-10 text-[13px] font-bold leading-5 text-[#251713]">
+                        {related.title}
+                      </h3>
+
+                      <div className="mt-2 flex items-end justify-between gap-2">
+                        <span className="text-[15px] font-extrabold text-[#251713]">
+                          {formatPriceDA(related.price)}
+                        </span>
+
+                        <span className="text-[10px] font-bold text-[#8A6A20]">
+                          Voir
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* WhatsApp flottant : reste visible pendant le scroll */}
       <a
         href={whatsappHref}
@@ -1285,9 +1344,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
               </div>
             </div>
 
-            {filteredImages.length > 1 && (
+            {galleryImages.length > 1 && (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {filteredImages.map((image, index) => (
+                {galleryImages.map((image, index) => (
                   <button
                     key={`${image.src}-modal-${index}`}
                     type="button"
