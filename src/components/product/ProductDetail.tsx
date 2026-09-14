@@ -15,16 +15,29 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { Product, ProductVariant, PersonalizationConfig } from "@/lib/api";
-import type { CheckoutWilaya } from "@/lib/algeria";
-import type { DeliveryType } from "@/data/delivery-prices";
+import {
+  getCommunes,
+  getDeliveryRate,
+  getWilayas,
+  type ApiCommune,
+  type ApiWilaya,
+  type Product,
+  type ProductVariant,
+} from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 
 interface ProductDetailProps {
   product: Product;
   relatedProducts?: Product[];
-  wilayas: CheckoutWilaya[];
+  /**
+   * Compatibilité temporaire avec la page produit actuelle.
+   * Les données de cette prop ne sont plus utilisées : les wilayas et communes
+   * sont maintenant chargées exclusivement depuis le backend Yalidine.
+   */
+  wilayas?: unknown;
 }
+
+type DeliveryType = "home" | "office";
 
 type OrderState =
   | { status: "idle" }
@@ -39,7 +52,7 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-export function ProductDetail({ product, wilayas }: ProductDetailProps) {
+export function ProductDetail({ product }: ProductDetailProps) {
   const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -91,23 +104,38 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
   const [phone, setPhone] = useState("");
   const [personalization, setPersonalization] = useState("");
   const [personalizationFields, setPersonalizationFields] = useState<Record<string, string>>({});
+
+  const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
   const [wilayaCode, setWilayaCode] = useState("");
-  const [commune, setCommune] = useState("");
+  const [wilayasLoading, setWilayasLoading] = useState(true);
+  const [wilayasError, setWilayasError] = useState("");
+
+  const [communes, setCommunes] = useState<ApiCommune[]>([]);
+  const [communeId, setCommuneId] = useState("");
+  const [communesLoading, setCommunesLoading] = useState(false);
+  const [communesError, setCommunesError] = useState("");
+
   const [address, setAddress] = useState("");
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("home");
 
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState("");
+  const [deliveryEstimate, setDeliveryEstimate] = useState<string | null>(null);
   const [orderState, setOrderState] = useState<OrderState>({ status: "idle" });
 
   const selectedWilaya = useMemo(
     () =>
-      wilayas.find((w) => String(w.code) === String(wilayaCode)) ?? null,
+      wilayas.find((item) => String(item.code) === wilayaCode) ?? null,
     [wilayaCode, wilayas],
   );
 
-  const communes = selectedWilaya?.communes ?? [];
+  const selectedCommune = useMemo(
+    () =>
+      communes.find((item) => String(item.id) === communeId) ?? null,
+    [communeId, communes],
+  );
+
   const activeImage = filteredImages[selectedImage] ?? filteredImages[0];
 
   // A selected variant can override the base product price.
@@ -121,65 +149,162 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
       ? null
       : subtotal + deliveryFee;
 
-  useEffect(() => {
-    setCommune("");
-  }, [wilayaCode]);
+  /* --------------------------------------------------------------- */
+  /* Yalidine locations                                              */
+  /* --------------------------------------------------------------- */
 
   useEffect(() => {
-    if (!wilayaCode) {
-      setDeliveryFee(null);
-      setDeliveryMessage("");
-      return;
-    }
+    let cancelled = false;
 
-    const controller = new AbortController();
-
-    async function loadRate() {
-      setDeliveryLoading(true);
-      setDeliveryFee(null);
-      setDeliveryMessage("");
+    (async () => {
+      setWilayasLoading(true);
+      setWilayasError("");
 
       try {
-        const response = await fetch("/api/delivery-rate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            wilayaCode: Number(wilayaCode),
-            deliveryType,
-          }),
-        });
+        const data = await getWilayas();
 
-        const data = (await response.json()) as {
-          fee?: number | null;
-          message?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(data.message || "Tarif indisponible.");
+        if (!cancelled) {
+          setWilayas(data);
         }
-
-        if (typeof data.fee === "number") {
-          setDeliveryFee(data.fee);
-          setDeliveryMessage("");
-        } else {
-          setDeliveryFee(null);
-          setDeliveryMessage(data.message || "Tarif à confirmer.");
+      } catch {
+        if (!cancelled) {
+          setWilayas([]);
+          setWilayasError("Impossible de charger les wilayas Yalidine.");
         }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setDeliveryFee(null);
-        setDeliveryMessage(
-          error instanceof Error ? error.message : "Tarif à confirmer.",
-        );
       } finally {
-        if (!controller.signal.aborted) setDeliveryLoading(false);
+        if (!cancelled) {
+          setWilayasLoading(false);
+        }
       }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setCommunes([]);
+    setCommuneId("");
+    setCommunesError("");
+    setDeliveryType("home");
+    setDeliveryFee(null);
+    setDeliveryMessage("");
+    setDeliveryEstimate(null);
+
+    if (!wilayaCode) {
+      setCommunesLoading(false);
+      return () => {
+        cancelled = true;
+      };
     }
 
-    loadRate();
-    return () => controller.abort();
-  }, [wilayaCode, deliveryType]);
+    const code = Number(wilayaCode);
+
+    if (!Number.isInteger(code)) {
+      setCommunesLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setCommunesLoading(true);
+
+    (async () => {
+      try {
+        const data = await getCommunes(code);
+
+        if (!cancelled) {
+          setCommunes(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setCommunes([]);
+          setCommunesError("Impossible de charger les communes Yalidine.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCommunesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wilayaCode]);
+
+  /* --------------------------------------------------------------- */
+  /* Exact Yalidine fee                                              */
+  /* --------------------------------------------------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setDeliveryFee(null);
+    setDeliveryMessage("");
+    setDeliveryEstimate(null);
+
+    if (!selectedWilaya || !selectedCommune) {
+      setDeliveryLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!selectedWilaya.available || !selectedCommune.available) {
+      setDeliveryLoading(false);
+      setDeliveryMessage("Livraison indisponible pour cette destination.");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (deliveryType === "office" && !selectedCommune.hasStopDesk) {
+      setDeliveryLoading(false);
+      setDeliveryMessage(
+        "La livraison en bureau Yalidine n'est pas disponible pour cette commune.",
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDeliveryLoading(true);
+
+    (async () => {
+      try {
+        const rate = await getDeliveryRate(
+          selectedWilaya.code,
+          selectedCommune.id,
+          deliveryType,
+        );
+
+        if (!cancelled) {
+          setDeliveryFee(rate.amountCents / 100);
+          setDeliveryEstimate(rate.estimate);
+        }
+      } catch {
+        if (!cancelled) {
+          setDeliveryFee(null);
+          setDeliveryEstimate(null);
+          setDeliveryMessage(
+            "Impossible de calculer le tarif Yalidine pour cette livraison.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDeliveryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWilaya, selectedCommune, deliveryType]);
 
   useEffect(() => {
     if (!imageModalOpen) return;
@@ -214,11 +339,17 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
       return;
     }
 
-    if (!selectedWilaya || !commune || deliveryFee === null) {
+    if (
+      !selectedWilaya ||
+      !selectedCommune ||
+      !selectedCommune.available ||
+      (deliveryType === "office" && !selectedCommune.hasStopDesk) ||
+      deliveryFee === null
+    ) {
       setOrderState({
         status: "error",
         message:
-          "Sélectionnez votre wilaya, votre commune et un mode de livraison disponible.",
+          "Sélectionnez votre wilaya, votre commune et un mode de livraison Yalidine disponible.",
       });
       return;
     }
@@ -254,7 +385,8 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
           personalization: personalizationValue,
           wilayaCode: selectedWilaya.code,
           wilayaName: selectedWilaya.name,
-          commune,
+          communeId: selectedCommune.id,
+          commune: selectedCommune.name,
           address,
           deliveryType,
           website: formData.get("website") ?? "",
@@ -365,10 +497,14 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
       product.variants.length === 0 ||
       Boolean(selectedVariant)) &&
     Boolean(phone.trim()) &&
-    Boolean(wilayaCode) &&
-    Boolean(commune) &&
+    Boolean(selectedWilaya?.available) &&
+    Boolean(selectedCommune?.available) &&
+    (deliveryType === "home" || selectedCommune?.hasStopDesk === true) &&
     (deliveryType === "office" || Boolean(address.trim())) &&
     isPersonalizationValid &&
+    !wilayasLoading &&
+    !communesLoading &&
+    !deliveryLoading &&
     deliveryFee !== null &&
     orderState.status !== "sending";
 
@@ -716,39 +852,82 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                     value={wilayaCode}
                     onChange={(e) => setWilayaCode(e.target.value)}
                     required
-                    className={inputClass}
+                    disabled={wilayasLoading || Boolean(wilayasError)}
+                    className={`${inputClass} disabled:bg-[#EFE8DF] disabled:text-[#251713]/30`}
                   >
-                    <option value="">Choisir une wilaya</option>
+                    <option value="">
+                      {wilayasLoading
+                        ? "Chargement des wilayas Yalidine…"
+                        : "Choisir une wilaya"}
+                    </option>
                     {wilayas.map((wilaya) => (
-                      <option key={wilaya.code} value={wilaya.code}>
+                      <option
+                        key={wilaya.code}
+                        value={wilaya.code}
+                        disabled={!wilaya.available}
+                      >
                         {String(wilaya.code).padStart(2, "0")} — {wilaya.name}
+                        {!wilaya.available ? " (Indisponible)" : ""}
                       </option>
                     ))}
                   </select>
+                  {wilayasError && (
+                    <span className="mt-1 block text-[10px] font-medium text-red-700">
+                      {wilayasError}
+                    </span>
+                  )}
                 </Field>
 
                 <Field label="Commune" required>
                   <select
-                    value={commune}
-                    onChange={(e) => setCommune(e.target.value)}
+                    value={communeId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      const nextCommune =
+                        communes.find(
+                          (item) => String(item.id) === nextId,
+                        ) ?? null;
+
+                      setCommuneId(nextId);
+
+                      if (
+                        deliveryType === "office" &&
+                        nextCommune?.hasStopDesk !== true
+                      ) {
+                        setDeliveryType("home");
+                      }
+                    }}
                     required
-                    disabled={!wilayaCode}
+                    disabled={
+                      !wilayaCode ||
+                      communesLoading ||
+                      Boolean(communesError)
+                    }
                     className={`${inputClass} disabled:bg-[#EFE8DF] disabled:text-[#251713]/30`}
                   >
                     <option value="">
-                      {wilayaCode
-                        ? "Choisir une commune"
-                        : "Choisir d'abord la wilaya"}
+                      {!wilayaCode
+                        ? "Choisir d'abord la wilaya"
+                        : communesLoading
+                          ? "Chargement des communes Yalidine…"
+                          : "Choisir une commune"}
                     </option>
                     {communes.map((item) => (
                       <option
-                        key={`${item.name}-${item.nameAr}`}
-                        value={item.name}
+                        key={item.id}
+                        value={item.id}
+                        disabled={!item.available}
                       >
                         {item.name}
+                        {!item.available ? " (Indisponible)" : ""}
                       </option>
                     ))}
                   </select>
+                  {communesError && (
+                    <span className="mt-1 block text-[10px] font-medium text-red-700">
+                      {communesError}
+                    </span>
+                  )}
                 </Field>
               </div>
 
@@ -766,20 +945,37 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                         ? formatPriceDA(deliveryFee)
                         : undefined
                     }
+                    disabled={!selectedCommune?.available}
                     onClick={() => setDeliveryType("home")}
                   />
 
                   <DeliveryChoice
                     active={deliveryType === "office"}
-                    title="Bureau"
+                    title="Bureau Yalidine"
                     price={
                       deliveryType === "office" && deliveryFee !== null
                         ? formatPriceDA(deliveryFee)
                         : undefined
                     }
+                    disabled={
+                      !selectedCommune?.available ||
+                      selectedCommune?.hasStopDesk !== true
+                    }
+                    unavailableText={
+                      selectedCommune &&
+                      selectedCommune.hasStopDesk !== true
+                        ? "Indisponible"
+                        : undefined
+                    }
                     onClick={() => setDeliveryType("office")}
                   />
                 </div>
+
+                {selectedCommune?.deliveryTime && (
+                  <p className="mt-2 text-[10px] text-[#251713]/45">
+                    Délai indicatif Yalidine : {selectedCommune.deliveryTime}
+                  </p>
+                )}
               </div>
 
               {deliveryType === "home" && (
@@ -807,6 +1003,7 @@ export function ProductDetail({ product, wilayas }: ProductDetailProps) {
                 ) : deliveryFee !== null ? (
                   <span className="font-semibold text-emerald-700">
                     Livraison : {formatPriceDA(deliveryFee)}
+                    {deliveryEstimate ? ` · ${deliveryEstimate}` : ""}
                   </span>
                 ) : null}
               </div>
@@ -984,27 +1181,39 @@ function DeliveryChoice({
   active,
   title,
   price,
+  disabled = false,
+  unavailableText,
   onClick,
 }: {
   active: boolean;
   title: string;
   price?: string;
+  disabled?: boolean;
+  unavailableText?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={`rounded-[11px] border p-3.5 text-left transition ${
-        active
-          ? "border-[#ECAB1C] bg-[#FFF8E8]"
-          : "border-[#251713]/10 bg-white"
+        disabled
+          ? "cursor-not-allowed border-[#251713]/[0.06] bg-[#EFE8DF] text-[#251713]/35"
+          : active
+            ? "border-[#ECAB1C] bg-[#FFF8E8]"
+            : "border-[#251713]/10 bg-white"
       }`}
     >
       <p className="text-[11px] font-bold">{title}</p>
-      {price && (
+      {price && !disabled && (
         <p className="mt-1 text-[10px] font-extrabold text-[#8A6A20]">
           {price}
+        </p>
+      )}
+      {unavailableText && disabled && (
+        <p className="mt-1 text-[9px] font-semibold">
+          {unavailableText}
         </p>
       )}
     </button>

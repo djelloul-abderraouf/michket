@@ -1,11 +1,26 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import type { DeliveryType } from "@/data/delivery-prices";
 import {
   ApiNotFoundError,
   fetchProductBySlug,
 } from "@/lib/api";
-import { getDeliveryRate } from "@/lib/delivery";
+
+export const runtime = "nodejs";
+
+const API_BASE =
+  process.env.BACKEND_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1";
+
+type DeliveryType = "home" | "office";
+
+type BackendOrderResponse = {
+  id: string;
+  reference: string;
+  totalCents: number;
+  guestAccessToken?: string;
+};
 
 function clean(
   value: unknown,
@@ -30,6 +45,33 @@ function isValidAlgerianPhone(
   );
 }
 
+async function readBackendError(
+  response: Response,
+): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(body.message)) {
+      return body.message.join(" · ");
+    }
+
+    if (typeof body.message === "string") {
+      return body.message;
+    }
+
+    if (typeof body.error === "string") {
+      return body.error;
+    }
+  } catch {
+    // Keep generic fallback below.
+  }
+
+  return "La commande n'a pas pu être enregistrée.";
+}
+
 export async function POST(request: Request) {
   try {
     const body =
@@ -49,10 +91,133 @@ export async function POST(request: Request) {
       body.productSlug,
       160,
     );
-    const variantId = clean(
-      body.variantId,
+
+    const variantId =
+      clean(body.variantId, 100) ||
+      null;
+
+    const firstName = clean(
+      body.firstName,
       100,
     );
+
+    const lastName = clean(
+      body.lastName,
+      100,
+    );
+
+    const phone = normalizePhone(
+      clean(body.phone, 30),
+    );
+
+    const personalization = clean(
+      body.personalization,
+      10_000,
+    );
+
+    const address = clean(
+      body.address,
+      255,
+    );
+
+    const commune = clean(
+      body.commune,
+      100,
+    );
+
+    const quantity = Number(
+      body.quantity,
+    );
+
+    const wilayaCode = Number(
+      body.wilayaCode,
+    );
+
+    const communeId = Number(
+      body.communeId,
+    );
+
+    const rawDeliveryType = clean(
+      body.deliveryType,
+      20,
+    );
+
+    const deliveryType:
+      | DeliveryType
+      | null =
+      rawDeliveryType === "home" ||
+      rawDeliveryType === "office"
+        ? rawDeliveryType
+        : null;
+
+    if (
+      !productSlug ||
+      !firstName ||
+      !lastName ||
+      !commune
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Merci de compléter tous les champs obligatoires.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!isValidAlgerianPhone(phone)) {
+      return NextResponse.json(
+        {
+          message:
+            "Le numéro de téléphone n'est pas valide.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 99
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "La quantité sélectionnée est invalide.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !Number.isInteger(wilayaCode) ||
+      wilayaCode < 1 ||
+      wilayaCode > 58 ||
+      !Number.isInteger(communeId) ||
+      communeId <= 0 ||
+      !deliveryType
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Adresse de livraison invalide.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      deliveryType === "home" &&
+      !address
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Merci d'indiquer l'adresse de livraison.",
+        },
+        { status: 400 },
+      );
+    }
 
     let product;
 
@@ -118,277 +283,138 @@ export async function POST(request: Request) {
       );
     }
 
-    const firstName = clean(
-      body.firstName,
-      80,
-    );
-    const lastName = clean(
-      body.lastName,
-      80,
-    );
-    const phone = normalizePhone(
-      clean(body.phone, 30),
-    );
-    const personalization = clean(
-      body.personalization,
-      1500,
-    );
-    const address = clean(
-      body.address,
-      300,
-    );
-    const commune = clean(
-      body.commune,
-      120,
-    );
-    const wilayaName = clean(
-      body.wilayaName,
-      120,
-    );
-
-    const quantity = Math.max(
-      1,
-      Math.min(
-        10,
-        Number(body.quantity) || 1,
-      ),
-    );
-
-    const wilayaCode = Number(
-      body.wilayaCode,
-    );
-
-    const deliveryType = clean(
-      body.deliveryType,
-      20,
-    ) as DeliveryType;
-
-    if (
-      !firstName ||
-      !lastName ||
-      !commune ||
-      !wilayaName
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Merci de compléter tous les champs obligatoires.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!isValidAlgerianPhone(phone)) {
-      return NextResponse.json(
-        {
-          message:
-            "Le numéro de téléphone n'est pas valide.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (
-      !Number.isInteger(
-        wilayaCode,
-      ) ||
-      wilayaCode < 1 ||
-      wilayaCode > 69 ||
-      (deliveryType !== "home" &&
-        deliveryType !== "office")
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Adresse de livraison invalide.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (
-      deliveryType === "home" &&
-      !address
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Merci d'indiquer l'adresse de livraison.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (
-      product.isPersonalizable &&
-      !personalization
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Merci d'indiquer la personnalisation souhaitée.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const rate =
-      await getDeliveryRate(
-        wilayaCode,
-        deliveryType,
-      );
-
-    if (rate.fee === null) {
-      return NextResponse.json(
-        {
-          message:
-            "Le tarif de livraison n'est pas encore configuré pour cette destination.",
-        },
-        { status: 400 },
-      );
-    }
-
     /*
-     * SECURITY:
-     * Never trust a price sent by the browser.
-     * The unit price is resolved again from the public backend here.
+     * IMPORTANT:
+     * This Next.js route no longer calculates prices or delivery fees.
+     * The NestJS backend is the single source of truth:
+     * - product / variant price
+     * - Yalidine wilaya + commune validation
+     * - home / stop-desk availability
+     * - exact delivery fee
+     * - final total
      */
-    const unitPriceCents =
-      selectedVariant?.priceCents ??
-      product.priceCents;
 
-    const unitPrice =
-      unitPriceCents / 100;
+    const personalizationPayload =
+      personalization
+        ? { text: personalization }
+        : undefined;
 
-    const subtotal = Number(
-      (
-        unitPrice * quantity
-      ).toFixed(2),
-    );
+    const backendPayload = {
+      items: [
+        {
+          productId: product.id,
+          ...(selectedVariant
+            ? {
+                variantId:
+                  selectedVariant.id,
+              }
+            : {}),
+          quantity,
+          ...(personalizationPayload
+            ? {
+                personalization:
+                  personalizationPayload,
+              }
+            : {}),
+        },
+      ],
 
-    const total = Number(
-      (
-        subtotal + rate.fee
-      ).toFixed(2),
-    );
+      firstName,
+      lastName,
+      phone,
 
-    const reference =
-      `MICH-${Date.now()
-        .toString(36)
-        .toUpperCase()}`;
+      // Backend DTO currently requires addressLine1 for every order.
+      // For stop-desk delivery we store a neutral, server-generated label.
+      addressLine1:
+        deliveryType === "home"
+          ? address
+          : `Bureau Yalidine - ${commune}`,
 
-    const order = {
-      reference,
-      createdAt:
-        new Date().toISOString(),
-      status: "new",
-
-      product: {
-        id: product.id,
-        slug: product.slug,
-        title: product.name,
-
-        variant: selectedVariant
-          ? {
-              id: selectedVariant.id,
-              name:
-                selectedVariant.name,
-              sku:
-                selectedVariant.sku,
-              colorName:
-                selectedVariant.colorName,
-              colorHex:
-                selectedVariant.colorHex,
-              isMulticolor:
-                selectedVariant.isMulticolor,
-            }
-          : null,
-
-        unitPrice,
-        quantity,
-        subtotal,
-      },
-
-      customer: {
-        firstName,
-        lastName,
-        phone,
-      },
-
-      personalization,
-
-      delivery: {
-        wilayaCode,
-        wilayaName,
-        commune,
-        address:
-          deliveryType === "home"
-            ? address
-            : "",
-        type: deliveryType,
-        fee: rate.fee,
-        courierWilayaCode:
-          rate.courierWilayaCode,
-      },
-
-      total,
-      currency: "DZD",
+      wilayaCode,
+      communeId,
+      commune,
+      deliveryType,
     };
 
-    const webhookUrl =
-      process.env.ORDER_WEBHOOK_URL;
+    /*
+     * Guest checkout requires both headers.
+     * If a future client supplies stable values, preserve them.
+     * Otherwise generate server-side UUIDs for this direct-order request.
+     */
+    const incomingSessionId =
+      request.headers
+        .get("x-session-id")
+        ?.trim();
 
-    if (!webhookUrl) {
-      console.error(
-        "[Michket] ORDER_WEBHOOK_URL absent. Commande non transmise:",
-        reference,
+    const sessionId =
+      incomingSessionId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        incomingSessionId,
+      )
+        ? incomingSessionId
+        : randomUUID();
+
+    const incomingIdempotencyKey =
+      request.headers
+        .get("idempotency-key")
+        ?.trim();
+
+    const idempotencyKey =
+      incomingIdempotencyKey &&
+      incomingIdempotencyKey.length >= 16 &&
+      incomingIdempotencyKey.length <= 128
+        ? incomingIdempotencyKey
+        : randomUUID();
+
+    const backendResponse =
+      await fetch(
+        `${API_BASE}/orders`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            "Idempotency-Key":
+              idempotencyKey,
+            "X-Session-Id":
+              sessionId,
+          },
+          cache: "no-store",
+          body: JSON.stringify(
+            backendPayload,
+          ),
+        },
       );
 
+    if (!backendResponse.ok) {
+      const message =
+        await readBackendError(
+          backendResponse,
+        );
+
       return NextResponse.json(
+        { message },
         {
-          message:
-            "Le système de réception des commandes n'est pas encore connecté.",
+          status:
+            backendResponse.status,
         },
-        { status: 503 },
       );
     }
 
-    const webhookResponse =
-      await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        cache: "no-store",
-        body: JSON.stringify(
-          order,
-        ),
-      });
-
-    if (!webhookResponse.ok) {
-      console.error(
-        "[Michket] Webhook commande en erreur:",
-        webhookResponse.status,
-      );
-
-      return NextResponse.json(
-        {
-          message:
-            "La commande n'a pas pu être transmise. Merci de réessayer.",
-        },
-        { status: 502 },
-      );
-    }
+    const order =
+      (await backendResponse.json()) as BackendOrderResponse;
 
     return NextResponse.json({
       ok: true,
-      reference,
-      total,
+      reference: order.reference,
+      total:
+        order.totalCents / 100,
+      guestAccessToken:
+        order.guestAccessToken,
     });
   } catch (error) {
     console.error(
-      "[Michket] Erreur commande:",
+      "[Michket] Erreur commande directe:",
       error,
     );
 

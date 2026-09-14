@@ -8,7 +8,10 @@ import {
   type Product,
   ApiNotFoundError,
 } from "@/lib/api";
-import { getAlgeriaLocations } from "@/lib/algeria";
+
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+  "http://localhost:3001";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -24,14 +27,16 @@ export async function generateStaticParams() {
     const { fetchProducts } = await import("@/lib/api");
     const res = await fetchProducts({ limit: 50 });
     const validSlugs: { slug: string }[] = [];
+
     for (const p of res.data) {
       try {
         await fetchProductDetail(p.slug);
         validSlugs.push({ slug: p.slug });
       } catch {
-        // Detail endpoint returned 500 or other error — skip this slug
+        // Detail endpoint returned 500 or other error — skip this slug.
       }
     }
+
     return validSlugs;
   } catch {
     return [];
@@ -42,10 +47,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
 
   let detail: Awaited<ReturnType<typeof fetchProductBySlugSafe>> = null;
+
   try {
     detail = await fetchProductBySlugSafe(slug);
   } catch {
-    // Server error during build — return fallback metadata
+    // Server error during build — return fallback metadata.
     return { title: "Produit | Michket" };
   }
 
@@ -54,9 +60,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
   }
 
   const title = detail.metaTitle ?? `${detail.name} | Michket`;
-  const description = detail.metaDescription ?? detail.description ?? "";
+  const description =
+    detail.metaDescription ?? detail.description ?? "";
 
-  // Get first image URL for OG
   const firstImage =
     detail.images.length > 0
       ? [...detail.images]
@@ -78,27 +84,35 @@ export async function generateMetadata({ params }: ProductPageProps) {
   };
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
+export default async function ProductPage({
+  params,
+}: ProductPageProps) {
   const { slug } = await params;
 
-  let product: Product & { metaTitle?: string; metaDescription?: string };
+  let product: Product & {
+    metaTitle?: string;
+    metaDescription?: string;
+  };
+
   try {
     product = await fetchProductDetail(slug);
   } catch (e) {
     if (e instanceof ApiNotFoundError) {
       notFound();
     }
-    // Server error (500/network) — propagate to error.tsx, NOT notFound()
+
+    // Server error (500/network) — propagate to error.tsx, NOT notFound().
     throw e;
   }
 
-  const [wilayas] = await Promise.all([getAlgeriaLocations()]);
-
-  // Fetch related products from same category
+  // Fetch related products from same category.
   let relatedProducts: Product[] = [];
+
   if (product.category) {
     try {
-      const allCategoryProducts = await fetchProductsForCategory(product.category);
+      const allCategoryProducts =
+        await fetchProductsForCategory(product.category);
+
       relatedProducts = allCategoryProducts
         .filter((p) => p.id !== product.id)
         .slice(0, 4);
@@ -111,12 +125,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <>
       <ProductJsonLd
         product={product}
-        url={`https://seashell-armadillo-282520.hostingersite.com/produits/${product.slug}`}
+        url={`${SITE_URL}/produits/${product.slug}`}
       />
+
       <ProductDetail
         product={product}
         relatedProducts={relatedProducts}
-        wilayas={wilayas}
       />
     </>
   );
