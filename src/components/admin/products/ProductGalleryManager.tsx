@@ -19,7 +19,7 @@ type ProductImage = {
   variantId: string | null;
 };
 
-type ProductVariantOption = {
+export type ProductVariantOption = {
   id: string;
   name: string;
   colorName: string | null;
@@ -50,7 +50,607 @@ function apiMessage(
     : payload.message;
 }
 
-export function ProductGalleryManager({
+
+export type DraftProductImage = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  altText: string;
+  sortOrder: number;
+  isPrimary: boolean;
+  /**
+   * During creation this can contain a temporary variant id.
+   * The creation page will translate it to the real backend variant id
+   * after the product has been created.
+   */
+  variantId: string | null;
+};
+
+type ProductGalleryManagerProps = {
+  /**
+   * Existing product id.
+   * Leave null/undefined while preparing a brand-new product.
+   */
+  productId?: string | null;
+  images?: ProductImage[];
+  draftImages?: DraftProductImage[];
+  variants?: ProductVariantOption[];
+  token?: string;
+  onImagesChange?: (images: ProductImage[]) => void;
+  onDraftImagesChange?: (images: DraftProductImage[]) => void;
+};
+
+function makeDraftImageId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `draft-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+function DraftProductGallery({
+  images,
+  variants,
+  onImagesChange,
+}: {
+  images: DraftProductImage[];
+  variants: ProductVariantOption[];
+  onImagesChange: (images: DraftProductImage[]) => void;
+}) {
+  const [error, setError] = useState<string | null>(
+    null,
+  );
+  const [editingAltId, setEditingAltId] = useState<
+    string | null
+  >(null);
+  const [altDraft, setAltDraft] = useState("");
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const commit = useCallback(
+    (nextImages: DraftProductImage[]) => {
+      const normalized = nextImages.map(
+        (image, index) => ({
+          ...image,
+          sortOrder: index,
+        }),
+      );
+
+      if (
+        normalized.length > 0 &&
+        !normalized.some(
+          (image) => image.isPrimary,
+        )
+      ) {
+        normalized[0] = {
+          ...normalized[0],
+          isPrimary: true,
+        };
+      }
+
+      onImagesChange(normalized);
+    },
+    [onImagesChange],
+  );
+
+  const handleFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setError(null);
+
+      if (!ALLOWED_MIMES.has(file.type)) {
+        setError(
+          "Format non supporté. Utilisez JPEG, PNG, WebP ou AVIF.",
+        );
+        event.target.value = "";
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        setError(
+          "Le fichier dépasse la limite de 10 Mo.",
+        );
+        event.target.value = "";
+        return;
+      }
+
+      if (images.length >= MAX_IMAGES) {
+        setError(
+          `Maximum ${MAX_IMAGES} images par produit.`,
+        );
+        event.target.value = "";
+        return;
+      }
+
+      const draftImage: DraftProductImage = {
+        id: makeDraftImageId(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        altText: "",
+        sortOrder: images.length,
+        isPrimary: images.length === 0,
+        variantId: null,
+      };
+
+      commit([...images, draftImage]);
+      event.target.value = "";
+    },
+    [commit, images],
+  );
+
+  const handleSetPrimary = useCallback(
+    (imageId: string) => {
+      commit(
+        images.map((image) => ({
+          ...image,
+          isPrimary: image.id === imageId,
+        })),
+      );
+    },
+    [commit, images],
+  );
+
+  const startEditAlt = useCallback(
+    (image: DraftProductImage) => {
+      setEditingAltId(image.id);
+      setAltDraft(image.altText);
+    },
+    [],
+  );
+
+  const saveAlt = useCallback(
+    (imageId: string) => {
+      commit(
+        images.map((image) =>
+          image.id === imageId
+            ? {
+                ...image,
+                altText: altDraft.trim(),
+              }
+            : image,
+        ),
+      );
+      setEditingAltId(null);
+    },
+    [altDraft, commit, images],
+  );
+
+  const handleMove = useCallback(
+    (imageId: string, direction: "up" | "down") => {
+      const index = images.findIndex(
+        (image) => image.id === imageId,
+      );
+
+      if (index < 0) return;
+
+      const targetIndex =
+        direction === "up" ? index - 1 : index + 1;
+
+      if (
+        targetIndex < 0 ||
+        targetIndex >= images.length
+      ) {
+        return;
+      }
+
+      const next = [...images];
+      [next[index], next[targetIndex]] = [
+        next[targetIndex],
+        next[index],
+      ];
+
+      commit(next);
+    },
+    [commit, images],
+  );
+
+  const handleDelete = useCallback(
+    (image: DraftProductImage) => {
+      URL.revokeObjectURL(image.previewUrl);
+
+      const next = images.filter(
+        (item) => item.id !== image.id,
+      );
+
+      if (
+        image.isPrimary &&
+        next.length > 0
+      ) {
+        next[0] = {
+          ...next[0],
+          isPrimary: true,
+        };
+      }
+
+      commit(next);
+
+      if (editingAltId === image.id) {
+        setEditingAltId(null);
+        setAltDraft("");
+      }
+    },
+    [commit, editingAltId, images],
+  );
+
+  const handleSetVariant = useCallback(
+    (imageId: string, variantId: string | null) => {
+      commit(
+        images.map((image) =>
+          image.id === imageId
+            ? {
+                ...image,
+                variantId,
+              }
+            : image,
+        ),
+      );
+    },
+    [commit, images],
+  );
+
+  return (
+    <div>
+      {error ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
+            Images
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-neutral-950">
+            Galerie produit
+          </h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-500">
+            Préparez les photos maintenant. Elles seront envoyées
+            automatiquement lorsque vous créerez le produit.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-neutral-400">
+            {images.length}/{MAX_IMAGES}
+          </span>
+
+          <label
+            className={[
+              "inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition",
+              images.length >= MAX_IMAGES
+                ? "cursor-not-allowed bg-neutral-100 text-neutral-400"
+                : "bg-neutral-950 text-white hover:bg-neutral-800",
+            ].join(" ")}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              className="hidden"
+              disabled={images.length >= MAX_IMAGES}
+              onChange={handleFileSelect}
+            />
+
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Ajouter
+          </label>
+        </div>
+      </div>
+
+      {images.length === 0 ? (
+        <div className="mt-5 rounded-xl bg-[#faf9f6] px-4 py-12 text-center">
+          <svg
+            className="mx-auto h-10 w-10 text-neutral-300"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="3"
+            />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+
+          <p className="mt-3 text-sm text-neutral-400">
+            Aucune image. Cliquez sur{" "}
+            <strong>Ajouter</strong> pour préparer la galerie.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {images.map((image, index) => (
+            <div
+              key={image.id}
+              className={[
+                "overflow-hidden rounded-xl border bg-white transition",
+                image.isPrimary
+                  ? "border-neutral-950 ring-2 ring-neutral-950/10"
+                  : "border-black/[0.06] hover:border-black/[0.12]",
+              ].join(" ")}
+            >
+              <div className="relative aspect-square overflow-hidden bg-[#f3f1ec]">
+                <img
+                  src={image.previewUrl}
+                  alt={
+                    image.altText ||
+                    "Aperçu de l'image produit"
+                  }
+                  className="h-full w-full object-cover"
+                />
+
+                {image.isPrimary ? (
+                  <span className="absolute left-2 top-2 rounded-full bg-neutral-950/90 px-2 py-1 text-[10px] font-semibold text-white">
+                    Principale
+                  </span>
+                ) : null}
+
+                {editingAltId === image.id ? (
+                  <div className="absolute inset-0 z-20 flex flex-col justify-end bg-black/70 p-3">
+                    <label className="text-[10px] font-semibold text-white/80">
+                      Texte alternatif
+                    </label>
+                    <input
+                      type="text"
+                      value={altDraft}
+                      onChange={(event) =>
+                        setAltDraft(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          saveAlt(image.id);
+                        }
+
+                        if (event.key === "Escape") {
+                          setEditingAltId(null);
+                        }
+                      }}
+                      placeholder="Décrivez l'image…"
+                      autoFocus
+                      className="mt-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none ring-1 ring-black/10 placeholder:text-neutral-400"
+                    />
+
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveAlt(image.id)
+                        }
+                        className="flex-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-neutral-900 transition hover:bg-neutral-100"
+                      >
+                        Enregistrer
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingAltId(null)
+                        }
+                        className="rounded-lg bg-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/30"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-2.5 border-t border-black/[0.06] p-2.5">
+                {variants.length > 0 ? (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400">
+                      Variante de cette image
+                    </span>
+                    <select
+                      value={image.variantId ?? ""}
+                      onChange={(event) =>
+                        handleSetVariant(
+                          image.id,
+                          event.target.value || null,
+                        )
+                      }
+                      className="h-9 w-full rounded-lg border border-black/[0.10] bg-white px-2.5 text-xs font-medium text-neutral-700 outline-none transition focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/15"
+                    >
+                      <option value="">
+                        Image générale
+                      </option>
+                      {variants.map((variant) => (
+                        <option
+                          key={variant.id}
+                          value={variant.id}
+                        >
+                          {variant.colorName ??
+                            variant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p className="text-[11px] leading-5 text-neutral-400">
+                    Ajoutez une variante pour pouvoir associer
+                    cette image à une couleur.
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() =>
+                        handleMove(image.id, "up")
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
+                      title="Déplacer vers la gauche"
+                      aria-label="Déplacer vers la gauche"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        index === images.length - 1
+                      }
+                      onClick={() =>
+                        handleMove(image.id, "down")
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
+                      title="Déplacer vers la droite"
+                      aria-label="Déplacer vers la droite"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {!image.isPrimary ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSetPrimary(image.id)
+                        }
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50"
+                        title="Définir comme image principale"
+                        aria-label="Définir comme image principale"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      </button>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        startEditAlt(image)
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-black/[0.07] bg-white text-neutral-600 transition hover:bg-neutral-50"
+                      title="Modifier le texte alternatif"
+                      aria-label="Modifier le texte alternatif"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      >
+                        <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                      </svg>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDelete(image)
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100"
+                      title="Supprimer l'image"
+                      aria-label="Supprimer l'image"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      >
+                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProductGalleryManager(
+  props: ProductGalleryManagerProps,
+) {
+  const {
+    productId,
+    images = [],
+    draftImages = [],
+    variants = [],
+    token = "",
+    onImagesChange = () => {},
+    onDraftImagesChange = () => {},
+  } = props;
+
+  if (!productId) {
+    return (
+      <DraftProductGallery
+        images={draftImages}
+        variants={variants}
+        onImagesChange={onDraftImagesChange}
+      />
+    );
+  }
+
+  return (
+    <LiveProductGallery
+      productId={productId}
+      images={images}
+      variants={variants}
+      token={token}
+      onImagesChange={onImagesChange}
+    />
+  );
+}
+
+function LiveProductGallery({
   productId,
   images: initialImages,
   variants = [],
