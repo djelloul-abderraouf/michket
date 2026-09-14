@@ -695,40 +695,6 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 {product.description}
               </p>
 
-              {/* Réassurance */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <TrustPoint
-                  title="Paiement"
-                  text="À la livraison"
-                  icon={
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M3 9h18M7 15h3" />
-                    </svg>
-                  }
-                />
-                <TrustPoint
-                  title="Livraison"
-                  text="Tarif calculé"
-                  icon={
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
-                      <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
-                      <circle cx="7" cy="18" r="2" />
-                      <circle cx="17" cy="18" r="2" />
-                    </svg>
-                  }
-                />
-                <TrustPoint
-                  title="Commande"
-                  text="Confirmation"
-                  icon={
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
-                      <path d="M5 12l4 4L19 6" />
-                    </svg>
-                  }
-                />
-              </div>
-
               <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
                 <button
                   type="button"
@@ -1217,6 +1183,44 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </FormSection>
             </div>
           </form>
+        </div>
+      </section>
+
+      {/* Réassurance : placée tout en bas, juste avant les produits suggérés */}
+      <section className="mx-auto max-w-[1240px] px-3 pb-4 sm:px-6 sm:pb-6 lg:px-8">
+        <div className="grid grid-cols-3 gap-2 rounded-[18px] border border-[#251713]/[0.07] bg-white p-3 shadow-[0_12px_30px_rgba(37,23,19,0.04)] sm:gap-3 sm:p-4">
+          <TrustPoint
+            title="Paiement"
+            text="À la livraison"
+            icon={
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M3 9h18M7 15h3" />
+              </svg>
+            }
+          />
+
+          <TrustPoint
+            title="Livraison"
+            text="Tarif calculé"
+            icon={
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
+                <circle cx="7" cy="18" r="2" />
+                <circle cx="17" cy="18" r="2" />
+              </svg>
+            }
+          />
+
+          <TrustPoint
+            title="Commande"
+            text="Confirmation"
+            icon={
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M5 12l4 4L19 6" />
+              </svg>
+            }
+          />
         </div>
       </section>
 
