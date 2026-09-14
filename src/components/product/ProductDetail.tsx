@@ -121,7 +121,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryMessage, setDeliveryMessage] = useState("");
-  const [deliveryEstimate, setDeliveryEstimate] = useState<string | null>(null);
   const [orderState, setOrderState] = useState<OrderState>({ status: "idle" });
 
   const selectedWilaya = useMemo(
@@ -192,7 +191,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
     setDeliveryType("home");
     setDeliveryFee(null);
     setDeliveryMessage("");
-    setDeliveryEstimate(null);
 
     if (!wilayaCode) {
       setCommunesLoading(false);
@@ -245,7 +243,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
     setDeliveryFee(null);
     setDeliveryMessage("");
-    setDeliveryEstimate(null);
 
     if (!selectedWilaya || !selectedCommune) {
       setDeliveryLoading(false);
@@ -284,13 +281,11 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
         if (!cancelled) {
           setDeliveryFee(rate.amountCents / 100);
-          setDeliveryEstimate(rate.estimate);
         }
       } catch {
         if (!cancelled) {
           setDeliveryFee(null);
-          setDeliveryEstimate(null);
-          setDeliveryMessage(
+                setDeliveryMessage(
             "Impossible de calculer le tarif Yalidine pour cette livraison.",
           );
         }
@@ -971,11 +966,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   />
                 </div>
 
-                {selectedCommune?.deliveryTime && (
-                  <p className="mt-2 text-[10px] text-[#251713]/45">
-                    Délai indicatif Yalidine : {selectedCommune.deliveryTime}
-                  </p>
-                )}
               </div>
 
               {deliveryType === "home" && (
@@ -1003,7 +993,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 ) : deliveryFee !== null ? (
                   <span className="font-semibold text-emerald-700">
                     Livraison : {formatPriceDA(deliveryFee)}
-                    {deliveryEstimate ? ` · ${deliveryEstimate}` : ""}
                   </span>
                 ) : null}
               </div>

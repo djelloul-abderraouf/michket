@@ -81,7 +81,6 @@ export default function CheckoutPage() {
   );
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
-  const [deliveryEstimate, setDeliveryEstimate] = useState<string | null>(null);
 
   /* ---------- promo ---------- */
   const [promoResult, setPromoResult] = useState<ApiPromoPreview | null>(null);
@@ -131,7 +130,6 @@ export default function CheckoutPage() {
     setCommunesError(null);
     setDeliveryRate(null);
     setDeliveryError(null);
-    setDeliveryEstimate(null);
     setDeliveryType("home");
 
     if (wilayaCode === null) {
@@ -178,8 +176,7 @@ export default function CheckoutPage() {
       setDeliveryLoading(true);
       setDeliveryError(null);
       setDeliveryRate(null);
-      setDeliveryEstimate(null);
-
+  
       try {
         const data = await getDeliveryRate(
           code,
@@ -187,7 +184,6 @@ export default function CheckoutPage() {
           selectedDeliveryType,
         );
         setDeliveryRate(data);
-        setDeliveryEstimate(data.estimate);
       } catch {
         setDeliveryError(
           "Impossible de calculer le tarif Yalidine pour cette livraison.",
@@ -203,8 +199,7 @@ export default function CheckoutPage() {
     if (wilayaCode === null || communeId === null) {
       setDeliveryRate(null);
       setDeliveryError(null);
-      setDeliveryEstimate(null);
-      return;
+        return;
     }
 
     const selected = communes.find((item) => item.id === communeId);
@@ -212,15 +207,13 @@ export default function CheckoutPage() {
     if (!selected?.available) {
       setDeliveryRate(null);
       setDeliveryError("Livraison indisponible pour cette commune.");
-      setDeliveryEstimate(null);
-      return;
+        return;
     }
 
     if (deliveryType === "office" && !selected.hasStopDesk) {
       setDeliveryRate(null);
       setDeliveryError("La livraison en bureau n'est pas disponible pour cette commune.");
-      setDeliveryEstimate(null);
-      return;
+        return;
     }
 
     fetchDeliveryRate(wilayaCode, communeId, deliveryType);
@@ -615,8 +608,7 @@ export default function CheckoutPage() {
                               setCommunes([]);
                               setDeliveryRate(null);
                               setDeliveryError(null);
-                              setDeliveryEstimate(null);
-                              setDeliveryType("home");
+                                                        setDeliveryType("home");
                               return;
                             }
 
@@ -629,8 +621,7 @@ export default function CheckoutPage() {
                             setCommune("");
                             setDeliveryRate(null);
                             setDeliveryError(null);
-                            setDeliveryEstimate(null);
-                            setDeliveryType("home");
+                                                    setDeliveryType("home");
                           }}
                           className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
                         >
@@ -692,8 +683,7 @@ export default function CheckoutPage() {
                               setDeliveryType("home");
                               setDeliveryRate(null);
                               setDeliveryError(null);
-                              setDeliveryEstimate(null);
-                              return;
+                                                        return;
                             }
 
                             const id = Number(raw);
@@ -710,8 +700,7 @@ export default function CheckoutPage() {
                             );
                             setDeliveryRate(null);
                             setDeliveryError(null);
-                            setDeliveryEstimate(null);
-                          }}
+                                                  }}
                           className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
                         >
                           <option value="">— Sélectionnez —</option>
@@ -729,11 +718,6 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
-                    {selectedCommune?.deliveryTime && (
-                      <p className="text-xs text-michket-charcoal/60">
-                        Délai indicatif Yalidine : {selectedCommune.deliveryTime}
-                      </p>
-                    )}
 
                     <div>
                       <label
@@ -858,11 +842,6 @@ export default function CheckoutPage() {
                           {formatDA(deliveryRate.amountCents)}
                         </span>
                       </p>
-                      {deliveryEstimate && (
-                        <p className="text-xs text-michket-charcoal/60 mt-1">
-                          Délai estimé : {deliveryEstimate}
-                        </p>
-                      )}
                     </div>
                   )}
                 </section>
