@@ -8,6 +8,7 @@
  */
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   type FormEvent,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
   getCommunes,
   getDeliveryRate,
   getWilayas,
+  setGuestOrderAccessToken,
   type ApiCommune,
   type ApiWilaya,
   type Product,
@@ -42,7 +44,6 @@ type DeliveryType = "home" | "office";
 type OrderState =
   | { status: "idle" }
   | { status: "sending" }
-  | { status: "success"; reference: string }
   | { status: "error"; message: string };
 
 function formatPriceDA(price: number): string {
@@ -53,6 +54,7 @@ function formatPriceDA(price: number): string {
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
+  const router = useRouter();
   const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -391,6 +393,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
       const data = (await response.json()) as {
         ok?: boolean;
         reference?: string;
+        guestAccessToken?: string;
         message?: string;
       };
 
@@ -398,8 +401,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
         throw new Error(data.message || "Impossible d'envoyer la commande.");
       }
 
-      setOrderState({ status: "success", reference: data.reference });
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (data.guestAccessToken) {
+        setGuestOrderAccessToken(
+          data.reference,
+          data.guestAccessToken,
+        );
+      }
+
+      router.replace(`/commande/${encodeURIComponent(data.reference)}`);
     } catch (error) {
       setOrderState({
         status: "error",
@@ -505,21 +514,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
   return (
     <main className="min-h-screen bg-[#F7F1E8] text-[#251713]">
-      {orderState.status === "success" && (
-        <div className="bg-emerald-50">
-          <div className="mx-auto max-w-[1240px] px-4 py-4 sm:px-6 lg:px-8">
-            <div className="rounded-[12px] border border-emerald-700/15 bg-white p-4">
-              <p className="font-semibold text-emerald-950">
-                Commande enregistrée.
-              </p>
-              <p className="mt-1 text-sm text-emerald-900/65">
-                Référence : <strong>{orderState.reference}</strong>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <section className="mx-auto max-w-[1240px] px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.04fr_0.96fr] lg:items-start lg:gap-8">
           {/* GALERIE PRODUIT */}
