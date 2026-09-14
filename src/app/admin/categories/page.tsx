@@ -25,6 +25,14 @@ type HeroImage = {
   createdAt: string;
 };
 
+type PendingHeroUpload = {
+  tempId: string;
+  url: string;
+  storagePath: string;
+  altText: string;
+  fileName: string;
+};
+
 type Category = {
   id: string;
   name: string;
@@ -167,6 +175,8 @@ export default function AdminCategoriesPage() {
   // Hero images state
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const [heroImages, setHeroImages] = useState<HeroImage[]>([]);
+  const [pendingHeroUploads, setPendingHeroUploads] =
+    useState<PendingHeroUpload[]>([]);
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [heroUploadError, setHeroUploadError] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
@@ -427,6 +437,7 @@ export default function AdminCategoriesPage() {
     setPendingProfileUrl(null);
     setPendingProfileStoragePath(null);
     setHeroImages([]);
+    setPendingHeroUploads([]);
     setHeroUploadError(null);
     setIsFormOpen(true);
   }
@@ -441,6 +452,7 @@ export default function AdminCategoriesPage() {
     setProfileUploadError(null);
     setPendingProfileUrl(null);
     setPendingProfileStoragePath(null);
+    setPendingHeroUploads([]);
     setHeroUploadError(null);
     setForm({
       name: category.name,
@@ -522,15 +534,22 @@ export default function AdminCategoriesPage() {
     setPendingProfileUrl(null);
     setPendingProfileStoragePath(null);
     setHeroImages([]);
+    setPendingHeroUploads([]);
     setHeroUploadError(null);
   }
 
   /** Cancel = cleanup temp uploads then close. */
   function handleCancel() {
     if (isSaving) return;
+
     if (pendingProfileStoragePath) {
       void deleteTempStorage(pendingProfileStoragePath);
     }
+
+    for (const pendingHero of pendingHeroUploads) {
+      void deleteTempStorage(pendingHero.storagePath);
+    }
+
     closeForm();
   }
 
@@ -665,12 +684,19 @@ export default function AdminCategoriesPage() {
   }
 
   function handleProfileFileRemove() {
-    // Mark the image for removal — actual DB + Storage cleanup happens on Save
+    // If this is a new unsaved upload, remove it from Storage immediately.
+    if (pendingProfileStoragePath) {
+      void deleteTempStorage(pendingProfileStoragePath);
+      setPendingProfileUrl(null);
+      setPendingProfileStoragePath(null);
+    }
+
     setProfileFile(null);
     setProfilePreview(null);
     setProfileUploadError(null);
     updateForm("imageUrl", "");
     updateForm("imageStoragePath", "");
+
     if (profileFileInputRef.current) {
       profileFileInputRef.current.value = "";
     }
@@ -681,7 +707,7 @@ export default function AdminCategoriesPage() {
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
     const file = event.target.files?.[0];
-    if (!file || !editingCategory) return;
+    if (!file) return;
 
     setHeroUploadError(null);
 
@@ -694,7 +720,17 @@ export default function AdminCategoriesPage() {
 
     if (file.size > MAX_IMAGE_SIZE) {
       setHeroUploadError(
-        `Fichier trop volumineux (${formatFileSize(file.size)}). Maximum : 5 Mo.`,
+        `Fichier trop volumineux (${formatFileSize(file.size)}). Maximum : 10 Mo.`,
+      );
+      return;
+    }
+
+    const totalHeroImages =
+      heroImages.length + pendingHeroUploads.length;
+
+    if (totalHeroImages >= 10) {
+      setHeroUploadError(
+        "Le carrousel Hero est limité à 10 images.",
       );
       return;
     }
@@ -714,7 +750,7 @@ export default function AdminCategoriesPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!apiUrl) return;
 
-      // Upload to storage via media endpoint
+      // Upload the image to Storage first. This does not require a category id.
       const formData = new FormData();
       formData.append("file", file);
 
@@ -730,9 +766,15 @@ export default function AdminCategoriesPage() {
       );
 
       if (!uploadResponse.ok) {
-        const payload = (await uploadResponse.json().catch(() => null)) as ApiErrorPayload;
+        const payload = (
+          await uploadResponse.json().catch(() => null)
+        ) as ApiErrorPayload;
+
         setHeroUploadError(
-          apiMessage(payload, "Erreur lors de l'upload de l'image."),
+          apiMessage(
+            payload,
+            "Erreur lors de l'upload de l'image.",
+          ),
         );
         return;
       }
@@ -742,7 +784,25 @@ export default function AdminCategoriesPage() {
         path: string;
       };
 
-      // Create hero image record
+      const altText = file.name.replace(/\.[^/.]+$/, "");
+
+      if (!editingCategory) {
+        // During creation there is no category UUID yet. Keep the Storage
+        // upload temporarily and create the hero-image DB row immediately
+        // after the category itself has been created.
+        setPendingHeroUploads((current) => [
+          ...current,
+          {
+            tempId: crypto.randomUUID(),
+            url,
+            storagePath: path,
+            altText,
+            fileName: file.name,
+          },
+        ]);
+        return;
+      }
+
       const sortOrder = heroImages.length;
 
       const createResponse = await fetch(
@@ -756,36 +816,62 @@ export default function AdminCategoriesPage() {
           body: JSON.stringify({
             url,
             storagePath: path,
-            altText: file.name.replace(/\.[^/.]+$/, ""),
+            altText,
             sortOrder,
           }),
         },
       );
 
       if (!createResponse.ok) {
-        const payload = (await createResponse.json().catch(() => null)) as ApiErrorPayload;
+        const payload = (
+          await createResponse.json().catch(() => null)
+        ) as ApiErrorPayload;
 
-        // The Storage upload succeeded but the DB record failed.
-        // Remove the orphan object so it does not remain unused in Supabase.
         await deleteTempStorage(path);
 
         setHeroUploadError(
-          apiMessage(payload, "Erreur lors de l'enregistrement de l'image."),
+          apiMessage(
+            payload,
+            "Erreur lors de l'enregistrement de l'image.",
+          ),
         );
         return;
       }
 
-      const newImage = (await createResponse.json()) as HeroImage;
-      setHeroImages((prev) => [...prev, newImage]);
+      const newImage =
+        (await createResponse.json()) as HeroImage;
+
+      setHeroImages((current) => [
+        ...current,
+        newImage,
+      ]);
     } catch {
       setHeroUploadError(
         "Erreur réseau lors de l'upload.",
       );
     } finally {
       setIsUploadingHero(false);
+
       if (heroFileInputRef.current) {
         heroFileInputRef.current.value = "";
       }
+    }
+  }
+
+  async function handlePendingHeroDelete(
+    pending: PendingHeroUpload,
+  ) {
+    setDeletingImageId(pending.tempId);
+
+    try {
+      await deleteTempStorage(pending.storagePath);
+      setPendingHeroUploads((current) =>
+        current.filter(
+          (item) => item.tempId !== pending.tempId,
+        ),
+      );
+    } finally {
+      setDeletingImageId(null);
     }
   }
 
@@ -1148,9 +1234,66 @@ export default function AdminCategoriesPage() {
 
       const savedCategory = (await response.json()) as Category;
 
-      // Save succeeded — pending image is now official in DB.
+      // If a nested category is being created, hero images may already have
+      // been uploaded to Storage before the category UUID existed. Attach
+      // those pending images now, immediately after creation.
+      let committedHeroImages: HeroImage[] = [];
+      let failedHeroUploads = 0;
+
+      if (
+        !editingCategory &&
+        form.kind !== "CATEGORY" &&
+        pendingHeroUploads.length > 0
+      ) {
+        for (
+          let index = 0;
+          index < pendingHeroUploads.length;
+          index += 1
+        ) {
+          const pendingHero = pendingHeroUploads[index];
+
+          try {
+            const createHeroResponse = await fetch(
+              `${apiUrl}/admin/categories/${savedCategory.id}/hero-images`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  url: pendingHero.url,
+                  storagePath: pendingHero.storagePath,
+                  altText: pendingHero.altText,
+                  sortOrder: index,
+                }),
+              },
+            );
+
+            if (!createHeroResponse.ok) {
+              failedHeroUploads += 1;
+              await deleteTempStorage(
+                pendingHero.storagePath,
+              );
+              continue;
+            }
+
+            committedHeroImages.push(
+              (await createHeroResponse.json()) as HeroImage,
+            );
+          } catch {
+            failedHeroUploads += 1;
+            await deleteTempStorage(
+              pendingHero.storagePath,
+            );
+          }
+        }
+      }
+
+      // Save succeeded — pending presentation image is now official in DB.
       setPendingProfileUrl(null);
       setPendingProfileStoragePath(null);
+      setPendingHeroUploads([]);
 
       const wasCreatingNestedCategory =
         !editingCategory &&
@@ -1164,7 +1307,11 @@ export default function AdminCategoriesPage() {
         setSlugTouched(true);
         setProfileFile(null);
         setProfilePreview(savedCategory.imageUrl);
-        setHeroImages(savedCategory.heroImages ?? []);
+        setHeroImages(
+          committedHeroImages.length > 0
+            ? committedHeroImages
+            : savedCategory.heroImages ?? [],
+        );
         setForm({
           name: savedCategory.name,
           slug: savedCategory.slug,
@@ -1184,11 +1331,23 @@ export default function AdminCategoriesPage() {
           metaDescription:
             savedCategory.metaDescription ?? "",
         });
+        const heroSuccessCount = committedHeroImages.length;
+
         setFormSuccess(
           form.kind === "SUBSUBCATEGORY"
-            ? "Sous-sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous."
-            : "Sous-catégorie créée. Vous pouvez maintenant ajouter les images du carrousel Hero ci-dessous.",
+            ? heroSuccessCount > 0
+              ? `Sous-sous-catégorie créée avec ${heroSuccessCount} image(s) Hero.`
+              : "Sous-sous-catégorie créée."
+            : heroSuccessCount > 0
+              ? `Sous-catégorie créée avec ${heroSuccessCount} image(s) Hero.`
+              : "Sous-catégorie créée.",
         );
+
+        if (failedHeroUploads > 0) {
+          setHeroUploadError(
+            `${failedHeroUploads} image(s) Hero n'ont pas pu être enregistrées. Vous pouvez les ajouter à nouveau ci-dessous.`,
+          );
+        }
       } else {
         closeForm();
       }
@@ -1678,6 +1837,7 @@ export default function AdminCategoriesPage() {
                             setProfilePreview(null);
                             setProfileUploadError(null);
                             setHeroImages([]);
+                            setPendingHeroUploads([]);
                             setHeroUploadError(null);
                             setIsFormOpen(true);
                           }}
@@ -1796,6 +1956,7 @@ export default function AdminCategoriesPage() {
                                     setProfilePreview(null);
                                     setProfileUploadError(null);
                                     setHeroImages([]);
+                                    setPendingHeroUploads([]);
                                     setHeroUploadError(null);
                                     setIsFormOpen(true);
                                   }}
@@ -2538,8 +2699,8 @@ export default function AdminCategoriesPage() {
                   </div>
                 </section>
 
-              {/* Hero Images - pour les niveaux 2 et 3 lorsqu’ils existent en base */}
-              {isNestedCategory && editingCategory && (
+              {/* Hero Images - disponibles dès la création pour les niveaux 2 et 3 */}
+              {isNestedCategory && (
                 <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div>
@@ -2548,12 +2709,13 @@ export default function AdminCategoriesPage() {
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-neutral-400">
                         Ces images défilent automatiquement en haut de la page publique correspondante.
+                        Vous pouvez les choisir avant de cliquer sur Créer ; elles seront liées automatiquement après la création.
                         Maximum 10 images. JPEG, PNG, WebP ou AVIF. Max 10 Mo.
                       </p>
                     </div>
 
                     <span className="text-xs font-medium text-neutral-400">
-                      {heroImages.length}/10
+                      {heroImages.length + pendingHeroUploads.length}/10
                     </span>
                   </div>
 
@@ -2568,6 +2730,60 @@ export default function AdminCategoriesPage() {
                   {heroUploadError ? (
                     <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                       {heroUploadError}
+                    </div>
+                  ) : null}
+
+                  {pendingHeroUploads.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {pendingHeroUploads.map((pending, index) => (
+                        <div
+                          key={pending.tempId}
+                          className={[
+                            "flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-2",
+                            deletingImageId === pending.tempId
+                              ? "opacity-50"
+                              : "",
+                          ].join(" ")}
+                        >
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
+                            <img
+                              src={pending.url}
+                              alt={pending.altText}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs text-neutral-700">
+                              {pending.fileName}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-medium text-amber-700">
+                              Position {heroImages.length + index + 1} · sera enregistrée avec la catégorie
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={deletingImageId !== null}
+                            onClick={() =>
+                              void handlePendingHeroDelete(pending)
+                            }
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
+                            title="Retirer"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path d="M3 4h10M6 4V3h4v1M5 4v9h6V4" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   ) : null}
 
@@ -2647,25 +2863,27 @@ export default function AdminCategoriesPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : pendingHeroUploads.length === 0 ? (
                     <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
                       <p className="text-xs text-neutral-400">
-                        Aucune image hero. Ajoutez une image pour le carrousel de cette page.
+                        Aucune image Hero. Vous pouvez les ajouter maintenant, avant même de créer la catégorie.
                       </p>
                     </div>
-                  )}
+                  ) : null}
 
                   <button
                     type="button"
                     disabled={
-                      isUploadingHero || heroImages.length >= 10
+                      isUploadingHero ||
+                      heroImages.length + pendingHeroUploads.length >= 10
                     }
                     onClick={() =>
                       heroFileInputRef.current?.click()
                     }
                     className={[
                       "mt-4 flex h-11 items-center gap-2 rounded-xl border border-dashed border-black/[0.15] bg-[#faf9f6] px-4 text-sm font-semibold transition",
-                      isUploadingHero || heroImages.length >= 10
+                      isUploadingHero ||
+                      heroImages.length + pendingHeroUploads.length >= 10
                         ? "cursor-not-allowed text-neutral-400"
                         : "text-neutral-600 hover:border-neutral-300 hover:bg-white",
                     ].join(" ")}

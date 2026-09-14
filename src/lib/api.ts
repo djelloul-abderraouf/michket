@@ -444,7 +444,14 @@ export async function fetchFeaturedCategories(): Promise<ApiCategory[]> {
 export async function fetchCategoryBySlug(
   slug: string,
 ): Promise<ApiCategoryDetail> {
-  return apiFetch<ApiCategoryDetail>(`/categories/${encodeURIComponent(slug)}`);
+  // Category detail contains dynamic hierarchy data (children + hero images).
+  // Do not cache it: newly created/deactivated/deleted level-2/level-3
+  // categories must be reflected immediately on storefront pages.
+  return apiFetch<ApiCategoryDetail>(
+    `/categories/${encodeURIComponent(slug)}`,
+    undefined,
+    { noStore: true },
+  );
 }
 
 /** GET /products with filters */
