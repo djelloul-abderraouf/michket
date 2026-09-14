@@ -91,11 +91,20 @@ export default async function LampesCategoryPage({
         }))
       : [];
 
-  // 3. Products — backend includes child-category products for parent categories.
-  //    Here we query by the subcategory slug directly, so we get exactly its products.
+  // 3. Optional level-3 categories (sub-subcategories).
+  //    Example: Lampes 3D -> Football -> Lampes 3D Barcelone.
+  //    They are displayed on the SAME page as the products.
+  const subSubcategories = [...(category.children ?? [])].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.name.localeCompare(b.name, "fr"),
+  );
+
+  // 4. Products — keep displaying products on the level-2 page even when
+  //    level-3 categories exist.
   const categoryProducts = await fetchProductsForCategory(occasion);
 
-  // 4. Other occasions — sibling subcategories from the parent (lampes-3d)
+  // 5. Other occasions — sibling subcategories from the parent (lampes-3d)
   let siblings: ApiCategoryDetail["children"] = [];
   try {
     const parent = await fetchCategoryBySlug("lampes-3d");
@@ -176,6 +185,106 @@ export default async function LampesCategoryPage({
           )}
         </div>
       </section>
+
+      {/* ─── Optional sub-subcategories (level 3) ─── */}
+      {subSubcategories.length > 0 && (
+        <section
+          className="border-b border-[#2A1B16]/[0.07] py-8 sm:py-10 lg:py-12"
+          style={{
+            background:
+              "linear-gradient(180deg, #F8F3EB 0%, #F3ECE3 100%)",
+          }}
+        >
+          <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
+            <div className="mx-auto mb-6 max-w-[700px] text-center sm:mb-8">
+              <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
+                Choisissez une collection
+              </p>
+
+              <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
+                {category.name}
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-[540px] text-[11px] leading-5 text-[#2A1B16]/48 sm:text-[12px]">
+                Découvrez les différentes collections disponibles dans cette
+                sous-catégorie.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+              {subSubcategories.map((subSubcategory) => (
+                <Link
+                  key={subSubcategory.id}
+                  href={`/lampes-3d/${category.slug}/${subSubcategory.slug}`}
+                  className="group overflow-hidden rounded-[14px] border border-[#2A1B16]/[0.07] bg-[#FFFDFC] shadow-[0_8px_24px_rgba(42,27,22,0.055)] transition-all duration-300 hover:-translate-y-1 hover:border-[#ECAB1C]/35 hover:shadow-[0_16px_38px_rgba(42,27,22,0.10)]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-[#EEE5DA]">
+                    {subSubcategory.imageUrl ? (
+                      <Image
+                        src={subSubcategory.imageUrl}
+                        alt={subSubcategory.name}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
+                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 25vw"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center px-4 text-center">
+                        <span className="font-body text-sm font-semibold text-[#2A1B16]/35">
+                          {subSubcategory.name}
+                        </span>
+                      </div>
+                    )}
+
+                    <div
+                      className="absolute inset-0 bg-gradient-to-t from-[#21130F]/72 via-[#21130F]/8 to-transparent"
+                      aria-hidden="true"
+                    />
+
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3.5 sm:p-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-[9px] font-bold uppercase tracking-[0.1em] text-[#ECAB1C] sm:text-[10px]">
+                          {category.name}
+                        </p>
+
+                        <h3 className="mt-1 line-clamp-2 font-body text-[14px] font-semibold leading-tight text-white sm:text-[17px]">
+                          {subSubcategory.name}
+                        </h3>
+                      </div>
+
+                      <span
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/14 text-white backdrop-blur-sm transition-all group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
+                        aria-hidden="true"
+                      >
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.9}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 12h14M13 6l6 6-6 6"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+
+                  {subSubcategory.description ? (
+                    <div className="p-3 sm:p-4">
+                      <p className="line-clamp-2 text-[10px] leading-5 text-[#2A1B16]/50 sm:text-[11px]">
+                        {subSubcategory.description}
+                      </p>
+                    </div>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ─── Products Section ─── */}
       <section
