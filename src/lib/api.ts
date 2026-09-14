@@ -815,6 +815,17 @@ export interface ApiWilaya {
   code: number;
   name: string;
   available: boolean;
+  homeAvailable: boolean;
+  officeAvailable: boolean;
+}
+
+export interface ApiCommune {
+  id: number;
+  name: string;
+  wilayaCode: number;
+  available: boolean;
+  hasStopDesk: boolean;
+  deliveryTime: string | null;
 }
 
 export interface ApiDeliveryRate {
@@ -893,6 +904,7 @@ export interface CreateOrderInput {
   addressLine1: string;
   addressLine2?: string;
   wilayaCode: number;
+  communeId: number;
   commune: string;
   deliveryType: "home" | "office";
   notes?: string;
@@ -903,18 +915,50 @@ export interface CreateOrderInput {
 // Checkout API client — delivery, promotions, orders
 // ---------------------------------------------------------------------------
 
-/** GET /delivery/wilayas — list all wilayas with availability */
+/** GET /delivery/wilayas — Yalidine destinations and current availability */
 export async function getWilayas(): Promise<ApiWilaya[]> {
-  return apiFetch<ApiWilaya[]>("/delivery/wilayas");
+  return apiFetch<ApiWilaya[]>(
+    "/delivery/wilayas",
+    undefined,
+    { noStore: true },
+  );
 }
 
-/** GET /delivery/rate?wilayaCode=N&deliveryType=home — get delivery fee */
+/** GET /delivery/communes?wilayaCode=N — Yalidine communes for one wilaya */
+export async function getCommunes(
+  wilayaCode: number,
+): Promise<ApiCommune[]> {
+  const qs = new URLSearchParams({
+    wilayaCode: String(wilayaCode),
+  });
+
+  return apiFetch<ApiCommune[]>(
+    `/delivery/communes?${qs.toString()}`,
+    undefined,
+    { noStore: true },
+  );
+}
+
+/**
+ * GET /delivery/rate?wilayaCode=N&communeId=N&deliveryType=home|office
+ *
+ * The backend remains authoritative and obtains the real Yalidine fee.
+ */
 export async function getDeliveryRate(
   wilayaCode: number,
+  communeId: number,
   deliveryType: "home" | "office" = "home",
 ): Promise<ApiDeliveryRate> {
+  const qs = new URLSearchParams({
+    wilayaCode: String(wilayaCode),
+    communeId: String(communeId),
+    deliveryType,
+  });
+
   return apiFetch<ApiDeliveryRate>(
-    `/delivery/rate?wilayaCode=${wilayaCode}&deliveryType=${deliveryType}`,
+    `/delivery/rate?${qs.toString()}`,
+    undefined,
+    { noStore: true },
   );
 }
 

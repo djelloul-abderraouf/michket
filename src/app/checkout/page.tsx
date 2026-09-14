@@ -7,9 +7,11 @@ import { useCart } from "@/contexts/CartContext";
 import {
   createOrder,
   getWilayas,
+  getCommunes,
   getDeliveryRate,
   previewPromo,
   type ApiWilaya,
+  type ApiCommune,
   type ApiDeliveryRate,
   type ApiPromoPreview,
 } from "@/lib/api";
@@ -55,7 +57,9 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState("");
   const [wilayaCode, setWilayaCode] = useState<number | null>(null);
   const [wilayaName, setWilayaName] = useState("");
+  const [communeId, setCommuneId] = useState<number | null>(null);
   const [commune, setCommune] = useState("");
+  const [deliveryType, setDeliveryType] = useState<"home" | "office">("home");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
   const [notes, setNotes] = useState("");
@@ -65,6 +69,11 @@ export default function CheckoutPage() {
   const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
   const [wilayasLoading, setWilayasLoading] = useState(true);
   const [wilayasError, setWilayasError] = useState<string | null>(null);
+
+  /* ---------- communes ---------- */
+  const [communes, setCommunes] = useState<ApiCommune[]>([]);
+  const [communesLoading, setCommunesLoading] = useState(false);
+  const [communesError, setCommunesError] = useState<string | null>(null);
 
   /* ---------- delivery ---------- */
   const [deliveryRate, setDeliveryRate] = useState<ApiDeliveryRate | null>(
@@ -110,30 +119,118 @@ export default function CheckoutPage() {
   }, []);
 
   /* ================================================================ */
-  /* Fetch delivery rate when wilaya changes                          */
+  /* Load communes when wilaya changes                                */
   /* ================================================================ */
 
-  const fetchDeliveryRate = useCallback(async (code: number) => {
-    setDeliveryLoading(true);
-    setDeliveryError(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    setCommunes([]);
+    setCommuneId(null);
+    setCommune("");
+    setCommunesError(null);
     setDeliveryRate(null);
+    setDeliveryError(null);
     setDeliveryEstimate(null);
-    try {
-      const data = await getDeliveryRate(code, "home");
-      setDeliveryRate(data);
-      setDeliveryEstimate(data.estimate);
-    } catch {
-      setDeliveryError("Impossible de calculer la livraison.");
-    } finally {
-      setDeliveryLoading(false);
+    setDeliveryType("home");
+
+    if (wilayaCode === null) {
+      setCommunesLoading(false);
+      return () => {
+        cancelled = true;
+      };
     }
-  }, []);
+
+    setCommunesLoading(true);
+
+    (async () => {
+      try {
+        const data = await getCommunes(wilayaCode);
+        if (!cancelled) {
+          setCommunes(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setCommunesError("Impossible de charger les communes.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCommunesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wilayaCode]);
+
+  /* ================================================================ */
+  /* Fetch exact Yalidine rate for wilaya + commune + delivery type   */
+  /* ================================================================ */
+
+  const fetchDeliveryRate = useCallback(
+    async (
+      code: number,
+      selectedCommuneId: number,
+      selectedDeliveryType: "home" | "office",
+    ) => {
+      setDeliveryLoading(true);
+      setDeliveryError(null);
+      setDeliveryRate(null);
+      setDeliveryEstimate(null);
+
+      try {
+        const data = await getDeliveryRate(
+          code,
+          selectedCommuneId,
+          selectedDeliveryType,
+        );
+        setDeliveryRate(data);
+        setDeliveryEstimate(data.estimate);
+      } catch {
+        setDeliveryError(
+          "Impossible de calculer le tarif Yalidine pour cette livraison.",
+        );
+      } finally {
+        setDeliveryLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (wilayaCode !== null) {
-      fetchDeliveryRate(wilayaCode);
+    if (wilayaCode === null || communeId === null) {
+      setDeliveryRate(null);
+      setDeliveryError(null);
+      setDeliveryEstimate(null);
+      return;
     }
-  }, [wilayaCode, fetchDeliveryRate]);
+
+    const selected = communes.find((item) => item.id === communeId);
+
+    if (!selected?.available) {
+      setDeliveryRate(null);
+      setDeliveryError("Livraison indisponible pour cette commune.");
+      setDeliveryEstimate(null);
+      return;
+    }
+
+    if (deliveryType === "office" && !selected.hasStopDesk) {
+      setDeliveryRate(null);
+      setDeliveryError("La livraison en bureau n'est pas disponible pour cette commune.");
+      setDeliveryEstimate(null);
+      return;
+    }
+
+    fetchDeliveryRate(wilayaCode, communeId, deliveryType);
+  }, [
+    wilayaCode,
+    communeId,
+    deliveryType,
+    communes,
+    fetchDeliveryRate,
+  ]);
 
   /* ================================================================ */
   /* Promo                                                            */
@@ -190,8 +287,9 @@ export default function CheckoutPage() {
         addressLine1: addressLine1.trim(),
         addressLine2: addressLine2.trim() || undefined,
         wilayaCode: wilayaCode!,
+        communeId: communeId!,
         commune: commune.trim(),
-        deliveryType: "home" as const,
+        deliveryType,
         notes: notes.trim() || undefined,
         promoCode: promoApplied && promoResult ? promoResult.code : undefined,
       };
@@ -285,7 +383,9 @@ export default function CheckoutPage() {
     addressLine1,
     addressLine2,
     wilayaCode,
+    communeId,
     commune,
+    deliveryType,
     notes,
     promoApplied,
     promoResult,
@@ -296,6 +396,11 @@ export default function CheckoutPage() {
   /* Validation                                                       */
   /* ================================================================ */
 
+  const selectedCommune =
+    communeId !== null
+      ? communes.find((item) => item.id === communeId) ?? null
+      : null;
+
   const formValid =
     firstName.trim().length >= 1 &&
     firstName.trim().length <= 100 &&
@@ -304,8 +409,11 @@ export default function CheckoutPage() {
     phone.trim().length >= 6 &&
     phone.trim().length <= 30 &&
     isValidEmail(email.trim()) &&
+    communeId !== null &&
     commune.trim().length >= 1 &&
     commune.trim().length <= 100 &&
+    selectedCommune?.available === true &&
+    (deliveryType === "home" || selectedCommune?.hasStopDesk === true) &&
     addressLine1.trim().length >= 1 &&
     addressLine1.trim().length <= 200 &&
     wilayaCode !== null &&
@@ -317,7 +425,8 @@ export default function CheckoutPage() {
     !deliveryLoading &&
     deliveryRate !== null &&
     !deliveryError &&
-    !wilayasLoading;
+    !wilayasLoading &&
+    !communesLoading;
 
   /* ================================================================ */
   /* Line totals                                                      */
@@ -326,8 +435,10 @@ export default function CheckoutPage() {
   const subtotalCents = computeSubtotalCents(cart.items);
   const deliveryFeeCents = deliveryRate?.amountCents ?? 0;
   const discountCents = promoResult?.discountCents ?? 0;
-  const totalEstimateCents =
-    subtotalCents + deliveryFeeCents - discountCents;
+  const totalEstimateCents = Math.max(
+    0,
+    subtotalCents + deliveryFeeCents - discountCents,
+  );
 
   /* ================================================================ */
   /* Render                                                           */
@@ -494,12 +605,32 @@ export default function CheckoutPage() {
                           id="co-wilaya"
                           value={wilayaCode ?? ""}
                           onChange={(e) => {
-                            const val = Number(e.target.value);
-                            const w = wilayas.find((w) => w.code === val);
+                            const raw = e.target.value;
+
+                            if (!raw) {
+                              setWilayaCode(null);
+                              setWilayaName("");
+                              setCommuneId(null);
+                              setCommune("");
+                              setCommunes([]);
+                              setDeliveryRate(null);
+                              setDeliveryError(null);
+                              setDeliveryEstimate(null);
+                              setDeliveryType("home");
+                              return;
+                            }
+
+                            const val = Number(raw);
+                            const w = wilayas.find((item) => item.code === val);
+
                             setWilayaCode(val);
                             setWilayaName(w?.name ?? "");
+                            setCommuneId(null);
+                            setCommune("");
                             setDeliveryRate(null);
                             setDeliveryError(null);
+                            setDeliveryEstimate(null);
+                            setDeliveryType("home");
                           }}
                           className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
                         >
@@ -528,29 +659,6 @@ export default function CheckoutPage() {
                         </p>
                       )}
 
-                    {/* Delivery rate / error */}
-                    {deliveryLoading && (
-                      <p className="text-sm text-michket-charcoal/60">
-                        Calcul de la livraison…
-                      </p>
-                    )}
-                    {deliveryError && !deliveryLoading && (
-                      <p className="text-sm text-red-600">{deliveryError}</p>
-                    )}
-                    {deliveryRate && !deliveryLoading && (
-                      <p className="text-sm text-michket-black">
-                        Livraison :{" "}
-                        <span className="font-semibold">
-                          {formatDA(deliveryRate.amountCents)}
-                        </span>
-                        {deliveryEstimate && (
-                          <span className="text-michket-charcoal/60 ml-2">
-                            ({deliveryEstimate})
-                          </span>
-                        )}
-                      </p>
-                    )}
-
                     <div>
                       <label
                         htmlFor="co-commune"
@@ -558,15 +666,74 @@ export default function CheckoutPage() {
                       >
                         Commune *
                       </label>
-                      <input
-                        id="co-commune"
-                        type="text"
-                        value={commune}
-                        onChange={(e) => setCommune(e.target.value)}
-                        maxLength={100}
-                        className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
-                      />
+
+                      {wilayaCode === null ? (
+                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm text-michket-charcoal/40">
+                          Sélectionnez d&apos;abord une wilaya.
+                        </div>
+                      ) : communesLoading ? (
+                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm text-michket-charcoal/40">
+                          Chargement des communes…
+                        </div>
+                      ) : communesError ? (
+                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-red-300 text-sm text-red-600">
+                          {communesError}
+                        </div>
+                      ) : (
+                        <select
+                          id="co-commune"
+                          value={communeId ?? ""}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+
+                            if (!raw) {
+                              setCommuneId(null);
+                              setCommune("");
+                              setDeliveryType("home");
+                              setDeliveryRate(null);
+                              setDeliveryError(null);
+                              setDeliveryEstimate(null);
+                              return;
+                            }
+
+                            const id = Number(raw);
+                            const selected = communes.find(
+                              (item) => item.id === id,
+                            );
+
+                            setCommuneId(id);
+                            setCommune(selected?.name ?? "");
+                            setDeliveryType((current) =>
+                              current === "office" && !selected?.hasStopDesk
+                                ? "home"
+                                : current,
+                            );
+                            setDeliveryRate(null);
+                            setDeliveryError(null);
+                            setDeliveryEstimate(null);
+                          }}
+                          className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                        >
+                          <option value="">— Sélectionnez —</option>
+                          {communes.map((item) => (
+                            <option
+                              key={item.id}
+                              value={item.id}
+                              disabled={!item.available}
+                            >
+                              {item.name}
+                              {!item.available ? " (Indisponible)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
+
+                    {selectedCommune?.deliveryTime && (
+                      <p className="text-xs text-michket-charcoal/60">
+                        Délai indicatif Yalidine : {selectedCommune.deliveryTime}
+                      </p>
+                    )}
 
                     <div>
                       <label
@@ -611,12 +778,25 @@ export default function CheckoutPage() {
                   </h2>
 
                   <div className="space-y-3">
-                    <label className="flex items-center gap-3 p-3 border border-michket-gold/20 bg-michket-ivory cursor-pointer">
+                    <label
+                      className={`flex items-center gap-3 p-3 border bg-michket-ivory ${
+                        communeId === null || selectedCommune?.available !== true
+                          ? "border-michket-gold/10 opacity-50 cursor-not-allowed"
+                          : deliveryType === "home"
+                            ? "border-michket-gold/40 cursor-pointer"
+                            : "border-michket-gold/20 cursor-pointer"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="delivery-type"
-                        checked
-                        readOnly
+                        value="home"
+                        checked={deliveryType === "home"}
+                        disabled={
+                          communeId === null ||
+                          selectedCommune?.available !== true
+                        }
+                        onChange={() => setDeliveryType("home")}
                         className="accent-michket-gold"
                       />
                       <span className="text-sm text-michket-black">
@@ -624,18 +804,67 @@ export default function CheckoutPage() {
                       </span>
                     </label>
 
-                    <label className="flex items-center gap-3 p-3 border border-michket-gold/10 bg-michket-ivory/50 opacity-50 cursor-not-allowed">
+                    <label
+                      className={`flex items-center gap-3 p-3 border bg-michket-ivory ${
+                        communeId === null ||
+                        selectedCommune?.available !== true ||
+                        selectedCommune?.hasStopDesk !== true
+                          ? "border-michket-gold/10 opacity-50 cursor-not-allowed"
+                          : deliveryType === "office"
+                            ? "border-michket-gold/40 cursor-pointer"
+                            : "border-michket-gold/20 cursor-pointer"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="delivery-type"
-                        disabled
+                        value="office"
+                        checked={deliveryType === "office"}
+                        disabled={
+                          communeId === null ||
+                          selectedCommune?.available !== true ||
+                          selectedCommune?.hasStopDesk !== true
+                        }
+                        onChange={() => setDeliveryType("office")}
                         className="accent-michket-gold"
                       />
-                      <span className="text-sm text-michket-charcoal/60">
-                        Bureau — Indisponible actuellement
+                      <span className="text-sm text-michket-black">
+                        Livraison en bureau Yalidine
+                        {communeId !== null &&
+                        selectedCommune?.hasStopDesk !== true
+                          ? " — Indisponible dans cette commune"
+                          : ""}
                       </span>
                     </label>
                   </div>
+
+                  {deliveryLoading && (
+                    <p className="mt-4 text-sm text-michket-charcoal/60">
+                      Calcul du tarif Yalidine…
+                    </p>
+                  )}
+
+                  {deliveryError && !deliveryLoading && (
+                    <p className="mt-4 text-sm text-red-600">
+                      {deliveryError}
+                    </p>
+                  )}
+
+                  {deliveryRate && !deliveryLoading && (
+                    <div className="mt-4 p-3 bg-michket-ivory border border-michket-gold/15">
+                      <p className="text-sm text-michket-black">
+                        Tarif de livraison :{" "}
+                        <span className="font-semibold">
+                          {formatDA(deliveryRate.amountCents)}
+                        </span>
+                      </p>
+                      {deliveryEstimate && (
+                        <p className="text-xs text-michket-charcoal/60 mt-1">
+                          Délai estimé : {deliveryEstimate}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </section>
 
                 {/* Promo code */}
