@@ -126,7 +126,15 @@ export default async function LampesCategoryPage({
         }}
       >
         <div className="mx-auto grid w-full max-w-[1440px] gap-5 px-4 py-5 sm:px-6 sm:py-7 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-9 lg:px-10 lg:py-9">
-          <div className="order-2 text-center lg:order-1 lg:text-left">
+          {/* Mobile: image first. Desktop: image stays on the right. */}
+          {heroSlides.length > 0 && (
+            <div className="mx-auto w-full max-w-[680px] lg:order-2">
+              <CategoryHeroCarousel slides={heroSlides} />
+            </div>
+          )}
+
+          {/* Mobile: title and description come after the image. */}
+          <div className="text-center lg:order-1 lg:text-left">
             <div className="flex items-center justify-center gap-2 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#2A1B16]/35 lg:justify-start">
               <Link href="/" className="hover:text-[#ECAB1C]">
                 Accueil
@@ -150,7 +158,7 @@ export default async function LampesCategoryPage({
             </h1>
 
             {category.description && (
-              <p className="mx-auto mt-3 hidden max-w-[560px] text-[12px] leading-6 text-[#2A1B16]/50 sm:block lg:mx-0">
+              <p className="mx-auto mt-3 max-w-[560px] text-[11px] leading-5 text-[#2A1B16]/50 sm:text-[12px] sm:leading-6 lg:mx-0">
                 {category.description}
               </p>
             )}
@@ -176,13 +184,6 @@ export default async function LampesCategoryPage({
               </svg>
             </Link>
           </div>
-
-          {/* Hero carousel — only when DB has hero images */}
-          {heroSlides.length > 0 && (
-            <div className="order-1 mx-auto w-full max-w-[680px] lg:order-2">
-              <CategoryHeroCarousel slides={heroSlides} />
-            </div>
-          )}
         </div>
       </section>
 
