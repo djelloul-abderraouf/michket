@@ -131,7 +131,39 @@ export default async function SubSubcategoryPage({
       >
         <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
           <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:gap-10">
-            <div className="max-w-[620px]">
+            {/* Mobile: hero image first. Desktop: hero image stays on the right. */}
+            <div className="min-w-0 lg:order-2">
+              {subsubcategory.heroImages.length > 0 ? (
+                <SubcategoryHeroCarousel
+                  images={subsubcategory.heroImages}
+                  categoryName={subsubcategory.name}
+                />
+              ) : subsubcategory.imageUrl ? (
+                <div className="relative min-h-[230px] overflow-hidden rounded-[18px] border border-[#2A1B16]/[0.06] bg-[#EEE5DA] shadow-[0_14px_36px_rgba(42,27,22,0.10)] sm:min-h-[320px] lg:min-h-[390px]">
+                  <Image
+                    src={subsubcategory.imageUrl}
+                    alt={subsubcategory.name}
+                    fill
+                    priority
+                    className="object-cover"
+                    sizes="(max-width: 1023px) 100vw, 54vw"
+                  />
+
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/12 via-transparent to-white/5"
+                    aria-hidden="true"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="min-h-[230px] rounded-[18px] border border-[#2A1B16]/[0.06] bg-gradient-to-br from-[#E8DCCF] via-[#F4ECE3] to-[#D8C7B6] shadow-[0_14px_36px_rgba(42,27,22,0.08)] sm:min-h-[320px] lg:min-h-[390px]"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+
+            {/* Mobile: title and description after the image. Desktop: text stays left. */}
+            <div className="max-w-[620px] lg:order-1">
               <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
                 <Link
                   href="/"
@@ -175,36 +207,6 @@ export default async function SubSubcategoryPage({
                   {subsubcategory.description}
                 </p>
               ) : null}
-            </div>
-
-            <div className="min-w-0">
-              {subsubcategory.heroImages.length > 0 ? (
-                <SubcategoryHeroCarousel
-                  images={subsubcategory.heroImages}
-                  categoryName={subsubcategory.name}
-                />
-              ) : subsubcategory.imageUrl ? (
-                <div className="relative min-h-[230px] overflow-hidden rounded-[18px] border border-[#2A1B16]/[0.06] bg-[#EEE5DA] shadow-[0_14px_36px_rgba(42,27,22,0.10)] sm:min-h-[320px] lg:min-h-[390px]">
-                  <Image
-                    src={subsubcategory.imageUrl}
-                    alt={subsubcategory.name}
-                    fill
-                    priority
-                    className="object-cover"
-                    sizes="(max-width: 1023px) 100vw, 54vw"
-                  />
-
-                  <div
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/12 via-transparent to-white/5"
-                    aria-hidden="true"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="min-h-[230px] rounded-[18px] border border-[#2A1B16]/[0.06] bg-gradient-to-br from-[#E8DCCF] via-[#F4ECE3] to-[#D8C7B6] shadow-[0_14px_36px_rgba(42,27,22,0.08)] sm:min-h-[320px] lg:min-h-[390px]"
-                  aria-hidden="true"
-                />
-              )}
             </div>
           </div>
         </div>
