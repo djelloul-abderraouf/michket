@@ -7,11 +7,13 @@ export function CrmPreparation({
   qualityChecked,
   setQualityChecked,
   onValidate,
+  canEdit,
 }: {
   orders: Order[];
   qualityChecked: boolean;
   setQualityChecked: (value: boolean) => void;
   onValidate: (order: Order) => void;
+  canEdit: boolean;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");

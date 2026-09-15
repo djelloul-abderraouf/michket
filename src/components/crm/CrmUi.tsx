@@ -11,13 +11,20 @@ export function cx(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export function formatDate(value: string) {
+export function formatDate(value?: string) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
   return new Intl.DateTimeFormat("fr-DZ", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function productSummary(order: Pick<Order, "items">) {
@@ -39,7 +46,7 @@ export function CrmButton({
   onClick?: () => void;
   disabled?: boolean;
   type?: "button" | "submit";
-  variant?: "primary" | "ghost" | "success" | "danger";
+  variant?: "primary" | "default" | "ghost" | "success" | "danger";
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
@@ -51,6 +58,7 @@ export function CrmButton({
 
   const variantClasses = {
     primary: "bg-black text-white hover:bg-michket-gold hover:text-black",
+    default: "bg-michket-gold text-black hover:bg-michket-gold/90",
     ghost: "border border-black/10 bg-white text-black hover:border-michket-gold hover:bg-michket-gold/15",
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
     danger: "bg-rose-600 text-white hover:bg-rose-700",

@@ -14,14 +14,24 @@ export function CrmTasks({
   tasks,
   user,
   onAdd,
+  onToggle,
+  onUpdate,
+  onDelete,
 }: {
   tasks: CrmTask[];
   user: CrmUser;
-  onAdd: () => void;
+  onAdd: (data: { title: string; priority: CrmTask["priority"]; dueAt: string }) => void;
+  onToggle?: (task: CrmTask) => void;
+  onUpdate?: (id: string, data: Partial<CrmTask>) => void;
+  onDelete?: (id: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskPriority, setTaskPriority] = useState<CrmTask["priority"]>("normale");
+  const [taskDueAt, setTaskDueAt] = useState("");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<CrmTask | undefined>();
+  const [isEditing, setIsEditing] = useState(false);
   const mine = tasks.filter((task) => task.assigneeId === user.id);
   const visibleTasks = mine.length ? mine : tasks;
 
@@ -121,7 +131,7 @@ export function CrmTasks({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Handle task completion
+                      onToggle?.(task);
                     }}
                     className={`p-2 rounded-lg transition ${
                       task.done
@@ -144,12 +154,29 @@ export function CrmTasks({
         onClose={() => setIsPopupOpen(false)}
         title="Nouvelle tâche"
       >
-        <form className="space-y-4">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!taskTitle) return;
+            onAdd({
+              title: taskTitle,
+              priority: taskPriority,
+              dueAt: taskDueAt || new Date().toISOString(),
+            });
+            setTaskTitle("");
+            setTaskPriority("normale");
+            setTaskDueAt("");
+            setIsPopupOpen(false);
+          }}
+        >
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Titre
             </label>
             <input
+              value={taskTitle}
+              onChange={(event) => setTaskTitle(event.target.value)}
               placeholder="Titre de la tâche"
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
             />
@@ -158,7 +185,11 @@ export function CrmTasks({
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Priorité
             </label>
-            <select className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold">
+            <select
+              value={taskPriority}
+              onChange={(event) => setTaskPriority(event.target.value as CrmTask["priority"])}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+            >
               <option value="basse">Basse</option>
               <option value="normale">Normale</option>
               <option value="haute">Haute</option>
@@ -171,6 +202,8 @@ export function CrmTasks({
             </label>
             <input
               type="date"
+              value={taskDueAt}
+              onChange={(event) => setTaskDueAt(event.target.value)}
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
             />
           </div>
@@ -235,13 +268,72 @@ export function CrmTasks({
             </div>
 
             <div className="flex gap-3">
-              <CrmButton variant="success" className="flex-1">
-                Marquer terminée
+              <CrmButton variant="success" className="flex-1" onClick={() => onToggle?.(selectedTask)}>
+                {selectedTask.done ? "Rouvrir" : "Marquer terminée"}
               </CrmButton>
-              <CrmButton variant="ghost" className="flex-1">
+              <CrmButton
+                variant="ghost"
+                className="flex-1"
+                onClick={() => {
+                  setTaskTitle(selectedTask.title);
+                  setTaskPriority(selectedTask.priority);
+                  setTaskDueAt(selectedTask.dueAt.slice(0, 10));
+                  setIsEditing(true);
+                }}
+              >
                 Modifier
               </CrmButton>
             </div>
+            {isEditing && (
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onUpdate?.(selectedTask.id, {
+                    title: taskTitle,
+                    priority: taskPriority,
+                    dueAt: taskDueAt,
+                  });
+                  setIsEditing(false);
+                  setIsDrawerOpen(false);
+                }}
+              >
+                <input
+                  value={taskTitle}
+                  onChange={(event) => setTaskTitle(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+                />
+                <select
+                  value={taskPriority}
+                  onChange={(event) => setTaskPriority(event.target.value as CrmTask["priority"])}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+                >
+                  <option value="basse">Basse</option>
+                  <option value="normale">Normale</option>
+                  <option value="haute">Haute</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+                <input
+                  type="date"
+                  value={taskDueAt}
+                  onChange={(event) => setTaskDueAt(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+                />
+                <CrmButton type="submit" className="w-full">
+                  Enregistrer
+                </CrmButton>
+              </form>
+            )}
+            <CrmButton
+              variant="danger"
+              className="w-full"
+              onClick={() => {
+                onDelete?.(selectedTask.id);
+                setIsDrawerOpen(false);
+              }}
+            >
+              Supprimer
+            </CrmButton>
           </div>
         </CrmSideDrawer>
       )}

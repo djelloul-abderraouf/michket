@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { dealStageLabels, dealStages, type Deal } from "@/lib/crm/types";
+import { dealStageLabels, dealStages, type Company, type Contact, type Deal } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, CrmAddButton, CrmPopup, ViewToggle, CrmSideDrawer } from "./CrmUi";
 
 const stageColors: Record<Deal["stage"], string> = {
@@ -13,21 +13,44 @@ const stageColors: Record<Deal["stage"], string> = {
 
 export function CrmSales({
   deals,
+  contacts = [],
+  companies = [],
   onStage,
+  onCreateDeal,
+  onDeleteDeal,
 }: {
   deals: Deal[];
+  contacts?: Contact[];
+  companies?: Company[];
   onStage: (deal: Deal, stage: Deal["stage"]) => void;
+  onCreateDeal?: (data: {
+    title: string;
+    estimatedAmount: number;
+    contactId?: string;
+    companyId?: string;
+  }) => void;
+  onDeleteDeal?: (id: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | undefined>();
+  const [newDealTitle, setNewDealTitle] = useState("");
+  const [newDealAmount, setNewDealAmount] = useState("");
+  const [newDealContactId, setNewDealContactId] = useState("");
+  const [newDealCompanyId, setNewDealCompanyId] = useState("");
   
   // Calculate pipeline statistics
   const totalPipeline = deals.reduce((sum, deal) => sum + deal.estimatedAmount, 0);
   const wonDeals = deals.filter((deal) => deal.stage === "gagnee");
   const lostDeals = deals.filter((deal) => deal.stage === "perdue");
   const conversionRate = deals.length > 0 ? (wonDeals.length / deals.length) * 100 : 0;
+
+  const contactName = (contactId?: string) => {
+    if (!contactId) return "-";
+    const contact = contacts.find((item) => item.id === contactId);
+    return contact ? `${contact.firstName} ${contact.lastName}`.trim() : contactId;
+  };
 
   return (
     <div className="space-y-6">
@@ -102,7 +125,7 @@ export function CrmSales({
                   >
                     <td className="px-4 py-3 text-sm font-bold">{deal.title}</td>
                     <td className="px-4 py-3 text-sm font-bold">{dzd.format(deal.estimatedAmount)}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{deal.contactId || "-"}</td>
+                    <td className="px-4 py-3 text-sm text-black/70">{contactName(deal.contactId)}</td>
                     <td className="px-4 py-3">
                       <CrmBadge
                         variant={
@@ -189,7 +212,7 @@ export function CrmSales({
                           {deal.contactId && (
                             <div className="flex justify-between items-center">
                               <span className="text-black/60">Contact</span>
-                              <span className="font-medium text-right truncate">{deal.contactId}</span>
+                              <span className="font-medium text-right truncate">{contactName(deal.contactId)}</span>
                             </div>
                           )}
                           <div className="flex justify-between items-center text-xs text-black/50 pt-2 border-t border-black/5">
@@ -242,12 +265,31 @@ export function CrmSales({
         onClose={() => setIsPopupOpen(false)}
         title="Nouvelle affaire"
       >
-        <form className="space-y-4">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!newDealTitle) return;
+            onCreateDeal?.({
+              title: newDealTitle,
+              estimatedAmount: Number(newDealAmount) || 0,
+              contactId: newDealContactId || undefined,
+              companyId: newDealCompanyId || undefined,
+            });
+            setNewDealTitle("");
+            setNewDealAmount("");
+            setNewDealContactId("");
+            setNewDealCompanyId("");
+            setIsPopupOpen(false);
+          }}
+        >
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Titre
             </label>
             <input
+              value={newDealTitle}
+              onChange={(event) => setNewDealTitle(event.target.value)}
               placeholder="Titre de l'affaire"
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
             />
@@ -258,6 +300,8 @@ export function CrmSales({
             </label>
             <input
               type="number"
+              value={newDealAmount}
+              onChange={(event) => setNewDealAmount(event.target.value)}
               placeholder="0"
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
             />
@@ -266,10 +310,35 @@ export function CrmSales({
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Contact
             </label>
-            <input
-              placeholder="Nom du contact"
+            <select
+              value={newDealContactId}
+              onChange={(event) => setNewDealContactId(event.target.value)}
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            />
+            >
+              <option value="">Aucun contact</option>
+              {contacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.firstName} {contact.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+              Entreprise
+            </label>
+            <select
+              value={newDealCompanyId}
+              onChange={(event) => setNewDealCompanyId(event.target.value)}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+            >
+              <option value="">Aucune entreprise</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-3 pt-2">
             <CrmButton
@@ -312,7 +381,7 @@ export function CrmSales({
                   </CrmBadge>
                 </div>
                 {selectedDeal.contactId && (
-                  <p className="mt-2 text-sm text-black/60">Contact: {selectedDeal.contactId}</p>
+                  <p className="mt-2 text-sm text-black/60">Contact: {contactName(selectedDeal.contactId)}</p>
                 )}
               </div>
               <div className="text-right">
@@ -355,6 +424,17 @@ export function CrmSales({
                     Générer commande
                   </CrmButton>
                 )}
+                <CrmButton
+                  variant="danger"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    onDeleteDeal?.(selectedDeal.id);
+                    setIsDrawerOpen(false);
+                  }}
+                >
+                  Supprimer
+                </CrmButton>
               </div>
             </div>
           </div>

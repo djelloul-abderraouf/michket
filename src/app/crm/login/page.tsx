@@ -3,11 +3,12 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Lock, Mail } from "lucide-react";
-import { demoUsers } from "@/lib/crm/demo-data";
+import { Lock, Mail, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,34 +19,21 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Simulate authentication delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const { error: signInError } = await signIn(email, password);
 
-    // Find user by email (demo authentication)
-    const user = demoUsers.find((u) => u.email === email);
+      if (signInError) {
+        setError(signInError);
+        setIsLoading(false);
+        return;
+      }
 
-    if (!user) {
-      setError("Email ou mot de passe incorrect");
+      // Successful login - redirect to dashboard
+      router.push("/crm/dashboard");
+    } catch (err) {
+      setError("Une erreur est survenue lors de la connexion");
       setIsLoading(false);
-      return;
     }
-
-    if (!user.active) {
-      setError("Ce compte est désactivé. Contactez l'administrateur.");
-      setIsLoading(false);
-      return;
-    }
-
-    // For demo, any password works for existing users
-    // In production, this would verify the actual password
-    if (!password) {
-      setError("Veuillez entrer votre mot de passe");
-      setIsLoading(false);
-      return;
-    }
-
-    // Successful login - redirect to dashboard
-    router.push(`/crm/dashboard?user=${encodeURIComponent(user.id)}`);
   };
 
   return (
@@ -78,7 +66,8 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-rose-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm text-rose-600">{error}</p>
             </div>
           )}
@@ -129,21 +118,8 @@ export default function LoginPage() {
 
           {/* Demo Info */}
           <div className="mt-6 pt-6 border-t border-black/10">
-            <p className="text-xs text-black/50 text-center mb-2">
-              Comptes de démonstration disponibles :
-            </p>
-            <div className="space-y-1">
-              {demoUsers.filter(u => u.active).map((user) => (
-                <div key={user.id} className="text-xs text-black/60 flex justify-between">
-                  <span>{user.email}</span>
-                  <span className="text-michket-gold font-medium">
-                    {user.roles.join(", ")}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-black/40 text-center mt-2">
-              (Mot de passe : n'importe quoi pour la démo)
+            <p className="text-xs text-black/50 text-center">
+              Connectez-vous avec votre compte Supabase
             </p>
           </div>
         </div>

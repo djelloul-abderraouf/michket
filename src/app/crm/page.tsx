@@ -6,13 +6,6 @@ export const metadata: Metadata = {
   description: "Espace operationnel Michket CRM.",
 };
 
-export default async function CRMIndexPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ user?: string }>;
-}) {
-  const params = await searchParams;
-  const user = params.user ? `?user=${encodeURIComponent(params.user)}` : "";
-
-  redirect(`/crm/dashboard${user}`);
+export default function CRMIndexPage() {
+  redirect("/crm/dashboard");
 }

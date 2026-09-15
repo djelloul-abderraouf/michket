@@ -97,7 +97,9 @@ export interface CrmUser {
   email: string;
   roles: CrmRole[];
   active: boolean;
-  lastLoginAt: string;
+  lastLoginAt?: string;
+  businessRole?: string;
+  phone?: string;
 }
 
 export interface Contact {
@@ -123,11 +125,22 @@ export interface Company {
 export interface Product {
   id: string;
   name: string;
-  category: "lampe" | "trophee" | "carte" | "neon";
+  slug?: string;
+  category: string;
+  categoryId?: string;
+  categorySlug?: string;
   price: number;
   photoUrl: string;
   averageBuildHours: number;
   active: boolean;
+  isPersonalizable?: boolean;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  isActive?: boolean;
 }
 
 export interface ProposalItem {

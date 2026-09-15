@@ -1,11 +1,3 @@
-import { CrmApp } from "@/components/crm/CrmApp";
-
-export default async function CrmDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ user?: string }>;
-}) {
-  const params = await searchParams;
-
-  return <CrmApp initialUserId={params.user} initialPage="overview" />;
+export default function CrmDashboardPage() {
+  return null;
 }

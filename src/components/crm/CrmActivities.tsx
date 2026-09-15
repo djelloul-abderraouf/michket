@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Phone, MessageSquare, MapPin } from "lucide-react";
-import { demoActivities, demoContacts } from "@/lib/crm/demo-data";
 import type { Activity } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup } from "./CrmUi";
 
@@ -16,8 +15,13 @@ const activityLabels: Record<Activity["type"], string> = {
   visite: "Visite",
 };
 
-export function CrmActivities() {
-  const [activities, setActivities] = useState<Activity[]>(demoActivities);
+export function CrmActivities(props: {
+  activities: Activity[];
+  canEdit: boolean;
+  onAddActivity: (data: { type: Activity["type"]; target: string; description: string }) => void;
+  onDeleteActivity: (id: string) => void;
+}) {
+  const [activities, setActivities] = useState<Activity[]>(props.activities);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [newActivity, setNewActivity] = useState({
     type: "appel" as Activity["type"],
@@ -25,20 +29,19 @@ export function CrmActivities() {
     description: "",
   });
 
+  useEffect(() => {
+    setActivities(props.activities);
+  }, [props.activities]);
+
   const handleAddActivity = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newActivity.target || !newActivity.description) return;
+    if (!newActivity.target || !newActivity.description || !props.canEdit) return;
 
-    const activity: Activity = {
-      id: `act-${Date.now()}`,
+    props.onAddActivity({
       type: newActivity.type,
       target: newActivity.target,
-      ownerId: "usr-sales", // In real app, would be current user
       description: newActivity.description,
-      createdAt: new Date().toISOString(),
-    };
-
-    setActivities([activity, ...activities]);
+    });
     setNewActivity({ type: "appel", target: "", description: "" });
     setIsPopupOpen(false);
   };
@@ -90,7 +93,7 @@ export function CrmActivities() {
       {/* Activities List */}
       <CrmPanel
         title="Activités commerciales"
-        actions={<CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle activité" />}
+        actions={<CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle activité" disabled={!props.canEdit} />}
       >
 
         <div className="space-y-3">
@@ -113,6 +116,17 @@ export function CrmActivities() {
                       </div>
                     </div>
                     <p className="text-sm text-black/70 mt-2">{activity.description}</p>
+                    {props.canEdit && (
+                      <div className="mt-3">
+                        <CrmButton
+                          variant="danger"
+                          size="sm"
+                          onClick={() => props.onDeleteActivity(activity.id)}
+                        >
+                          Supprimer
+                        </CrmButton>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CrmCard>
@@ -183,7 +197,7 @@ export function CrmActivities() {
             >
               Annuler
             </CrmButton>
-            <CrmButton type="submit" className="flex-1">
+            <CrmButton type="submit" disabled={!props.canEdit} className="flex-1">
               Enregistrer activité
             </CrmButton>
           </div>

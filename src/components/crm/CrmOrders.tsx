@@ -6,7 +6,8 @@ import {
   statusTransitions,
 } from "@/lib/crm/permissions";
 import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
-import type { CrmRole, Order, OrderStatus, Product } from "@/lib/crm/types";
+import type { Contact, CrmRole, Order, OrderStatus, Product } from "@/lib/crm/types";
+import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
 import { CrmButton, CrmPanel, CrmCard, CrmBadge, cx, dzd, formatDate, productSummary, CrmAddButton, CrmPopup, ViewToggle, CrmSideDrawer } from "./CrmUi";
 
 const statusTone: Record<OrderStatus, { border: string; bg: string; badge: string }> = {
@@ -31,7 +32,9 @@ export function CrmOrders(props: {
   newOrderPhone: string;
   newOrderWilaya: string;
   newOrderProduct: string;
+  newOrderQuantity?: number;
   products: Product[];
+  contacts?: Contact[];
   onQuery: (value: string) => void;
   onStatusFilter: (value: OrderStatus | "all") => void;
   onWilayaFilter: (value: string) => void;
@@ -42,11 +45,17 @@ export function CrmOrders(props: {
   setNewOrderPhone: (value: string) => void;
   setNewOrderWilaya: (value: string) => void;
   setNewOrderProduct: (value: string) => void;
+  setNewOrderQuantity?: (value: number) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [contactQuery, setContactQuery] = useState("");
   const selectedOrder = props.selectedOrder;
+  const matchedContacts = (props.contacts || []).filter((contact) => {
+    const haystack = `${contact.firstName} ${contact.lastName} ${contact.phone} ${contact.email || ""}`.toLowerCase();
+    return contactQuery.trim().length > 0 && haystack.includes(contactQuery.toLowerCase());
+  }).slice(0, 8);
 
   return (
     <div className="space-y-6">
@@ -328,7 +337,47 @@ export function CrmOrders(props: {
         onClose={() => setIsPopupOpen(false)}
         title="Nouvelle commande"
       >
-        <form onSubmit={props.onCreateOrder} className="space-y-4">
+        <form
+          onSubmit={(event) => {
+            props.onCreateOrder(event);
+            setIsPopupOpen(false);
+            setContactQuery("");
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+              Rechercher un client
+            </label>
+            <input
+              value={contactQuery}
+              onChange={(event) => setContactQuery(event.target.value)}
+              placeholder="Nom, telephone, email..."
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
+            />
+            {matchedContacts.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-auto rounded-lg border border-black/10 bg-white">
+                {matchedContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-black/[0.04]"
+                    onClick={() => {
+                      props.setNewOrderName(`${contact.firstName} ${contact.lastName}`.trim());
+                      props.setNewOrderPhone(contact.phone);
+                      if (contact.wilaya) {
+                        props.setNewOrderWilaya(contact.wilaya);
+                      }
+                      setContactQuery(`${contact.firstName} ${contact.lastName}`);
+                    }}
+                  >
+                    <span className="font-semibold">{contact.firstName} {contact.lastName}</span>
+                    <span className="ml-2 text-black/50">{contact.phone} · {contact.wilaya}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Nom client
@@ -355,12 +404,17 @@ export function CrmOrders(props: {
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Wilaya
             </label>
-            <input
+            <select
               value={props.newOrderWilaya}
               onChange={(event) => props.setNewOrderWilaya(event.target.value)}
-              placeholder="Alger"
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            />
+            >
+              {ALGERIA_WILAYAS.map((wilaya) => (
+                <option key={wilaya.code} value={wilaya.name}>
+                  {wilaya.code} - {wilaya.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
@@ -377,6 +431,19 @@ export function CrmOrders(props: {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+              Quantite
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={props.newOrderQuantity || 1}
+              onChange={(event) => props.setNewOrderQuantity?.(Number(event.target.value) || 1)}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <CrmButton

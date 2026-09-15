@@ -1,11 +1,17 @@
-import { useState } from "react";
-import { demoCompanies } from "@/lib/crm/demo-data";
+import { useEffect, useState } from "react";
 import type { Company } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, CrmAddButton, CrmPopup, ViewToggle, formatDate } from "./CrmUi";
 
-export function CrmCompanies() {
-  const [companies, setCompanies] = useState<Company[]>(demoCompanies);
+export function CrmCompanies(props: {
+  companies: Company[];
+  canEdit: boolean;
+  onAddCompany: (data: { name: string; sector: string; commercialTerms?: string }) => void;
+  onUpdateCompany: (id: string, data: Partial<Company>) => void;
+  onDeleteCompany: (id: string) => void;
+}) {
+  const [companies, setCompanies] = useState<Company[]>(props.companies);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "grid">("list");
   const [newCompany, setNewCompany] = useState({
     name: "",
@@ -13,20 +19,29 @@ export function CrmCompanies() {
     commercialTerms: "",
   });
 
+  useEffect(() => {
+    setCompanies(props.companies);
+  }, [props.companies]);
+
   const handleAddCompany = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCompany.name) return;
+    if (!newCompany.name || !props.canEdit) return;
 
-    const company: Company = {
-      id: `cmp-${Date.now()}`,
-      name: newCompany.name,
-      sector: newCompany.sector,
-      commercialTerms: newCompany.commercialTerms,
-      createdAt: new Date().toISOString(),
-    };
-
-    setCompanies([company, ...companies]);
+    if (editingId) {
+      props.onUpdateCompany(editingId, {
+        name: newCompany.name,
+        sector: newCompany.sector || "General",
+        commercialTerms: newCompany.commercialTerms,
+      });
+    } else {
+      props.onAddCompany({
+        name: newCompany.name,
+        sector: newCompany.sector || "General",
+        commercialTerms: newCompany.commercialTerms,
+      });
+    }
     setNewCompany({ name: "", sector: "", commercialTerms: "" });
+    setEditingId(null);
     setIsPopupOpen(false);
   };
 
@@ -67,7 +82,15 @@ export function CrmCompanies() {
         actions={
           <div className="flex items-center gap-3">
             <ViewToggle view={view} onViewChange={setView} type="grid" />
-            <CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle entreprise" />
+            <CrmAddButton
+              onClick={() => {
+                setEditingId(null);
+                setNewCompany({ name: "", sector: "", commercialTerms: "" });
+                setIsPopupOpen(true);
+              }}
+              label="Nouvelle entreprise"
+              disabled={!props.canEdit}
+            />
           </div>
         }
       >
@@ -81,6 +104,7 @@ export function CrmCompanies() {
                   <th className="px-4 py-3">Secteur</th>
                   <th className="px-4 py-3">Conditions</th>
                   <th className="px-4 py-3">Date création</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,6 +117,34 @@ export function CrmCompanies() {
                     <td className="px-4 py-3 text-sm text-black/70">{company.sector || "-"}</td>
                     <td className="px-4 py-3 text-sm text-black/70">{company.commercialTerms || "-"}</td>
                     <td className="px-4 py-3 text-sm text-black/60">{formatDate(company.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      {props.canEdit && (
+                        <div className="flex gap-2">
+                          <CrmButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingId(company.id);
+                              setNewCompany({
+                                name: company.name,
+                                sector: company.sector,
+                                commercialTerms: company.commercialTerms || "",
+                              });
+                              setIsPopupOpen(true);
+                            }}
+                          >
+                            Modifier
+                          </CrmButton>
+                          <CrmButton
+                            variant="danger"
+                            size="sm"
+                            onClick={() => props.onDeleteCompany(company.id)}
+                          >
+                            Supprimer
+                          </CrmButton>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -126,11 +178,29 @@ export function CrmCompanies() {
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t border-black/10">
-                  <CrmButton variant="ghost" size="sm">
-                    Voir détails
-                  </CrmButton>
-                  <CrmButton variant="ghost" size="sm">
+                  <CrmButton
+                    variant="ghost"
+                    size="sm"
+                    disabled={!props.canEdit}
+                    onClick={() => {
+                      setEditingId(company.id);
+                      setNewCompany({
+                        name: company.name,
+                        sector: company.sector,
+                        commercialTerms: company.commercialTerms || "",
+                      });
+                      setIsPopupOpen(true);
+                    }}
+                  >
                     Modifier
+                  </CrmButton>
+                  <CrmButton
+                    variant="danger"
+                    size="sm"
+                    disabled={!props.canEdit}
+                    onClick={() => props.onDeleteCompany(company.id)}
+                  >
+                    Supprimer
                   </CrmButton>
                 </div>
               </CrmCard>
@@ -143,7 +213,7 @@ export function CrmCompanies() {
       <CrmPopup
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}
-        title="Nouvelle entreprise"
+        title={editingId ? "Modifier l'entreprise" : "Nouvelle entreprise"}
       >
         <form onSubmit={handleAddCompany} className="space-y-4">
           <div>
@@ -189,8 +259,8 @@ export function CrmCompanies() {
             >
               Annuler
             </CrmButton>
-            <CrmButton type="submit" className="flex-1">
-              Créer entreprise
+            <CrmButton type="submit" disabled={!props.canEdit} className="flex-1">
+              {editingId ? "Enregistrer" : "Créer entreprise"}
             </CrmButton>
           </div>
         </form>

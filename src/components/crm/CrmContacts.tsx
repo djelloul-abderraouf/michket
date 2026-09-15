@@ -1,21 +1,45 @@
-import { FormEvent, useState } from "react";
-import { Search, Phone, MapPin, Calendar } from "lucide-react";
-import { demoCompanies } from "@/lib/crm/demo-data";
-import type { Contact } from "@/lib/crm/types";
+import { useState } from "react";
+import { Search, Phone, MapPin, Calendar, Mail } from "lucide-react";
+import type { Company, Contact } from "@/lib/crm/types";
+import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
 import { CrmButton, CrmPanel, CrmCard, CrmBadge, formatDate, CrmAddButton, CrmPopup, CrmSideDrawer, ViewToggle } from "./CrmUi";
+
+const inputClass =
+  "h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold";
+
+type ContactForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  wilaya: string;
+  type: Contact["type"];
+  companyId: string;
+};
+
+const emptyForm: ContactForm = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  email: "",
+  wilaya: "Alger",
+  type: "particulier",
+  companyId: "",
+};
 
 export function CrmContacts(props: {
   contacts: Contact[];
+  companies?: Company[];
   canEdit: boolean;
-  newContactName: string;
-  newContactPhone: string;
-  setNewContactName: (value: string) => void;
-  setNewContactPhone: (value: string) => void;
-  onAddContact: (event: FormEvent<HTMLFormElement>) => void;
+  onAddContact: (data: ContactForm) => void;
+  onUpdateContact: (id: string, data: Partial<Contact>) => void;
+  onDeleteContact: (id: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | undefined>();
+  const [form, setForm] = useState<ContactForm>(emptyForm);
   const [view, setView] = useState<"list" | "kanban" | "grid">("list");
   const [filterType, setFilterType] = useState<"all" | "particulier" | "professionnel">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,7 +68,10 @@ export function CrmContacts(props: {
         <div className="flex items-center gap-3">
           <ViewToggle view={view} onViewChange={setView} type="grid" />
           <CrmAddButton
-            onClick={() => setIsPopupOpen(true)}
+            onClick={() => {
+              setForm(emptyForm);
+              setIsPopupOpen(true);
+            }}
             label="Nouveau contact"
             disabled={!props.canEdit}
           />
@@ -139,7 +166,7 @@ export function CrmContacts(props: {
                 </thead>
                 <tbody>
                   {filteredContacts.map((contact) => {
-                    const company = demoCompanies.find((item) => item.id === contact.companyId);
+                    const companyName = props.companies?.find((company) => company.id === contact.companyId)?.name || "";
                     return (
                       <tr
                         key={contact.id}
@@ -159,7 +186,7 @@ export function CrmContacts(props: {
                             {contact.type}
                           </CrmBadge>
                         </td>
-                        <td className="px-4 py-3 text-sm text-black/70">{company?.name || "-"}</td>
+                        <td className="px-4 py-3 text-sm text-black/70">{companyName || "-"}</td>
                         <td className="px-4 py-3 text-sm text-black/60">{formatDate(contact.createdAt)}</td>
                       </tr>
                     );
@@ -175,7 +202,7 @@ export function CrmContacts(props: {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredContacts.map((contact) => {
-                const company = demoCompanies.find((item) => item.id === contact.companyId);
+                const companyName = props.companies?.find((company) => company.id === contact.companyId)?.name || "";
 
                 return (
                   <CrmCard 
@@ -200,9 +227,9 @@ export function CrmContacts(props: {
                       <h3 className="font-bold text-base">
                         {contact.firstName} {contact.lastName}
                       </h3>
-                      {company && (
+                      {companyName && (
                         <p className="mt-1 text-sm font-semibold text-michket-gold">
-                          {company.name}
+                          {companyName}
                         </p>
                       )}
                     </div>
@@ -244,36 +271,104 @@ export function CrmContacts(props: {
         onClose={() => setIsPopupOpen(false)}
         title="Nouveau contact"
       >
-        <form onSubmit={props.onAddContact} className="space-y-4">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!form.firstName.trim() || !form.phone.trim()) return;
+            props.onAddContact(form);
+            setForm(emptyForm);
+            setIsPopupOpen(false);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+                Prenom
+              </label>
+              <input
+                value={form.firstName}
+                onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+                Nom
+              </label>
+              <input
+                value={form.lastName}
+                onChange={(event) => setForm({ ...form, lastName: event.target.value })}
+                className={inputClass}
+              />
+            </div>
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Nom complet
+              Telephone
             </label>
             <input
-              value={props.newContactName}
-              onChange={(event) => props.setNewContactName(event.target.value)}
-              placeholder="Prénom Nom"
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+              value={form.phone}
+              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              placeholder="0555123456"
+              className={inputClass}
             />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Téléphone unique
+              Email
             </label>
             <input
-              value={props.newContactPhone}
-              onChange={(event) => props.setNewContactPhone(event.target.value)}
-              placeholder="0XXX XX XX XX"
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              className={inputClass}
             />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+              Wilaya
+            </label>
+            <select
+              value={form.wilaya}
+              onChange={(event) => setForm({ ...form, wilaya: event.target.value })}
+              className={inputClass}
+            >
+              {ALGERIA_WILAYAS.map((wilaya) => (
+                <option key={wilaya.code} value={wilaya.name}>
+                  {wilaya.code} - {wilaya.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Type
             </label>
-            <select className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold">
+            <select
+              value={form.type}
+              onChange={(event) => setForm({ ...form, type: event.target.value as Contact["type"] })}
+              className={inputClass}
+            >
               <option value="particulier">Particulier</option>
               <option value="professionnel">Professionnel</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
+              Entreprise
+            </label>
+            <select
+              value={form.companyId}
+              onChange={(event) => setForm({ ...form, companyId: event.target.value })}
+              className={inputClass}
+            >
+              <option value="">Aucune</option>
+              {(props.companies || []).map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex gap-3 pt-2">
@@ -315,7 +410,7 @@ export function CrmContacts(props: {
                 </div>
                 {selectedContact.companyId && (
                   <p className="mt-1 text-sm font-semibold text-michket-gold">
-                    {demoCompanies.find((c) => c.id === selectedContact.companyId)?.name}
+                    {props.companies?.find((company) => company.id === selectedContact.companyId)?.name || "Entreprise"}
                   </p>
                 )}
               </div>
@@ -331,6 +426,10 @@ export function CrmContacts(props: {
                   <span className="font-medium">{selectedContact.phone}</span>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-black/60" />
+                  <span>{selectedContact.email || "-"}</span>
+                </div>
+                <div className="flex items-center gap-3">
                   <MapPin className="h-5 w-5 text-black/60" />
                   <span>{selectedContact.wilaya}</span>
                 </div>
@@ -341,14 +440,122 @@ export function CrmContacts(props: {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <CrmButton variant="ghost" className="flex-1">
-                Modifier
-              </CrmButton>
-              <CrmButton variant="danger" className="flex-1">
-                Supprimer
-              </CrmButton>
-            </div>
+            {isEditing ? (
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  props.onUpdateContact(selectedContact.id, {
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    phone: form.phone,
+                    email: form.email,
+                    wilaya: form.wilaya,
+                    type: form.type,
+                    companyId: form.companyId || undefined,
+                  });
+                  setIsEditing(false);
+                  setIsDrawerOpen(false);
+                }}
+              >
+                <input
+                  value={form.firstName}
+                  onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+                  placeholder="Prenom"
+                  className={inputClass}
+                />
+                <input
+                  value={form.lastName}
+                  onChange={(event) => setForm({ ...form, lastName: event.target.value })}
+                  placeholder="Nom"
+                  className={inputClass}
+                />
+                <input
+                  value={form.phone}
+                  onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                  placeholder="Telephone"
+                  className={inputClass}
+                />
+                <input
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  placeholder="Email"
+                  className={inputClass}
+                />
+                <select
+                  value={form.wilaya}
+                  onChange={(event) => setForm({ ...form, wilaya: event.target.value })}
+                  className={inputClass}
+                >
+                  {ALGERIA_WILAYAS.map((wilaya) => (
+                    <option key={wilaya.code} value={wilaya.name}>
+                      {wilaya.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={form.type}
+                  onChange={(event) => setForm({ ...form, type: event.target.value as Contact["type"] })}
+                  className={inputClass}
+                >
+                  <option value="particulier">Particulier</option>
+                  <option value="professionnel">Professionnel</option>
+                </select>
+                <select
+                  value={form.companyId}
+                  onChange={(event) => setForm({ ...form, companyId: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">Aucune entreprise</option>
+                  {(props.companies || []).map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-3">
+                  <CrmButton type="button" variant="ghost" className="flex-1" onClick={() => setIsEditing(false)}>
+                    Annuler
+                  </CrmButton>
+                  <CrmButton type="submit" className="flex-1">
+                    Enregistrer
+                  </CrmButton>
+                </div>
+              </form>
+            ) : (
+              <div className="flex gap-3">
+                <CrmButton
+                  variant="ghost"
+                  className="flex-1"
+                  disabled={!props.canEdit}
+                  onClick={() => {
+                    setForm({
+                      firstName: selectedContact.firstName,
+                      lastName: selectedContact.lastName,
+                      phone: selectedContact.phone,
+                      email: selectedContact.email || "",
+                      wilaya: selectedContact.wilaya,
+                      type: selectedContact.type,
+                      companyId: selectedContact.companyId || "",
+                    });
+                    setIsEditing(true);
+                  }}
+                >
+                  Modifier
+                </CrmButton>
+                <CrmButton
+                  variant="danger"
+                  className="flex-1"
+                  disabled={!props.canEdit}
+                  onClick={() => {
+                    props.onDeleteContact(selectedContact.id);
+                    setIsDrawerOpen(false);
+                  }}
+                >
+                  Supprimer
+                </CrmButton>
+              </div>
+            )}
           </div>
         </CrmSideDrawer>
       )}

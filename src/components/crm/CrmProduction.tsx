@@ -10,10 +10,12 @@ const statusConfig: Record<ProductionJob["status"], { variant: any; color: strin
 
 export function CrmProduction({
   jobs,
+  canEdit,
   onStart,
   onFinish,
 }: {
   jobs: ProductionJob[];
+  canEdit: boolean;
   onStart: (job: ProductionJob) => void;
   onFinish: (job: ProductionJob) => void;
 }) {
@@ -163,14 +165,14 @@ export function CrmProduction({
                   <CrmButton
                     variant="ghost"
                     size="sm"
-                    disabled={job.status !== "en_attente"}
+                    disabled={job.status !== "en_attente" || !canEdit}
                     onClick={() => onStart(job)}
                   >
                     Démarrer
                   </CrmButton>
                   <CrmButton
                     size="sm"
-                    disabled={job.status !== "en_cours"}
+                    disabled={job.status !== "en_cours" || !canEdit}
                     onClick={() => onFinish(job)}
                   >
                     Terminer

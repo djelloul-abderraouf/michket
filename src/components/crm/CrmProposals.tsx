@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { demoDeals, demoProposals, demoProducts } from "@/lib/crm/demo-data";
-import type { Proposal, Deal } from "@/lib/crm/types";
+import { useEffect, useState } from "react";
+import type { Proposal, Deal, Product } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
 
 const proposalStatusConfig: Record<Proposal["status"], { variant: any; label: string }> = {
@@ -19,8 +18,17 @@ const stageColors: Record<Proposal["status"], string> = {
   refusee: "border-l-rose-500 bg-rose-50",
 };
 
-export function CrmProposals() {
-  const [proposals, setProposals] = useState<Proposal[]>(demoProposals);
+export function CrmProposals(props: {
+  proposals: Proposal[];
+  deals: Deal[];
+  products: Product[];
+  canEdit: boolean;
+  onCreateProposal: (data: { dealId: string; items: Proposal["items"]; total: number }) => void;
+  onStatusChange?: (proposal: Proposal, status: Proposal["status"]) => void;
+  onDeleteProposal?: (id: string) => void;
+}) {
+  const [proposals, setProposals] = useState<Proposal[]>(props.proposals);
+  const [deals, setDeals] = useState<Deal[]>(props.deals);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [selectedDeal, setSelectedDeal] = useState<string>("");
@@ -29,36 +37,35 @@ export function CrmProposals() {
     items: [] as Array<{ productId: string; quantity: number }>,
   });
 
+  useEffect(() => {
+    setProposals(props.proposals);
+  }, [props.proposals]);
+
+  useEffect(() => {
+    setDeals(props.deals);
+  }, [props.deals]);
+
   const handleCreateProposal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDeal || newProposal.items.length === 0) return;
 
-    const deal = demoDeals.find((d) => d.id === selectedDeal);
-    if (!deal) return;
+    const items = newProposal.items.map((item) => {
+      const product = props.products.find((p) => p.id === item.productId);
+      return {
+        productId: item.productId,
+        productName: product?.name || "",
+        quantity: item.quantity,
+        unitPrice: product?.price || 0,
+      };
+    });
 
-    const total = newProposal.items.reduce((sum, item) => {
-      const product = demoProducts.find((p) => p.id === item.productId);
-      return sum + (product?.price || 0) * item.quantity;
-    }, 0);
+    const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
-    const proposal: Proposal = {
-      id: `prop-${Date.now()}`,
+    props.onCreateProposal({
       dealId: selectedDeal,
-      status: "brouillon",
-      items: newProposal.items.map((item) => {
-        const product = demoProducts.find((p) => p.id === item.productId);
-        return {
-          productId: item.productId,
-          productName: product?.name || "",
-          quantity: item.quantity,
-          unitPrice: product?.price || 0,
-        };
-      }),
+      items,
       total,
-      createdAt: new Date().toISOString(),
-    };
-
-    setProposals([proposal, ...proposals]);
+    });
     setNewProposal({ dealId: "", items: [] });
     setSelectedDeal("");
     setIsPopupOpen(false);
@@ -167,11 +174,12 @@ export function CrmProposals() {
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3">Total</th>
                   <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {proposals.map((proposal) => {
-                  const deal = demoDeals.find((d) => d.id === proposal.dealId);
+                  const deal = deals.find((d) => d.id === proposal.dealId);
                   return (
                     <tr
                       key={proposal.id}
@@ -185,6 +193,17 @@ export function CrmProposals() {
                       </td>
                       <td className="px-4 py-3 text-sm font-bold">{dzd.format(proposal.total)}</td>
                       <td className="px-4 py-3 text-sm text-black/60">{formatDate(proposal.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        {props.canEdit && (
+                          <CrmButton
+                            variant="danger"
+                            size="sm"
+                            onClick={() => props.onDeleteProposal?.(proposal.id)}
+                          >
+                            Supprimer
+                          </CrmButton>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -217,7 +236,7 @@ export function CrmProposals() {
                       </p>
                     ) : (
                       statusProposals.map((proposal) => {
-                        const deal = demoDeals.find((d) => d.id === proposal.dealId);
+                        const deal = deals.find((d) => d.id === proposal.dealId);
                         return (
                           <CrmCard
                             key={proposal.id}
@@ -264,16 +283,30 @@ export function CrmProposals() {
 
                             <div className="flex gap-2 pt-3 border-t border-black/10">
                               {proposal.status === "brouillon" && (
-                                <CrmButton size="sm" className="flex-1">
+                                <CrmButton
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => props.onStatusChange?.(proposal, "envoyee")}
+                                >
                                   Envoyer
                                 </CrmButton>
                               )}
                               {proposal.status === "envoyee" && (
                                 <>
-                                  <CrmButton variant="success" size="sm" className="flex-1">
+                                  <CrmButton
+                                    variant="success"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => props.onStatusChange?.(proposal, "acceptee")}
+                                  >
                                     Accepter
                                   </CrmButton>
-                                  <CrmButton variant="danger" size="sm" className="flex-1">
+                                  <CrmButton
+                                    variant="danger"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => props.onStatusChange?.(proposal, "refusee")}
+                                  >
                                     Refuser
                                   </CrmButton>
                                 </>
@@ -281,6 +314,16 @@ export function CrmProposals() {
                               {proposal.status === "acceptee" && (
                                 <CrmButton variant="success" size="sm" className="flex-1">
                                   Générer commande
+                                </CrmButton>
+                              )}
+                              {props.canEdit && (
+                                <CrmButton
+                                  variant="danger"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => props.onDeleteProposal?.(proposal.id)}
+                                >
+                                  Supprimer
                                 </CrmButton>
                               )}
                             </div>
@@ -322,7 +365,7 @@ export function CrmProposals() {
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
             >
               <option value="">Sélectionner une affaire</option>
-              {demoDeals.map((deal) => (
+              {deals.map((deal) => (
                 <option key={deal.id} value={deal.id}>
                   {deal.title} - {dzd.format(deal.estimatedAmount)}
                 </option>
@@ -337,7 +380,7 @@ export function CrmProposals() {
                   Produits
                 </label>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {demoProducts.filter((p) => p.active).map((product) => (
+                  {props.products.filter((p) => p.active).map((product) => (
                     <button
                       key={product.id}
                       type="button"
@@ -356,7 +399,7 @@ export function CrmProposals() {
                   <h4 className="mb-3 font-bold text-sm">Produits sélectionnés</h4>
                   <div className="space-y-2">
                     {newProposal.items.map((item) => {
-                      const product = demoProducts.find((p) => p.id === item.productId);
+                      const product = props.products.find((p) => p.id === item.productId);
                       return (
                         <div key={item.productId} className="flex items-center justify-between">
                           <span className="text-sm">{product?.name}</span>
@@ -393,7 +436,7 @@ export function CrmProposals() {
                     <span className="font-bold">
                       {dzd.format(
                         newProposal.items.reduce((sum, item) => {
-                          const product = demoProducts.find((p) => p.id === item.productId);
+                          const product = props.products.find((p) => p.id === item.productId);
                           return sum + (product?.price || 0) * item.quantity;
                         }, 0)
                       )}
