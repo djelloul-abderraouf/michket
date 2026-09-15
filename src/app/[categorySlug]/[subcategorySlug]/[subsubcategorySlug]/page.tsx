@@ -22,6 +22,61 @@ type PageParams = {
   subsubcategorySlug: string;
 };
 
+function localizeCatalogueLabel(value: string): string {
+  const normalized = value
+    .trim()
+    .toLocaleLowerCase("fr");
+
+  const labels: Record<string, string> = {
+    "lampes 3d": "مصابيح ثلاثية الأبعاد",
+    "anniversaire": "عيد الميلاد",
+    "médecine": "الطب",
+    "medecine": "الطب",
+    "mariage": "الزفاف",
+    "nouveau-né": "مولود جديد",
+    "nouveau né": "مولود جديد",
+    "nouveau nee": "مولود جديد",
+    "nouveau née": "مولود جديد",
+    "football": "كرة القدم",
+    "soutenance": "التخرج",
+    "maman": "الأم",
+    "chirurgie": "الجراحة",
+    "dentiste": "طب الأسنان",
+    "dentisterie": "طب الأسنان",
+    "pharmacie": "الصيدلة",
+    "infirmier": "التمريض",
+    "infirmière": "التمريض",
+    "cardiologie": "طب القلب",
+    "pédiatrie": "طب الأطفال",
+    "pediatrie": "طب الأطفال",
+    "gynécologie": "طب النساء",
+    "gynecologie": "طب النساء",
+    "cartes du monde": "خرائط العالم",
+    "néon led": "نيون LED",
+    "neon led": "نيون LED",
+    "trophées": "الجوائز",
+    "trophees": "الجوائز",
+  };
+
+  return labels[normalized] ?? value;
+}
+
+function getArabicBadgeLabel(
+  badge: string | null | undefined,
+): string | null {
+  if (!badge) return null;
+
+  const labels: Record<string, string> = {
+    BEST_SELLER: "الأكثر مبيعًا",
+    NOUVEAU: "جديد",
+    PROMO: "عرض",
+    PERSONNALISABLE: "قابل للتخصيص",
+    ENVOI_GRATUIT: "توصيل مجاني",
+  };
+
+  return labels[badge] ?? badge;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -50,25 +105,28 @@ export async function generateMetadata({
   ) {
     return {
       title:
-        "Sous-sous-catégorie introuvable | Michket",
+        "الفئة الفرعية من المستوى الثالث غير موجودة | Michket",
     };
   }
+
+  const localizedSubsubcategoryName =
+    localizeCatalogueLabel(subsubcategory.name);
 
   return {
     title:
       subsubcategory.metaTitle ||
-      `${subsubcategory.name} | Michket`,
+      `${localizedSubsubcategoryName} | Michket`,
     description:
       subsubcategory.metaDescription ||
       subsubcategory.description ||
-      `Découvrez la collection ${subsubcategory.name} sur Michket.`,
+      `اكتشف مجموعة ${localizedSubsubcategoryName} على Michket.`,
   };
 }
 
 function formatPriceDA(price: number): string {
-  return `${new Intl.NumberFormat("fr-DZ", {
+  return `${new Intl.NumberFormat("ar-DZ", {
     maximumFractionDigits: 2,
-  }).format(price)} DA`;
+  }).format(price)} دج`;
 }
 
 export default async function SubSubcategoryPage({
@@ -114,13 +172,27 @@ export default async function SubSubcategoryPage({
     apiError = true;
   }
 
+  const localizedCategoryName =
+    localizeCatalogueLabel(category.name);
+  const localizedSubcategoryName =
+    localizeCatalogueLabel(subcategory.name);
+  const localizedSubsubcategoryName =
+    localizeCatalogueLabel(subsubcategory.name);
+
+  const localizedPageTitle =
+    subsubcategory.pageTitle?.trim()
+      ? localizeCatalogueLabel(
+          subsubcategory.pageTitle,
+        )
+      : null;
+
   const displayName =
     subsubcategory.productsTitle?.trim() ||
-    subsubcategory.pageTitle?.trim() ||
-    subsubcategory.name;
+    localizedPageTitle ||
+    localizedSubsubcategoryName;
 
   return (
-    <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
+    <main lang="ar" dir="rtl" className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
       {/* HERO */}
       <section
         className="relative border-b border-[#2A1B16]/[0.08]"
@@ -136,7 +208,7 @@ export default async function SubSubcategoryPage({
               {subsubcategory.heroImages.length > 0 ? (
                 <SubcategoryHeroCarousel
                   images={subsubcategory.heroImages}
-                  categoryName={subsubcategory.name}
+                  categoryName={localizedSubsubcategoryName}
                 />
               ) : subsubcategory.imageUrl ? (
                 <div className="relative min-h-[230px] overflow-hidden rounded-[18px] border border-[#2A1B16]/[0.06] bg-[#EEE5DA] shadow-[0_14px_36px_rgba(42,27,22,0.10)] sm:min-h-[320px] lg:min-h-[390px]">
@@ -163,13 +235,13 @@ export default async function SubSubcategoryPage({
             </div>
 
             {/* Mobile: title and description after the image. Desktop: text stays left. */}
-            <div className="max-w-[620px] lg:order-1">
+            <div className="max-w-[620px] text-right lg:order-1">
               <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
                 <Link
                   href="/"
                   className="transition-colors hover:text-[#ECAB1C]"
                 >
-                  Accueil
+                  الرئيسية
                 </Link>
 
                 <span>/</span>
@@ -178,7 +250,7 @@ export default async function SubSubcategoryPage({
                   href={`/${category.slug}`}
                   className="transition-colors hover:text-[#ECAB1C]"
                 >
-                  {category.name}
+                  {localizedCategoryName}
                 </Link>
 
                 <span>/</span>
@@ -187,19 +259,19 @@ export default async function SubSubcategoryPage({
                   href={`/${category.slug}/${subcategory.slug}`}
                   className="transition-colors hover:text-[#ECAB1C]"
                 >
-                  {subcategory.name}
+                  {localizedSubcategoryName}
                 </Link>
 
                 <span>/</span>
 
                 <span className="text-[#8A6A20]">
-                  {subsubcategory.name}
+                  {localizedSubsubcategoryName}
                 </span>
               </div>
 
               <h1 className="mt-3 font-body text-[31px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[39px] lg:text-[48px]">
-                {subsubcategory.pageTitle?.trim() ||
-                  subsubcategory.name}
+                {localizedPageTitle ||
+                  localizedSubsubcategoryName}
               </h1>
 
               {subsubcategory.description ? (
@@ -224,7 +296,7 @@ export default async function SubSubcategoryPage({
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
           <div className="mx-auto mb-5 max-w-[680px] text-center sm:mb-7">
             <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
-              Collection disponible
+              المجموعة المتوفرة
             </p>
 
             <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
@@ -232,14 +304,19 @@ export default async function SubSubcategoryPage({
             </h2>
 
             <p className="mt-1.5 text-[10px] font-medium text-[#2A1B16]/42 sm:text-[11px]">
-              Tous les produits
+              كل المنتجات
             </p>
           </div>
 
           <div className="mb-5 flex items-center justify-between gap-3 border-y border-[#2A1B16]/[0.08] py-3 sm:mb-6 sm:py-3.5">
             <p className="text-[10px] font-medium text-[#2A1B16]/45 sm:text-[11px]">
-              {products.length} produit
-              {products.length > 1 ? "s" : ""}
+              {products.length === 0
+                ? "لا توجد منتجات"
+                : products.length === 1
+                  ? "منتج واحد"
+                  : products.length === 2
+                    ? "منتجان"
+                    : `${products.length} منتجات`}
             </p>
           </div>
 
@@ -297,7 +374,9 @@ export default async function SubSubcategoryPage({
                           <div className="absolute left-2.5 top-2.5 flex gap-1.5">
                             {product.badge ? (
                               <span className="inline-flex rounded-[5px] bg-[#ECAB1C] px-2 py-1.5 text-[7px] font-bold uppercase tracking-[0.09em] text-[#2A1B16] sm:text-[8px]">
-                                {product.badge}
+                                {getArabicBadgeLabel(
+                                  product.badge,
+                                )}
                               </span>
                             ) : null}
 
@@ -312,8 +391,10 @@ export default async function SubSubcategoryPage({
 
                       <div className="flex flex-1 flex-col p-3 sm:p-4">
                         <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                          {product.categoryName ??
-                            subsubcategory.name}
+                          {localizeCatalogueLabel(
+                            product.categoryName ??
+                              subsubcategory.name,
+                          )}
                         </p>
 
                         <Link
@@ -344,7 +425,7 @@ export default async function SubSubcategoryPage({
                           href={`/produits/${product.slug}`}
                           className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-[8px] bg-[#2A1B16] px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-[#ECAB1C] hover:text-[#2A1B16] sm:min-h-10 sm:text-[9px]"
                         >
-                          Voir le produit
+                          عرض المنتج
 
                           <svg
                             className="h-3.5 w-3.5"
@@ -357,7 +438,7 @@ export default async function SubSubcategoryPage({
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              d="M5 12h14M13 6l6 6-6 6"
+                              d="M19 12H5m6-6-6 6 6 6"
                             />
                           </svg>
                         </Link>
@@ -370,19 +451,17 @@ export default async function SubSubcategoryPage({
           ) : apiError ? (
             <div className="rounded-[12px] border border-red-200 bg-red-50 px-5 py-10 text-center">
               <p className="font-body text-base font-semibold text-red-800">
-                Impossible de charger les
-                produits pour le moment.
+                تعذر تحميل المنتجات في الوقت الحالي.
               </p>
 
               <p className="mt-1 text-[11px] text-red-600/70">
-                Veuillez réessayer plus tard.
+                يرجى المحاولة مرة أخرى لاحقًا.
               </p>
             </div>
           ) : (
             <div className="border border-[#2A1B16]/[0.08] bg-white px-5 py-10 text-center">
               <p className="font-body text-base font-semibold">
-                Aucun produit disponible pour le
-                moment.
+                لا توجد منتجات متوفرة حاليًا.
               </p>
             </div>
           )}

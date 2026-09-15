@@ -31,6 +31,61 @@ export async function generateStaticParams() {
 // Metadata
 // ---------------------------------------------------------------------------
 
+function localizeCatalogueLabel(value: string): string {
+  const normalized = value
+    .trim()
+    .toLocaleLowerCase("fr");
+
+  const labels: Record<string, string> = {
+    "lampes 3d": "مصابيح ثلاثية الأبعاد",
+    "anniversaire": "عيد الميلاد",
+    "médecine": "الطب",
+    "medecine": "الطب",
+    "mariage": "الزفاف",
+    "nouveau-né": "مولود جديد",
+    "nouveau né": "مولود جديد",
+    "nouveau nee": "مولود جديد",
+    "nouveau née": "مولود جديد",
+    "football": "كرة القدم",
+    "soutenance": "التخرج",
+    "maman": "الأم",
+    "chirurgie": "الجراحة",
+    "dentiste": "طب الأسنان",
+    "dentisterie": "طب الأسنان",
+    "pharmacie": "الصيدلة",
+    "infirmier": "التمريض",
+    "infirmière": "التمريض",
+    "cardiologie": "طب القلب",
+    "pédiatrie": "طب الأطفال",
+    "pediatrie": "طب الأطفال",
+    "gynécologie": "طب النساء",
+    "gynecologie": "طب النساء",
+    "cartes du monde": "خرائط العالم",
+    "néon led": "نيون LED",
+    "neon led": "نيون LED",
+    "trophées": "الجوائز",
+    "trophees": "الجوائز",
+  };
+
+  return labels[normalized] ?? value;
+}
+
+function getArabicBadgeLabel(
+  badge: string | null | undefined,
+): string | null {
+  if (!badge) return null;
+
+  const labels: Record<string, string> = {
+    BEST_SELLER: "الأكثر مبيعًا",
+    NOUVEAU: "جديد",
+    PROMO: "عرض",
+    PERSONNALISABLE: "قابل للتخصيص",
+    ENVOI_GRATUIT: "توصيل مجاني",
+  };
+
+  return labels[badge] ?? badge;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -41,15 +96,20 @@ export async function generateMetadata({
   const category = await fetchCategoryBySlugSafe(occasion);
 
   if (!category || category.parentId === null) {
-    return { title: "Lampes 3D | Michket" };
+    return { title: "مصابيح ثلاثية الأبعاد | Michket" };
   }
 
+  const localizedCategoryName =
+    localizeCatalogueLabel(category.name);
+
   return {
-    title: category.metaTitle ?? `${category.name} - Lampes 3D personnalisées | Michket`,
+    title:
+      category.metaTitle ??
+      `${localizedCategoryName} - مصابيح ثلاثية الأبعاد مخصصة | Michket`,
     description:
       category.metaDescription ??
       category.description ??
-      `Découvrez les lampes 3D personnalisées ${category.name.toLowerCase()}.`,
+      `اكتشف مصابيح ثلاثية الأبعاد مخصصة لـ ${localizedCategoryName}.`,
   };
 }
 
@@ -58,9 +118,9 @@ export async function generateMetadata({
 // ---------------------------------------------------------------------------
 
 function formatPriceDA(price: number): string {
-  return `${new Intl.NumberFormat("fr-DZ", {
+  return `${new Intl.NumberFormat("ar-DZ", {
     maximumFractionDigits: 2,
-  }).format(price)} DA`;
+  }).format(price)} دج`;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,22 +142,25 @@ export default async function LampesCategoryPage({
     notFound();
   }
 
+  const localizedCategoryName =
+    localizeCatalogueLabel(category.name);
+
   // 2. Hero images from DB (category_images table, sorted by sortOrder ASC)
   const heroSlides =
     category.heroImages.length > 0
       ? category.heroImages.map((img, index) => ({
           src: img.url,
-          alt: img.altText ?? `${category.name} - visuel ${index + 1}`,
+          alt: img.altText ?? `${localizedCategoryName} - صورة ${index + 1}`,
         }))
       : [];
 
   // 3. Optional level-3 categories (sub-subcategories).
-  //    Example: Lampes 3D -> Football -> Lampes 3D Barcelone.
+  //    Example: مصابيح ثلاثية الأبعاد -> Football -> مصابيح ثلاثية الأبعاد Barcelone.
   //    They are displayed on the SAME page as the products.
   const subSubcategories = [...(category.children ?? [])].sort(
     (a, b) =>
       a.sortOrder - b.sortOrder ||
-      a.name.localeCompare(b.name, "fr"),
+      a.name.localeCompare(b.name, "ar"),
   );
 
   // 4. Products — keep displaying products on the level-2 page even when
@@ -114,7 +177,7 @@ export default async function LampesCategoryPage({
   }
 
   return (
-    <main id="top" className="bg-[#F8F3EB] text-[#2A1B16]">
+    <main id="top" lang="ar" dir="rtl" className="bg-[#F8F3EB] text-[#2A1B16]">
       <ScrollToTop trigger={occasion} />
 
       {/* ─── Hero Section ─── */}
@@ -134,27 +197,27 @@ export default async function LampesCategoryPage({
           )}
 
           {/* Mobile: title and description come after the image. */}
-          <div className="text-center lg:order-1 lg:text-left">
+          <div className="text-center lg:order-1 lg:text-right">
             <div className="flex items-center justify-center gap-2 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#2A1B16]/35 lg:justify-start">
               <Link href="/" className="hover:text-[#ECAB1C]">
-                Accueil
+                الرئيسية
               </Link>
               <span>/</span>
               <Link href="/lampes-3d" className="hover:text-[#ECAB1C]">
-                Lampes 3D
+                مصابيح ثلاثية الأبعاد
               </Link>
               <span>/</span>
-              <span className="text-[#8A6A20]">{category.name}</span>
+              <span className="text-[#8A6A20]">{localizedCategoryName}</span>
             </div>
 
             <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-[#8A6A20] sm:text-[10px]">
-              Lampes 3D {category.name.toLowerCase()}
+              مصابيح ثلاثية الأبعاد {category.name.toLowerCase()}
             </p>
 
             <h1 className="mt-2 font-body text-[28px] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[36px] lg:text-[42px]">
               {category.description
-                ? category.name.charAt(0).toUpperCase() + category.name.slice(1)
-                : `Collection ${category.name}`}
+                ? localizedCategoryName
+                : `مجموعة ${localizedCategoryName}`}
             </h1>
 
             {category.description && (
@@ -167,7 +230,7 @@ export default async function LampesCategoryPage({
               href="#produits"
               className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-[8px] bg-[#2A1B16] px-4 text-[9px] font-bold uppercase tracking-[0.09em] text-white transition-colors hover:bg-[#ECAB1C] hover:text-[#2A1B16] sm:min-h-11 sm:px-5 sm:text-[10px]"
             >
-              Voir les modèles
+              عرض الموديلات
               <svg
                 className="h-3.5 w-3.5"
                 fill="none"
@@ -179,7 +242,7 @@ export default async function LampesCategoryPage({
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M5 12h14M13 6l6 6-6 6"
+                  d="M19 12H5m6-6-6 6 6 6"
                 />
               </svg>
             </Link>
@@ -199,16 +262,15 @@ export default async function LampesCategoryPage({
           <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
             <div className="mx-auto mb-6 max-w-[700px] text-center sm:mb-8">
               <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
-                Choisissez une collection
+                اختر مجموعة
               </p>
 
               <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
-                {category.name}
+                {localizedCategoryName}
               </h2>
 
               <p className="mx-auto mt-2 max-w-[540px] text-[11px] leading-5 text-[#2A1B16]/48 sm:text-[12px]">
-                Découvrez les différentes collections disponibles dans cette
-                sous-catégorie.
+                اكتشف المجموعات المختلفة المتوفرة ضمن هذه الفئة.
               </p>
             </div>
 
@@ -231,7 +293,9 @@ export default async function LampesCategoryPage({
                     ) : (
                       <div className="grid h-full w-full place-items-center px-4 text-center">
                         <span className="font-body text-sm font-semibold text-[#2A1B16]/35">
-                          {subSubcategory.name}
+                          {localizeCatalogueLabel(
+                            subSubcategory.name,
+                          )}
                         </span>
                       </div>
                     )}
@@ -244,11 +308,13 @@ export default async function LampesCategoryPage({
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3.5 sm:p-4">
                       <div className="min-w-0">
                         <p className="truncate text-[9px] font-bold uppercase tracking-[0.1em] text-[#ECAB1C] sm:text-[10px]">
-                          {category.name}
+                          {localizedCategoryName}
                         </p>
 
                         <h3 className="mt-1 line-clamp-2 font-body text-[14px] font-semibold leading-tight text-white sm:text-[17px]">
-                          {subSubcategory.name}
+                          {localizeCatalogueLabel(
+                            subSubcategory.name,
+                          )}
                         </h3>
                       </div>
 
@@ -266,7 +332,7 @@ export default async function LampesCategoryPage({
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d="M5 12h14M13 6l6 6-6 6"
+                            d="M19 12H5m6-6-6 6 6 6"
                           />
                         </svg>
                       </span>
@@ -298,17 +364,21 @@ export default async function LampesCategoryPage({
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
           <div className="mx-auto mb-5 max-w-[700px] text-center sm:mb-7">
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#8A6A20] sm:text-[10px]">
-              Collection {category.name}
+              مجموعة {localizedCategoryName}
             </p>
 
             <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
-              Choisissez le modèle qui fera la différence
+              اختر الموديل الذي يصنع الفرق
             </h2>
 
             <p className="mt-1.5 text-[10px] text-[#2A1B16]/40 sm:text-[11px]">
-              {categoryProducts.length} produit
-              {categoryProducts.length > 1 ? "s" : ""} disponible
-              {categoryProducts.length > 1 ? "s" : ""}
+              {categoryProducts.length === 0
+                ? "لا توجد منتجات متوفرة"
+                : categoryProducts.length === 1
+                  ? "منتج واحد متوفر"
+                  : categoryProducts.length === 2
+                    ? "منتجان متوفران"
+                    : `${categoryProducts.length} منتجات متوفرة`}
             </p>
           </div>
 
@@ -359,7 +429,9 @@ export default async function LampesCategoryPage({
                         <div className="absolute left-2.5 top-2.5 flex gap-1.5">
                           {product.badge && (
                             <span className="inline-flex rounded-[5px] bg-[#ECAB1C] px-2 py-1.5 text-[7px] font-bold uppercase tracking-[0.09em] text-[#2A1B16] sm:text-[8px]">
-                              {product.badge}
+                              {getArabicBadgeLabel(
+                                product.badge,
+                              )}
                             </span>
                           )}
 
@@ -375,7 +447,7 @@ export default async function LampesCategoryPage({
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                          {category.name}
+                          {localizedCategoryName}
                         </p>
 
                         {typeof product.rating === "number" && (
@@ -417,7 +489,7 @@ export default async function LampesCategoryPage({
                         href={`/produits/${product.slug}`}
                         className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-[8px] bg-[#2A1B16] px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-[#ECAB1C] hover:text-[#2A1B16] sm:min-h-10 sm:text-[9px]"
                       >
-                        Voir le produit
+                        عرض المنتج
                         <svg
                           className="h-3.5 w-3.5"
                           fill="none"
@@ -429,7 +501,7 @@ export default async function LampesCategoryPage({
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d="M5 12h14M13 6l6 6-6 6"
+                            d="M19 12H5m6-6-6 6 6 6"
                           />
                         </svg>
                       </Link>
@@ -441,14 +513,14 @@ export default async function LampesCategoryPage({
           ) : (
             <div className="rounded-[12px] border border-[#2A1B16]/[0.08] bg-white px-5 py-10 text-center">
               <p className="font-body text-base font-semibold">
-                Aucun produit disponible dans cette catégorie pour le moment.
+                لا توجد منتجات متوفرة في هذه الفئة حاليًا.
               </p>
 
               <Link
                 href="/lampes-3d"
                 className="mt-4 inline-flex border-b border-[#ECAB1C] pb-1 text-[9px] font-bold uppercase tracking-[0.09em]"
               >
-                Retour aux lampes 3D
+                العودة إلى مصابيح ثلاثية الأبعاد
               </Link>
             </div>
           )}
@@ -461,11 +533,11 @@ export default async function LampesCategoryPage({
           <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
             <div className="mb-4 text-center">
               <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8A6A20] sm:text-[10px]">
-                Explorer aussi
+                اكتشف أيضًا
               </p>
 
               <h2 className="mt-1 font-body text-[20px] font-semibold tracking-[-0.035em] sm:text-[24px]">
-                D&apos;autres occasions à célébrer
+                مناسبات أخرى للاحتفال
               </h2>
             </div>
 
@@ -489,7 +561,9 @@ export default async function LampesCategoryPage({
                       ) : (
                         <div className="flex h-full items-center justify-center p-2">
                           <span className="text-center text-[9px] font-semibold text-white sm:text-[10px]">
-                            {child.name}
+                            {localizeCatalogueLabel(
+                              child.name,
+                            )}
                           </span>
                         </div>
                       )}
@@ -497,7 +571,9 @@ export default async function LampesCategoryPage({
                       <div className="absolute inset-0 bg-gradient-to-t from-[#21130F]/72 via-transparent to-transparent" />
 
                       <span className="absolute inset-x-2 bottom-2 text-[9px] font-semibold text-white sm:text-[10px]">
-                        {child.name}
+                        {localizeCatalogueLabel(
+                          child.name,
+                        )}
                       </span>
                     </div>
                   </Link>
