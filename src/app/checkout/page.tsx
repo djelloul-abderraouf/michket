@@ -441,11 +441,8 @@ export default function CheckoutPage() {
     <main className="min-h-screen bg-[#F7F1E8] text-[#251713]">
       <section className="mx-auto w-full max-w-[1240px] px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-6 text-center sm:mb-8">
-          <Link href="/" className="inline-block">
-            <span className="font-display text-2xl text-[#251713]">
-              Michket
-            </span>
-          </Link>
+          
+          
 
           <p className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
             Finalisation de la commande
