@@ -64,6 +64,8 @@ type OrderRow = {
   wilayaName: string;
   commune: string;
   deliveryType: "home" | "office";
+  deliveryOfficeId?: string | null;
+  deliveryOfficeName?: string | null;
 
   notes: string | null;
   promoCode: string | null;
@@ -92,6 +94,79 @@ type PaginationMeta = {
 type OrdersResponse = {
   data: OrderRow[];
   meta: PaginationMeta;
+};
+
+type AdminRequest = (
+  path: string,
+  init?: RequestInit,
+) => Promise<Response | null>;
+
+type ApiWilaya = {
+  code: number;
+  name: string;
+  available: boolean;
+  homeAvailable: boolean;
+  officeAvailable: boolean;
+};
+
+type ApiCommune = {
+  id: number;
+  name: string;
+  wilayaCode: number;
+  available: boolean;
+  hasStopDesk: boolean;
+};
+
+type AdminProductListItem = {
+  id: string;
+  name: string;
+  priceCents: number;
+  isActive: boolean;
+};
+
+type AdminProductsResponse = {
+  data: AdminProductListItem[];
+  meta: PaginationMeta;
+};
+
+type AdminProductVariant = {
+  id: string;
+  name: string;
+  colorName: string | null;
+  colorHex: string | null;
+  priceCents: number | null;
+  isActive: boolean;
+};
+
+type AdminProductDetail = {
+  id: string;
+  name: string;
+  priceCents: number;
+  isActive: boolean;
+  variants: AdminProductVariant[];
+};
+
+type OrderEditForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+
+  addressLine1: string;
+  addressLine2: string;
+  wilayaCode: string;
+  deliveryType: "home" | "office";
+  deliveryOfficeId: string;
+  deliveryOfficeName: string;
+
+  notes: string;
+  promoCode: string;
+
+  paymentMethod: string;
+  paymentStatus: string;
+
+  deliveryFeeDa: string;
+  discountDa: string;
 };
 
 type StatusFilter = "all" | OrderStatus;
@@ -196,6 +271,103 @@ function getStatusDotClasses(status: OrderStatus) {
   }
 }
 
+function centsToDaInput(cents: number): string {
+  return String(cents / 100);
+}
+
+function parseDaToCents(value: string): number | null {
+  const normalized = value.trim().replace(",", ".");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function orderToEditForm(order: OrderRow): OrderEditForm {
+  return {
+    firstName: order.firstName,
+    lastName: order.lastName,
+    phone: order.phone,
+    email: order.email ?? "",
+
+    addressLine1: order.addressLine1,
+    addressLine2: order.addressLine2 ?? "",
+    wilayaCode: String(order.wilayaCode),
+    deliveryType: order.deliveryType,
+    deliveryOfficeId: order.deliveryOfficeId ?? "",
+    deliveryOfficeName: order.deliveryOfficeName ?? "",
+
+    notes: order.notes ?? "",
+    promoCode: order.promoCode ?? "",
+
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+
+    deliveryFeeDa: centsToDaInput(order.deliveryFeeCents),
+    discountDa: centsToDaInput(order.discountCents),
+  };
+}
+
+async function readApiError(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(body.message)) {
+      return body.message.join(" · ");
+    }
+
+    if (typeof body.message === "string") {
+      return body.message;
+    }
+
+    if (typeof body.error === "string") {
+      return body.error;
+    }
+  } catch {
+    // Keep fallback.
+  }
+
+  return fallback;
+}
+
+function safeJsonObject(
+  raw: string,
+): Record<string, unknown> | null {
+  const value = raw.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  const parsed = JSON.parse(value) as unknown;
+
+  if (
+    parsed === null ||
+    Array.isArray(parsed) ||
+    typeof parsed !== "object"
+  ) {
+    throw new Error(
+      "La personnalisation doit être un objet JSON.",
+    );
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
 function personalizationEntries(
   personalization: Record<string, unknown> | null,
 ): Array<[string, string]> {
@@ -264,6 +436,66 @@ export default function AdminOrdersPage() {
 
     return session;
   }, [router, supabase]);
+
+  const adminRequest = useCallback<AdminRequest>(
+    async (path, init) => {
+      const session = await getAdminSession();
+
+      if (!session) {
+        return null;
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        throw new Error(
+          "NEXT_PUBLIC_API_URL n’est pas configurée.",
+        );
+      }
+
+      const headers = new Headers(init?.headers);
+
+      headers.set(
+        "Authorization",
+        `Bearer ${session.access_token}`,
+      );
+
+      if (init?.body != null && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      const response = await fetch(`${apiUrl}${path}`, {
+        ...init,
+        headers,
+        cache: "no-store",
+      });
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        await supabase.auth.signOut();
+        router.replace("/admin/login");
+        return null;
+      }
+
+      return response;
+    },
+    [getAdminSession, router, supabase],
+  );
+
+  const handleOrderUpdated = useCallback(
+    (updatedOrder: OrderRow) => {
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === updatedOrder.id
+            ? updatedOrder
+            : order,
+        ),
+      );
+    },
+    [],
+  );
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -787,6 +1019,10 @@ export default function AdminOrdersPage() {
                                       status,
                                     )
                                   }
+                                  request={adminRequest}
+                                  onOrderUpdated={
+                                    handleOrderUpdated
+                                  }
                                 />
                               </td>
                             </tr>
@@ -901,6 +1137,10 @@ export default function AdminOrdersPage() {
                               status,
                             )
                           }
+                          request={adminRequest}
+                          onOrderUpdated={
+                            handleOrderUpdated
+                          }
                         />
                       </div>
                     ) : null}
@@ -956,13 +1196,52 @@ function OrderDetails({
   order,
   updating,
   onStatusChange,
+  request,
+  onOrderUpdated,
 }: {
   order: OrderRow;
   updating: boolean;
   onStatusChange: (status: OrderStatus) => void;
+  request: AdminRequest;
+  onOrderUpdated: (order: OrderRow) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+
   return (
     <div className="space-y-5">
+      <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.07] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">
+            Gestion de la commande
+          </p>
+          <p className="mt-1 text-sm font-semibold text-neutral-950">
+            {order.reference}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsEditing((current) => !current)}
+          className={[
+            "inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition",
+            isEditing
+              ? "border border-black/[0.08] bg-white text-neutral-700 hover:bg-neutral-50"
+              : "bg-neutral-950 text-white hover:bg-neutral-800",
+          ].join(" ")}
+        >
+          {isEditing
+            ? "Fermer l’éditeur"
+            : "Modifier la commande"}
+        </button>
+      </div>
+
+      {isEditing ? (
+        <OrderEditor
+          order={order}
+          request={request}
+          onSaved={onOrderUpdated}
+        />
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-3">
         <DetailCard title="Client">
           <DetailRow
@@ -1008,6 +1287,18 @@ function OrderDetails({
             <DetailRow
               label="Complément"
               value={order.addressLine2}
+            />
+          ) : null}
+          {order.deliveryOfficeName ? (
+            <DetailRow
+              label="Bureau"
+              value={order.deliveryOfficeName}
+            />
+          ) : null}
+          {order.deliveryOfficeId ? (
+            <DetailRow
+              label="ID bureau"
+              value={order.deliveryOfficeId}
             />
           ) : null}
         </DetailCard>
@@ -1286,6 +1577,1641 @@ function OrderDetails({
         </div>
       </div>
     </div>
+  );
+}
+
+
+function OrderEditor({
+  order,
+  request,
+  onSaved,
+}: {
+  order: OrderRow;
+  request: AdminRequest;
+  onSaved: (order: OrderRow) => void;
+}) {
+  const [form, setForm] = useState<OrderEditForm>(
+    () => orderToEditForm(order),
+  );
+  const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
+  const [communes, setCommunes] = useState<ApiCommune[]>([]);
+  const [communeId, setCommuneId] = useState("");
+  const [products, setProducts] =
+    useState<AdminProductListItem[]>([]);
+  const [productCache, setProductCache] = useState<
+    Record<string, AdminProductDetail>
+  >({});
+
+  const [isLoadingLookups, setIsLoadingLookups] =
+    useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setForm(orderToEditForm(order));
+  }, [order]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLookups() {
+      setIsLoadingLookups(true);
+
+      try {
+        const [wilayasResponse, productsResponse] =
+          await Promise.all([
+            request("/delivery/wilayas", {
+              method: "GET",
+            }),
+            request("/admin/products?page=1&limit=100", {
+              method: "GET",
+            }),
+          ]);
+
+        if (cancelled) return;
+
+        if (
+          !wilayasResponse ||
+          !productsResponse
+        ) {
+          return;
+        }
+
+        if (!wilayasResponse.ok) {
+          throw new Error(
+            await readApiError(
+              wilayasResponse,
+              "Impossible de charger les wilayas.",
+            ),
+          );
+        }
+
+        if (!productsResponse.ok) {
+          throw new Error(
+            await readApiError(
+              productsResponse,
+              "Impossible de charger les produits.",
+            ),
+          );
+        }
+
+        const wilayasPayload =
+          (await wilayasResponse.json()) as ApiWilaya[];
+
+        const productsPayload =
+          (await productsResponse.json()) as AdminProductsResponse;
+
+        setWilayas(wilayasPayload);
+        setProducts(productsPayload.data);
+      } catch (caughtError) {
+        if (!cancelled) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Impossible de charger les données de l’éditeur.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLookups(false);
+        }
+      }
+    }
+
+    void loadLookups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCommunes() {
+      const code = Number(form.wilayaCode);
+
+      if (!Number.isInteger(code) || code < 1) {
+        setCommunes([]);
+        setCommuneId("");
+        return;
+      }
+
+      try {
+        const response = await request(
+          `/delivery/communes?wilayaCode=${encodeURIComponent(
+            String(code),
+          )}`,
+          {
+            method: "GET",
+          },
+        );
+
+        if (!response || cancelled) return;
+
+        if (!response.ok) {
+          throw new Error(
+            await readApiError(
+              response,
+              "Impossible de charger les communes.",
+            ),
+          );
+        }
+
+        const payload =
+          (await response.json()) as ApiCommune[];
+
+        if (cancelled) return;
+
+        setCommunes(payload);
+
+        if (code === order.wilayaCode) {
+          const current = payload.find(
+            (commune) =>
+              commune.name.trim().toLowerCase() ===
+              order.commune.trim().toLowerCase(),
+          );
+
+          setCommuneId(
+            current ? String(current.id) : "",
+          );
+        } else {
+          setCommuneId("");
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          setCommunes([]);
+          setCommuneId("");
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Impossible de charger les communes.",
+          );
+        }
+      }
+    }
+
+    void loadCommunes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.wilayaCode, order.commune, order.wilayaCode, request]);
+
+  const getProductDetail = useCallback(
+    async (
+      productId: string,
+    ): Promise<AdminProductDetail | null> => {
+      const cached = productCache[productId];
+
+      if (cached) {
+        return cached;
+      }
+
+      const response = await request(
+        `/admin/products/${encodeURIComponent(
+          productId,
+        )}`,
+        {
+          method: "GET",
+        },
+      );
+
+      if (!response) return null;
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            "Impossible de charger le produit.",
+          ),
+        );
+      }
+
+      const detail =
+        (await response.json()) as AdminProductDetail;
+
+      setProductCache((current) => ({
+        ...current,
+        [productId]: detail,
+      }));
+
+      return detail;
+    },
+    [productCache, request],
+  );
+
+  const selectedCommune = communes.find(
+    (commune) => String(commune.id) === communeId,
+  );
+
+  const officeUnavailable =
+    form.deliveryType === "office" &&
+    Boolean(communeId) &&
+    selectedCommune?.hasStopDesk === false;
+
+  const itemsEditable = [
+    "pending",
+    "confirmed",
+    "processing",
+  ].includes(order.status);
+
+  const setField = <K extends keyof OrderEditForm>(
+    field: K,
+    value: OrderEditForm[K],
+  ) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  async function saveOrder() {
+    setError(null);
+    setSuccess(null);
+
+    if (
+      !form.firstName.trim() ||
+      !form.lastName.trim() ||
+      !form.phone.trim()
+    ) {
+      setError(
+        "Le prénom, le nom et le téléphone sont obligatoires.",
+      );
+      return;
+    }
+
+    if (!communeId) {
+      setError(
+        "Sélectionne une commune Yalidine.",
+      );
+      return;
+    }
+
+    if (
+      form.deliveryType === "home" &&
+      !form.addressLine1.trim()
+    ) {
+      setError(
+        "L’adresse est obligatoire pour une livraison à domicile.",
+      );
+      return;
+    }
+
+    if (officeUnavailable) {
+      setError(
+        "Cette commune ne dispose pas de bureau Yalidine.",
+      );
+      return;
+    }
+
+    const deliveryFeeCents = parseDaToCents(
+      form.deliveryFeeDa,
+    );
+    const discountCents = parseDaToCents(
+      form.discountDa,
+    );
+
+    if (deliveryFeeCents === null) {
+      setError(
+        "Les frais de livraison doivent être un montant valide.",
+      );
+      return;
+    }
+
+    if (discountCents === null) {
+      setError(
+        "La remise doit être un montant valide.",
+      );
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim() || null,
+
+      addressLine2: form.addressLine2.trim() || null,
+
+      wilayaCode: Number(form.wilayaCode),
+      communeId: Number(communeId),
+      deliveryType: form.deliveryType,
+
+      deliveryOfficeId:
+        form.deliveryType === "office"
+          ? form.deliveryOfficeId.trim() || null
+          : null,
+      deliveryOfficeName:
+        form.deliveryType === "office"
+          ? form.deliveryOfficeName.trim() || null
+          : null,
+
+      notes: form.notes.trim() || null,
+      promoCode: form.promoCode.trim() || null,
+
+      paymentMethod:
+        form.paymentMethod.trim() || "cod",
+      paymentStatus: form.paymentStatus,
+
+      deliveryFeeCents,
+      discountCents,
+    };
+
+    if (
+      form.deliveryType === "home" ||
+      form.addressLine1.trim()
+    ) {
+      payload.addressLine1 =
+        form.addressLine1.trim();
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await request(
+        `/admin/orders/${encodeURIComponent(
+          order.id,
+        )}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response) return;
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            "Impossible d’enregistrer la commande.",
+          ),
+        );
+      }
+
+      const updated =
+        (await response.json()) as OrderRow;
+
+      onSaved(updated);
+      setSuccess("Commande enregistrée.");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Impossible d’enregistrer la commande.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (isLoadingLookups) {
+    return (
+      <div className="rounded-2xl border border-black/[0.07] bg-white p-5">
+        <div className="admin-skeleton h-10 w-full" />
+        <div className="mt-3 admin-skeleton h-32 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 rounded-2xl border border-neutral-950/10 bg-[#f8f7f3] p-3 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-neutral-950">
+            Modifier la commande
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">
+            Les identifiants techniques, la référence et les
+            dates système restent protégés.
+          </p>
+        </div>
+
+        <span className="inline-flex w-fit rounded-full bg-neutral-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
+          {order.reference}
+        </span>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {success}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <EditSection title="Client">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <EditField label="Prénom">
+              <input
+                value={form.firstName}
+                onChange={(event) =>
+                  setField(
+                    "firstName",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Nom">
+              <input
+                value={form.lastName}
+                onChange={(event) =>
+                  setField(
+                    "lastName",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Téléphone">
+              <input
+                value={form.phone}
+                onChange={(event) =>
+                  setField(
+                    "phone",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Email">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) =>
+                  setField(
+                    "email",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+                placeholder="Facultatif"
+              />
+            </EditField>
+          </div>
+        </EditSection>
+
+        <EditSection title="Paiement et montants">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <EditField label="Mode de paiement">
+              <input
+                value={form.paymentMethod}
+                onChange={(event) =>
+                  setField(
+                    "paymentMethod",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Statut paiement">
+              <select
+                value={form.paymentStatus}
+                onChange={(event) =>
+                  setField(
+                    "paymentStatus",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              >
+                <option value="pending">
+                  En attente
+                </option>
+                <option value="paid">Payé</option>
+                <option value="failed">Échoué</option>
+                <option value="refunded">
+                  Remboursé
+                </option>
+              </select>
+            </EditField>
+
+            <EditField label="Frais de livraison (DA)">
+              <input
+                inputMode="decimal"
+                value={form.deliveryFeeDa}
+                onChange={(event) =>
+                  setField(
+                    "deliveryFeeDa",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Remise (DA)">
+              <input
+                inputMode="decimal"
+                value={form.discountDa}
+                onChange={(event) =>
+                  setField(
+                    "discountDa",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Code promo">
+              <input
+                value={form.promoCode}
+                onChange={(event) =>
+                  setField(
+                    "promoCode",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+                placeholder="Facultatif"
+              />
+            </EditField>
+
+            <div className="rounded-xl bg-[#faf9f6] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+                Total actuel
+              </p>
+              <p className="mt-1 text-base font-bold text-neutral-950">
+                {formatPrice(order.totalCents)}
+              </p>
+            </div>
+          </div>
+        </EditSection>
+
+        <EditSection title="Livraison">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <EditField label="Wilaya">
+              <select
+                value={form.wilayaCode}
+                onChange={(event) => {
+                  setField(
+                    "wilayaCode",
+                    event.target.value,
+                  );
+                  setCommuneId("");
+                }}
+                className={adminInputClass}
+              >
+                <option value="">
+                  Sélectionner
+                </option>
+                {wilayas.map((wilaya) => (
+                  <option
+                    key={wilaya.code}
+                    value={wilaya.code}
+                    disabled={!wilaya.available}
+                  >
+                    {wilaya.code} — {wilaya.name}
+                    {!wilaya.available
+                      ? " (indisponible)"
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </EditField>
+
+            <EditField label="Commune">
+              <select
+                value={communeId}
+                onChange={(event) =>
+                  setCommuneId(event.target.value)
+                }
+                className={adminInputClass}
+              >
+                <option value="">
+                  Sélectionner
+                </option>
+                {communes.map((commune) => (
+                  <option
+                    key={commune.id}
+                    value={commune.id}
+                    disabled={!commune.available}
+                  >
+                    {commune.name}
+                    {!commune.available
+                      ? " (indisponible)"
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </EditField>
+
+            <EditField label="Type de livraison">
+              <select
+                value={form.deliveryType}
+                onChange={(event) =>
+                  setField(
+                    "deliveryType",
+                    event.target.value as
+                      | "home"
+                      | "office",
+                  )
+                }
+                className={adminInputClass}
+              >
+                <option value="home">
+                  Domicile
+                </option>
+                <option value="office">
+                  Bureau Yalidine
+                </option>
+              </select>
+            </EditField>
+
+            {form.deliveryType === "home" ? (
+              <EditField label="Adresse">
+                <input
+                  value={form.addressLine1}
+                  onChange={(event) =>
+                    setField(
+                      "addressLine1",
+                      event.target.value,
+                    )
+                  }
+                  className={adminInputClass}
+                />
+              </EditField>
+            ) : (
+              <div className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                {selectedCommune?.hasStopDesk
+                  ? "Cette commune accepte la livraison en bureau."
+                  : "Sélectionne une commune disposant d’un bureau Yalidine."}
+              </div>
+            )}
+
+            <EditField label="Complément d’adresse">
+              <input
+                value={form.addressLine2}
+                onChange={(event) =>
+                  setField(
+                    "addressLine2",
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+                placeholder="Facultatif"
+              />
+            </EditField>
+
+            {form.deliveryType === "office" ? (
+              <>
+                <EditField label="ID bureau / CRM">
+                  <input
+                    value={form.deliveryOfficeId}
+                    onChange={(event) =>
+                      setField(
+                        "deliveryOfficeId",
+                        event.target.value,
+                      )
+                    }
+                    className={adminInputClass}
+                    placeholder="Facultatif"
+                  />
+                </EditField>
+
+                <EditField label="Nom du bureau / CRM">
+                  <input
+                    value={form.deliveryOfficeName}
+                    onChange={(event) =>
+                      setField(
+                        "deliveryOfficeName",
+                        event.target.value,
+                      )
+                    }
+                    className={adminInputClass}
+                    placeholder="Facultatif"
+                  />
+                </EditField>
+              </>
+            ) : null}
+          </div>
+        </EditSection>
+
+        <EditSection title="Informations internes">
+          <div className="space-y-3">
+            <EditField label="Notes">
+              <textarea
+                value={form.notes}
+                onChange={(event) =>
+                  setField(
+                    "notes",
+                    event.target.value,
+                  )
+                }
+                rows={5}
+                className={adminTextareaClass}
+                placeholder="Notes internes ou client"
+              />
+            </EditField>
+
+            <div className="rounded-xl border border-black/[0.06] bg-[#faf9f6] p-3 text-xs leading-5 text-neutral-500">
+              Le statut de la commande reste géré par le
+              sélecteur « Modifier le statut » afin de conserver
+              l’historique et les règles de transition du backend.
+            </div>
+          </div>
+        </EditSection>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => void saveOrder()}
+          disabled={isSaving}
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-neutral-950 px-5 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isSaving
+            ? "Enregistrement…"
+            : "Enregistrer les informations"}
+        </button>
+      </div>
+
+      <EditSection title="Articles de la commande">
+        {!itemsEditable ? (
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+            Les articles ne peuvent plus être modifiés après
+            l’expédition. Les informations client et administratives
+            restent modifiables.
+          </div>
+        ) : null}
+
+        <div className="mt-4 space-y-4">
+          {order.items.map((item) => (
+            <EditableOrderItem
+              key={item.id}
+              orderId={order.id}
+              item={item}
+              products={products}
+              getProductDetail={getProductDetail}
+              request={request}
+              disabled={!itemsEditable}
+              onSaved={onSaved}
+            />
+          ))}
+        </div>
+
+        {itemsEditable ? (
+          <AddOrderItem
+            orderId={order.id}
+            products={products}
+            getProductDetail={getProductDetail}
+            request={request}
+            onSaved={onSaved}
+          />
+        ) : null}
+      </EditSection>
+    </div>
+  );
+}
+
+function EditableOrderItem({
+  orderId,
+  item,
+  products,
+  getProductDetail,
+  request,
+  disabled,
+  onSaved,
+}: {
+  orderId: string;
+  item: OrderItemRow;
+  products: AdminProductListItem[];
+  getProductDetail: (
+    productId: string,
+  ) => Promise<AdminProductDetail | null>;
+  request: AdminRequest;
+  disabled: boolean;
+  onSaved: (order: OrderRow) => void;
+}) {
+  const [productId, setProductId] = useState(
+    item.productId ?? "",
+  );
+  const [variantId, setVariantId] = useState(
+    item.variantId ?? "",
+  );
+  const [quantity, setQuantity] = useState(
+    String(item.quantity),
+  );
+  const [unitPriceDa, setUnitPriceDa] = useState(
+    centsToDaInput(item.unitPriceCents),
+  );
+  const [personalization, setPersonalization] =
+    useState(
+      item.personalization
+        ? JSON.stringify(
+            item.personalization,
+            null,
+            2,
+          )
+        : "",
+    );
+
+  const [detail, setDetail] =
+    useState<AdminProductDetail | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!productId) {
+      setDetail(null);
+      return;
+    }
+
+    void getProductDetail(productId)
+      .then((product) => {
+        if (!cancelled) {
+          setDetail(product);
+        }
+      })
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Impossible de charger le produit.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getProductDetail, productId]);
+
+  const activeVariants =
+    detail?.variants ?? [];
+
+  function handleProductChange(value: string) {
+    setProductId(value);
+    setVariantId("");
+    setError(null);
+
+    if (!value) return;
+
+    void getProductDetail(value)
+      .then((product) => {
+        if (!product) return;
+
+        setDetail(product);
+        setUnitPriceDa(
+          centsToDaInput(product.priceCents),
+        );
+      })
+      .catch((caughtError) => {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Impossible de charger le produit.",
+        );
+      });
+  }
+
+  function handleVariantChange(value: string) {
+    setVariantId(value);
+
+    const variant = activeVariants.find(
+      (candidate) => candidate.id === value,
+    );
+
+    if (variant && detail) {
+      setUnitPriceDa(
+        centsToDaInput(
+          variant.priceCents ??
+            detail.priceCents,
+        ),
+      );
+    }
+  }
+
+  async function saveItem() {
+    if (disabled) return;
+
+    setError(null);
+
+    const parsedQuantity = Number(quantity);
+    const unitPriceCents =
+      parseDaToCents(unitPriceDa);
+
+    if (
+      !Number.isInteger(parsedQuantity) ||
+      parsedQuantity < 1 ||
+      parsedQuantity > 99
+    ) {
+      setError(
+        "La quantité doit être comprise entre 1 et 99.",
+      );
+      return;
+    }
+
+    if (unitPriceCents === null) {
+      setError("Le prix unitaire est invalide.");
+      return;
+    }
+
+    if (
+      detail &&
+      detail.variants.length > 0 &&
+      !variantId
+    ) {
+      setError(
+        "Sélectionne une variante pour ce produit.",
+      );
+      return;
+    }
+
+    let parsedPersonalization:
+      | Record<string, unknown>
+      | null;
+
+    try {
+      parsedPersonalization =
+        safeJsonObject(personalization);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Personnalisation JSON invalide.",
+      );
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      quantity: parsedQuantity,
+      unitPriceCents,
+      personalization: parsedPersonalization,
+    };
+
+    const originalProductId =
+      item.productId ?? "";
+
+    if (productId !== originalProductId) {
+      if (!productId) {
+        setError("Sélectionne un produit.");
+        return;
+      }
+
+      payload.productId = productId;
+      payload.variantId = variantId || null;
+    } else if (
+      variantId !== (item.variantId ?? "")
+    ) {
+      payload.variantId = variantId || null;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await request(
+        `/admin/orders/${encodeURIComponent(
+          orderId,
+        )}/items/${encodeURIComponent(item.id)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response) return;
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            "Impossible de modifier l’article.",
+          ),
+        );
+      }
+
+      const updated =
+        (await response.json()) as OrderRow;
+
+      onSaved(updated);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Impossible de modifier l’article.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteItem() {
+    if (disabled) return;
+
+    const confirmed = window.confirm(
+      `Supprimer « ${item.productName} » de cette commande ?`,
+    );
+
+    if (!confirmed) return;
+
+    setError(null);
+    setIsDeleting(true);
+
+    try {
+      const response = await request(
+        `/admin/orders/${encodeURIComponent(
+          orderId,
+        )}/items/${encodeURIComponent(item.id)}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!response) return;
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            "Impossible de supprimer l’article.",
+          ),
+        );
+      }
+
+      const updated =
+        (await response.json()) as OrderRow;
+
+      onSaved(updated);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Impossible de supprimer l’article.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-black/[0.07] bg-[#faf9f6] p-4">
+      <div className="flex gap-3">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-black/[0.06] bg-white">
+          {item.productImageUrl ? (
+            <img
+              src={item.productImageUrl}
+              alt={item.productName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-xs font-semibold text-neutral-400">
+              M
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-neutral-950">
+            {item.productName}
+          </p>
+          <p className="mt-1 text-xs text-neutral-400">
+            {item.variantName ?? "Sans variante"} ·{" "}
+            {formatPrice(item.totalPriceCents)}
+          </p>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      <fieldset
+        disabled={disabled || isSaving || isDeleting}
+        className="mt-4 grid gap-3 lg:grid-cols-2"
+      >
+        <EditField label="Produit">
+          <select
+            value={productId}
+            onChange={(event) =>
+              handleProductChange(event.target.value)
+            }
+            className={adminInputClass}
+          >
+            {!productId ? (
+              <option value="">
+                Sélectionner un produit
+              </option>
+            ) : null}
+
+            {item.productId &&
+            !products.some(
+              (product) =>
+                product.id === item.productId,
+            ) ? (
+              <option value={item.productId}>
+                {item.productName} (historique)
+              </option>
+            ) : null}
+
+            {products.map((product) => (
+              <option
+                key={product.id}
+                value={product.id}
+              >
+                {product.name}
+                {!product.isActive
+                  ? " (inactif)"
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </EditField>
+
+        <EditField label="Variante / couleur">
+          <select
+            value={variantId}
+            onChange={(event) =>
+              handleVariantChange(
+                event.target.value,
+              )
+            }
+            className={adminInputClass}
+            disabled={
+              disabled ||
+              !detail ||
+              detail.variants.length === 0
+            }
+          >
+            <option value="">
+              {detail?.variants.length
+                ? "Sélectionner"
+                : "Sans variante"}
+            </option>
+
+            {detail?.variants.map((variant) => (
+              <option
+                key={variant.id}
+                value={variant.id}
+              >
+                {variant.name}
+                {variant.colorName
+                  ? ` — ${variant.colorName}`
+                  : ""}
+                {!variant.isActive
+                  ? " (inactive)"
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </EditField>
+
+        <EditField label="Quantité">
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={quantity}
+            onChange={(event) =>
+              setQuantity(event.target.value)
+            }
+            className={adminInputClass}
+          />
+        </EditField>
+
+        <EditField label="Prix unitaire (DA)">
+          <input
+            inputMode="decimal"
+            value={unitPriceDa}
+            onChange={(event) =>
+              setUnitPriceDa(event.target.value)
+            }
+            className={adminInputClass}
+          />
+        </EditField>
+
+        <div className="lg:col-span-2">
+          <EditField label="Personnalisation (JSON)">
+            <textarea
+              rows={4}
+              value={personalization}
+              onChange={(event) =>
+                setPersonalization(
+                  event.target.value,
+                )
+              }
+              className={adminTextareaClass}
+              placeholder={'Ex. {"texte":"Joyeux anniversaire"}'}
+            />
+          </EditField>
+        </div>
+      </fieldset>
+
+      {!disabled ? (
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => void deleteItem()}
+            disabled={isDeleting || isSaving}
+            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-100 bg-white px-3.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            {isDeleting
+              ? "Suppression…"
+              : "Supprimer"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void saveItem()}
+            disabled={isDeleting || isSaving}
+            className="inline-flex min-h-10 items-center justify-center rounded-xl bg-neutral-950 px-3.5 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {isSaving
+              ? "Enregistrement…"
+              : "Enregistrer l’article"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AddOrderItem({
+  orderId,
+  products,
+  getProductDetail,
+  request,
+  onSaved,
+}: {
+  orderId: string;
+  products: AdminProductListItem[];
+  getProductDetail: (
+    productId: string,
+  ) => Promise<AdminProductDetail | null>;
+  request: AdminRequest;
+  onSaved: (order: OrderRow) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [productId, setProductId] = useState("");
+  const [variantId, setVariantId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unitPriceDa, setUnitPriceDa] = useState("");
+  const [personalization, setPersonalization] =
+    useState("");
+  const [detail, setDetail] =
+    useState<AdminProductDetail | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleProductChange(value: string) {
+    setProductId(value);
+    setVariantId("");
+    setDetail(null);
+    setError(null);
+
+    if (!value) {
+      setUnitPriceDa("");
+      return;
+    }
+
+    try {
+      const product =
+        await getProductDetail(value);
+
+      if (!product) return;
+
+      setDetail(product);
+      setUnitPriceDa(
+        centsToDaInput(product.priceCents),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Impossible de charger le produit.",
+      );
+    }
+  }
+
+  function handleVariantChange(value: string) {
+    setVariantId(value);
+
+    const variant = detail?.variants.find(
+      (candidate) => candidate.id === value,
+    );
+
+    if (variant && detail) {
+      setUnitPriceDa(
+        centsToDaInput(
+          variant.priceCents ??
+            detail.priceCents,
+        ),
+      );
+    }
+  }
+
+  async function addItem() {
+    setError(null);
+
+    if (!productId) {
+      setError("Sélectionne un produit.");
+      return;
+    }
+
+    if (
+      detail &&
+      detail.variants.length > 0 &&
+      !variantId
+    ) {
+      setError("Sélectionne une variante.");
+      return;
+    }
+
+    const parsedQuantity = Number(quantity);
+    const unitPriceCents =
+      parseDaToCents(unitPriceDa);
+
+    if (
+      !Number.isInteger(parsedQuantity) ||
+      parsedQuantity < 1 ||
+      parsedQuantity > 99
+    ) {
+      setError(
+        "La quantité doit être comprise entre 1 et 99.",
+      );
+      return;
+    }
+
+    if (unitPriceCents === null) {
+      setError("Le prix unitaire est invalide.");
+      return;
+    }
+
+    let parsedPersonalization:
+      | Record<string, unknown>
+      | null;
+
+    try {
+      parsedPersonalization =
+        safeJsonObject(personalization);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Personnalisation JSON invalide.",
+      );
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await request(
+        `/admin/orders/${encodeURIComponent(
+          orderId,
+        )}/items`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            productId,
+            variantId: variantId || undefined,
+            quantity: parsedQuantity,
+            unitPriceCents,
+            personalization:
+              parsedPersonalization ?? undefined,
+          }),
+        },
+      );
+
+      if (!response) return;
+
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            "Impossible d’ajouter l’article.",
+          ),
+        );
+      }
+
+      const updated =
+        (await response.json()) as OrderRow;
+
+      onSaved(updated);
+
+      setProductId("");
+      setVariantId("");
+      setQuantity("1");
+      setUnitPriceDa("");
+      setPersonalization("");
+      setDetail(null);
+      setIsOpen(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Impossible d’ajouter l’article.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-black/[0.06] pt-4">
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
+      >
+        {isOpen
+          ? "Annuler l’ajout"
+          : "Ajouter un article"}
+      </button>
+
+      {isOpen ? (
+        <div className="mt-4 rounded-2xl border border-black/[0.07] bg-[#faf9f6] p-4">
+          {error ? (
+            <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <EditField label="Produit">
+              <select
+                value={productId}
+                onChange={(event) =>
+                  void handleProductChange(
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              >
+                <option value="">
+                  Sélectionner
+                </option>
+                {products.map((product) => (
+                  <option
+                    key={product.id}
+                    value={product.id}
+                  >
+                    {product.name}
+                    {!product.isActive
+                      ? " (inactif)"
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </EditField>
+
+            <EditField label="Variante / couleur">
+              <select
+                value={variantId}
+                onChange={(event) =>
+                  handleVariantChange(
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+                disabled={
+                  !detail ||
+                  detail.variants.length === 0
+                }
+              >
+                <option value="">
+                  {detail?.variants.length
+                    ? "Sélectionner"
+                    : "Sans variante"}
+                </option>
+
+                {detail?.variants.map((variant) => (
+                  <option
+                    key={variant.id}
+                    value={variant.id}
+                  >
+                    {variant.name}
+                    {variant.colorName
+                      ? ` — ${variant.colorName}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </EditField>
+
+            <EditField label="Quantité">
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={quantity}
+                onChange={(event) =>
+                  setQuantity(event.target.value)
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <EditField label="Prix unitaire (DA)">
+              <input
+                inputMode="decimal"
+                value={unitPriceDa}
+                onChange={(event) =>
+                  setUnitPriceDa(
+                    event.target.value,
+                  )
+                }
+                className={adminInputClass}
+              />
+            </EditField>
+
+            <div className="lg:col-span-2">
+              <EditField label="Personnalisation (JSON)">
+                <textarea
+                  rows={4}
+                  value={personalization}
+                  onChange={(event) =>
+                    setPersonalization(
+                      event.target.value,
+                    )
+                  }
+                  className={adminTextareaClass}
+                  placeholder={'Ex. {"texte":"Joyeux anniversaire"}'}
+                />
+              </EditField>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void addItem()}
+              disabled={isSaving}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-neutral-950 px-4 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {isSaving
+                ? "Ajout…"
+                : "Ajouter à la commande"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const adminInputClass =
+  "h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/5 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400";
+
+const adminTextareaClass =
+  "w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-2 focus:ring-neutral-950/5 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400";
+
+function EditSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+      <h4 className="text-xs font-semibold uppercase tracking-[0.11em] text-neutral-400">
+        {title}
+      </h4>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function EditField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-neutral-600">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
 
