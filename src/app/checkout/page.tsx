@@ -53,7 +53,6 @@ export default function CheckoutPage() {
   const [commune, setCommune] = useState("");
   const [deliveryType, setDeliveryType] = useState<"home" | "office">("home");
   const [addressLine1, setAddressLine1] = useState("");
-  const [notes, setNotes] = useState("");
 
   /* ---------- wilayas ---------- */
   const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
@@ -235,7 +234,6 @@ export default function CheckoutPage() {
         communeId: communeId!,
         commune: commune.trim(),
         deliveryType,
-        notes: notes.trim() || undefined,
       };
 
       // Deterministic fingerprint for idempotency
@@ -321,7 +319,6 @@ export default function CheckoutPage() {
     communeId,
     commune,
     deliveryType,
-    notes,
     router,
   ]);
 
@@ -790,28 +787,6 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 </div>
-              </section>
-
-              {/* Notes */}
-              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
-                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
-                  Notes pour la commande
-                </h2>
-
-                <textarea
-                  value={notes}
-                  onChange={(e) =>
-                    setNotes(e.target.value.slice(0, 1000))
-                  }
-                  maxLength={1000}
-                  rows={3}
-                  placeholder="Instructions de livraison, demandes spéciales…"
-                  className={`${inputClass} mt-4 min-h-[100px] resize-none py-3`}
-                />
-
-                <p className="mt-1 text-right text-[9px] text-[#251713]/35">
-                  {notes.length}/1000
-                </p>
               </section>
 
               {/* Paiement */}
