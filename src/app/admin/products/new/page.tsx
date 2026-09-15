@@ -115,6 +115,57 @@ type VariantFormData = {
   price: string;
 };
 
+type ColorPresetKey =
+  | "red"
+  | "green"
+  | "blue"
+  | "pink"
+  | "sky"
+  | "yellow"
+  | "white"
+  | "multicolor"
+  | "custom";
+
+type ColorPreset = {
+  key: Exclude<ColorPresetKey, "custom">;
+  label: string;
+  hex: string | null;
+  isMulticolor: boolean;
+};
+
+const COLOR_PRESETS: ColorPreset[] = [
+  { key: "red", label: "Rouge", hex: "#FF3B30", isMulticolor: false },
+  { key: "green", label: "Vert", hex: "#34C759", isMulticolor: false },
+  { key: "blue", label: "Bleu", hex: "#007AFF", isMulticolor: false },
+  { key: "pink", label: "Rose", hex: "#FF2D55", isMulticolor: false },
+  { key: "sky", label: "Bleu ciel", hex: "#5AC8FA", isMulticolor: false },
+  { key: "yellow", label: "Jaune", hex: "#FFCC00", isMulticolor: false },
+  { key: "white", label: "Blanc", hex: "#FFFFFF", isMulticolor: false },
+  { key: "multicolor", label: "Multicolore", hex: null, isMulticolor: true },
+];
+
+const MULTICOLOR_SWATCH =
+  "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)";
+
+function findPresetForColor(
+  colorName: string | null | undefined,
+  colorHex: string | null | undefined,
+  isMulticolor: boolean,
+): ColorPreset["key"] | null {
+  if (isMulticolor) return "multicolor";
+
+  const normalizedName = (colorName ?? "").trim().toLowerCase();
+  const normalizedHex = (colorHex ?? "").trim().toUpperCase();
+
+  const preset = COLOR_PRESETS.find((item) =>
+    !item.isMulticolor &&
+    (item.label.toLowerCase() === normalizedName ||
+      item.hex?.toUpperCase() === normalizedHex),
+  );
+
+  return preset?.key ?? null;
+}
+
 type EditingVariant =
   | {
       source: "draft";
@@ -272,11 +323,13 @@ export default function NewAdminProductPage() {
     useState<VariantFormData>({
       name: "",
       colorName: "",
-      colorHex: "#ECAB1C",
+      colorHex: "",
       isMulticolor: false,
       sku: "",
       price: "",
     });
+  const [selectedColorMode, setSelectedColorMode] =
+    useState<ColorPresetKey | null>(null);
   const [savingVariant, setSavingVariant] =
     useState(false);
   const [variantError, setVariantError] = useState<
@@ -578,6 +631,20 @@ export default function NewAdminProductPage() {
         ok: false as const,
         message:
           "Le nom de la variante est obligatoire.",
+      };
+    }
+
+    if (
+      !source.isMulticolor &&
+      source.colorHex.trim() &&
+      !/^#[0-9A-Fa-f]{6}$/.test(
+        source.colorHex.trim(),
+      )
+    ) {
+      return {
+        ok: false as const,
+        message:
+          "Le code couleur doit être au format #RRGGBB.",
       };
     }
 
@@ -1031,13 +1098,54 @@ export default function NewAdminProductPage() {
     }
   }
 
+  function applyColorPreset(preset: ColorPreset) {
+    setSelectedColorMode(preset.key);
+
+    setVariantForm((current) => {
+      const previousColorName = current.colorName.trim();
+      const shouldSyncVariantName =
+        !current.name.trim() ||
+        current.name.trim() === previousColorName;
+
+      return {
+        ...current,
+        name: shouldSyncVariantName
+          ? preset.label
+          : current.name,
+        colorName: preset.label,
+        colorHex: preset.hex ?? "",
+        isMulticolor: preset.isMulticolor,
+      };
+    });
+  }
+
+  function chooseCustomColor() {
+    setSelectedColorMode("custom");
+
+    setVariantForm((current) => ({
+      ...current,
+      isMulticolor: false,
+      colorName:
+        current.isMulticolor &&
+        current.colorName.trim().toLowerCase() ===
+          "multicolore"
+          ? ""
+          : current.colorName,
+      colorHex:
+        current.isMulticolor || !current.colorHex
+          ? "#8B5CF6"
+          : current.colorHex,
+    }));
+  }
+
   function openAddVariant() {
     setEditingVariant(null);
     setVariantError(null);
+    setSelectedColorMode(null);
     setVariantForm({
       name: "",
       colorName: "",
-      colorHex: "#ECAB1C",
+      colorHex: "",
       isMulticolor: false,
       sku: "",
       price: "",
@@ -1054,10 +1162,17 @@ export default function NewAdminProductPage() {
       name: variant.name,
     });
     setVariantError(null);
+    setSelectedColorMode(
+      findPresetForColor(
+        variant.colorName,
+        variant.colorHex,
+        variant.isMulticolor,
+      ) ?? "custom",
+    );
     setVariantForm({
       name: variant.name,
       colorName: variant.colorName ?? "",
-      colorHex: variant.colorHex ?? "#ECAB1C",
+      colorHex: variant.colorHex ?? "#8B5CF6",
       isMulticolor: variant.isMulticolor,
       sku: variant.sku ?? "",
       price:
@@ -1077,10 +1192,17 @@ export default function NewAdminProductPage() {
       name: variant.name,
     });
     setVariantError(null);
+    setSelectedColorMode(
+      findPresetForColor(
+        variant.colorName,
+        variant.colorHex,
+        variant.isMulticolor,
+      ) ?? "custom",
+    );
     setVariantForm({
       name: variant.name,
       colorName: variant.colorName ?? "",
-      colorHex: variant.colorHex ?? "#ECAB1C",
+      colorHex: variant.colorHex ?? "#8B5CF6",
       isMulticolor: variant.isMulticolor,
       sku: variant.sku ?? "",
       price:
@@ -1132,6 +1254,7 @@ export default function NewAdminProductPage() {
 
       setShowVariantForm(false);
       setEditingVariant(null);
+      setSelectedColorMode(null);
       return;
     }
 
@@ -1195,6 +1318,7 @@ export default function NewAdminProductPage() {
 
       setShowVariantForm(false);
       setEditingVariant(null);
+      setSelectedColorMode(null);
 
       await loadProductDetails(
         createdProductId,
@@ -1778,6 +1902,7 @@ export default function NewAdminProductPage() {
                     onClick={() => {
                       setShowVariantForm(false);
                       setEditingVariant(null);
+                      setSelectedColorMode(null);
                       setVariantError(null);
                     }}
                     className="text-xs font-semibold text-neutral-400 hover:text-neutral-700"
@@ -1787,6 +1912,76 @@ export default function NewAdminProductPage() {
                 </div>
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className={labelClassName}>
+                      Couleur de la variante
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                      {COLOR_PRESETS.map((preset) => {
+                        const isSelected =
+                          selectedColorMode ===
+                          preset.key;
+
+                        return (
+                          <button
+                            key={preset.key}
+                            type="button"
+                            onClick={() =>
+                              applyColorPreset(preset)
+                            }
+                            className={[
+                              "flex min-h-12 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition",
+                              isSelected
+                                ? "border-neutral-950 bg-neutral-950 text-white"
+                                : "border-black/[0.08] bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
+                            ].join(" ")}
+                          >
+                            <span
+                              className="h-6 w-6 shrink-0 rounded-full border border-black/10"
+                              style={
+                                preset.isMulticolor
+                                  ? { background: MULTICOLOR_SWATCH }
+                                  : {
+                                      backgroundColor:
+                                        preset.hex ?? "#E5E5E5",
+                                    }
+                              }
+                              aria-hidden="true"
+                            />
+                            <span className="text-xs font-semibold">
+                              {preset.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={chooseCustomColor}
+                        className={[
+                          "flex min-h-12 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition",
+                          selectedColorMode === "custom"
+                            ? "border-neutral-950 bg-neutral-950 text-white"
+                            : "border-dashed border-black/[0.14] bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50",
+                        ].join(" ")}
+                      >
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-sm font-bold">
+                          +
+                        </span>
+                        <span className="text-xs font-semibold">
+                          Autre couleur
+                        </span>
+                      </button>
+                    </div>
+
+                    <p className="mt-2 text-[11px] leading-5 text-neutral-400">
+                      Choisissez une couleur prédéfinie ou utilisez
+                      « Autre couleur » pour ajouter une teinte spéciale
+                      à ce produit.
+                    </p>
+                  </div>
+
                   <div>
                     <label className={labelClassName}>
                       Nom *
@@ -1815,43 +2010,21 @@ export default function NewAdminProductPage() {
                       onChange={(event) =>
                         setVariantForm((current) => ({
                           ...current,
-                          colorName:
-                            event.target.value,
+                          colorName: event.target.value,
                         }))
                       }
                       placeholder={
                         variantForm.isMulticolor
-                          ? "Ex. Multicolore"
-                          : "Ex. Rouge"
+                          ? "Multicolore"
+                          : "Ex. Beige"
+                      }
+                      disabled={
+                        selectedColorMode !== "custom" &&
+                        selectedColorMode !== null
                       }
                       className={inputClassName}
                     />
                   </div>
-
-                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border border-black/[0.08] bg-white px-4">
-                    <span className="text-sm font-medium text-neutral-700">
-                      Variante multicolore
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={
-                        variantForm.isMulticolor
-                      }
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          isMulticolor:
-                            event.target.checked,
-                          colorName:
-                            event.target.checked &&
-                            !current.colorName.trim()
-                              ? "Multicolore"
-                              : current.colorName,
-                        }))
-                      }
-                      className="h-4 w-4 accent-neutral-950"
-                    />
-                  </label>
 
                   {variantForm.isMulticolor ? (
                     <div>
@@ -1861,10 +2034,7 @@ export default function NewAdminProductPage() {
                       <div className="flex h-11 items-center gap-3 rounded-xl border border-black/[0.08] bg-white px-3.5">
                         <span
                           className="h-7 w-7 rounded-full border border-black/[0.08]"
-                          style={{
-                            background:
-                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                          }}
+                          style={{ background: MULTICOLOR_SWATCH }}
                           aria-hidden="true"
                         />
                         <span className="text-sm text-neutral-600">
@@ -1872,41 +2042,63 @@ export default function NewAdminProductPage() {
                         </span>
                       </div>
                     </div>
-                  ) : (
+                  ) : selectedColorMode === "custom" ? (
                     <div>
                       <label className={labelClassName}>
-                        Couleur
+                        Couleur personnalisée
                       </label>
                       <div className="flex gap-2">
                         <input
                           type="color"
-                          value={variantForm.colorHex}
+                          value={
+                            /^#[0-9A-Fa-f]{6}$/.test(variantForm.colorHex)
+                              ? variantForm.colorHex
+                              : "#8B5CF6"
+                          }
                           onChange={(event) =>
-                            setVariantForm(
-                              (current) => ({
-                                ...current,
-                                colorHex:
-                                  event.target.value,
-                              }),
-                            )
+                            setVariantForm((current) => ({
+                              ...current,
+                              colorHex:
+                                event.target.value.toUpperCase(),
+                            }))
                           }
                           className="h-11 w-12 rounded-xl border border-black/[0.09] bg-white p-1"
+                          aria-label="Choisir une couleur personnalisée"
                         />
                         <input
                           type="text"
                           value={variantForm.colorHex}
                           onChange={(event) =>
-                            setVariantForm(
-                              (current) => ({
-                                ...current,
-                                colorHex:
-                                  event.target.value,
-                              }),
-                            )
+                            setVariantForm((current) => ({
+                              ...current,
+                              colorHex:
+                                event.target.value.toUpperCase(),
+                            }))
                           }
-                          placeholder="#FF0000"
+                          placeholder="#8B5CF6"
+                          maxLength={7}
                           className={inputClassName}
                         />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className={labelClassName}>
+                        Aperçu couleur
+                      </span>
+                      <div className="flex h-11 items-center gap-3 rounded-xl border border-black/[0.08] bg-white px-3.5">
+                        <span
+                          className="h-7 w-7 rounded-full border border-black/[0.12]"
+                          style={{
+                            backgroundColor:
+                              variantForm.colorHex || "#E5E5E5",
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className="text-sm text-neutral-600">
+                          {variantForm.colorName ||
+                            "Choisissez une couleur"}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1976,6 +2168,7 @@ export default function NewAdminProductPage() {
                     onClick={() => {
                       setShowVariantForm(false);
                       setEditingVariant(null);
+                      setSelectedColorMode(null);
                       setVariantError(null);
                     }}
                     className="inline-flex min-h-10 items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 text-sm font-semibold text-neutral-600"

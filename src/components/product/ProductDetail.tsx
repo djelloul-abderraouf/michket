@@ -608,61 +608,90 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
             {/* Choix de couleur : juste après les photos */}
             {product.variants && product.variants.length > 0 && (
               <div className="rounded-[14px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_10px_28px_rgba(37,23,19,0.04)]">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#251713]/55">
                       Choisissez la couleur
                     </p>
-                    <p className="mt-1 text-[11px] text-[#251713]/45">
-                      Touchez une couleur pour afficher sa photo principale.
+                    <p className="mt-1 text-[11px] leading-5 text-[#251713]/45">
+                      Les couleurs définies dans l&apos;admin s&apos;affichent ici automatiquement.
                     </p>
                   </div>
 
                   {selectedVariant && (
-                    <span className="shrink-0 text-[11px] font-bold text-[#8A6A20]">
+                    <span className="shrink-0 rounded-full bg-[#FFF4D5] px-2.5 py-1 text-[10px] font-extrabold text-[#8A6200]">
                       {selectedVariant.colorName || selectedVariant.name}
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2.5">
-                  {product.variants.map((variant) => (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => handleVariantSelect(variant)}
-                      title={variant.colorName || variant.name}
-                      aria-label={`Choisir ${variant.colorName || variant.name}`}
-                      className={`relative h-11 w-11 rounded-full border-2 transition ${
-                        selectedVariant?.id === variant.id
-                          ? "border-[#ECAB1C] ring-4 ring-[#ECAB1C]/15"
-                          : "border-[#251713]/10 hover:border-[#251713]/25"
-                      }`}
-                    >
-                      {variant.isMulticolor ? (
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => {
+                    const label =
+                      variant.colorName || variant.name;
+                    const isSelected =
+                      selectedVariant?.id === variant.id;
+
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() =>
+                          handleVariantSelect(variant)
+                        }
+                        title={label}
+                        aria-label={`Choisir ${label}`}
+                        aria-pressed={isSelected}
+                        className={[
+                          "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-left transition",
+                          isSelected
+                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_3px_rgba(236,171,28,0.12)]"
+                            : "border-[#251713]/10 bg-white hover:border-[#251713]/25 hover:bg-[#FCFAF6]",
+                        ].join(" ")}
+                      >
                         <span
-                          className="absolute inset-1.5 rounded-full"
-                          style={{
-                            background:
-                              "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                          }}
+                          className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
                           aria-hidden="true"
-                        />
-                      ) : variant.colorHex ? (
-                        <span
-                          className="absolute inset-1.5 rounded-full"
-                          style={{ backgroundColor: variant.colorHex }}
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <span
-                          className="absolute inset-1.5 rounded-full bg-[#E7DED3]"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </button>
-                  ))}
+                        >
+                          {variant.isMulticolor ? (
+                            <span
+                              className="absolute inset-0"
+                              style={{
+                                background:
+                                  "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                              }}
+                            />
+                          ) : variant.colorHex ? (
+                            <span
+                              className="absolute inset-0"
+                              style={{
+                                backgroundColor:
+                                  variant.colorHex,
+                              }}
+                            />
+                          ) : null}
+                        </span>
+
+                        <span className="max-w-[140px] truncate text-[11px] font-bold text-[#251713]">
+                          {label}
+                        </span>
+
+                        {isSelected ? (
+                          <span
+                            className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[10px] font-black text-[#251713]"
+                            aria-hidden="true"
+                          >
+                            ✓
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
+
+                <p className="mt-3 text-[10px] leading-4 text-[#251713]/35">
+                  Rouge, vert, bleu, rose, bleu ciel, jaune, blanc, multicolore et les couleurs personnalisées sont gérés avec les données de la variante.
+                </p>
               </div>
             )}
 
