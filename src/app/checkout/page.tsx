@@ -55,7 +55,6 @@ export default function CheckoutPage() {
   const [commune, setCommune] = useState("");
   const [deliveryType, setDeliveryType] = useState<"home" | "office">("home");
   const [addressLine1, setAddressLine1] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
   const [notes, setNotes] = useState("");
   const [promoInput, setPromoInput] = useState("");
 
@@ -271,7 +270,6 @@ export default function CheckoutPage() {
         lastName: lastName.trim(),
         phone: phone.trim(),
         addressLine1: addressLine1.trim(),
-        addressLine2: addressLine2.trim() || undefined,
         wilayaCode: wilayaCode!,
         communeId: communeId!,
         commune: commune.trim(),
@@ -366,7 +364,6 @@ export default function CheckoutPage() {
     lastName,
     phone,
     addressLine1,
-    addressLine2,
     wilayaCode,
     communeId,
     commune,
@@ -827,23 +824,6 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <div>
-                      <label
-                        htmlFor="co-address2"
-                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
-                      >
-                        Complément d&apos;adresse
-                      </label>
-                      <input
-                        id="co-address2"
-                        type="text"
-                        value={addressLine2}
-                        onChange={(e) => setAddressLine2(e.target.value)}
-                        maxLength={200}
-                        className={inputClass}
-                        placeholder="Appartement, étage..."
-                      />
-                    </div>
 
                     <div className="min-h-5 text-[10px]">
                       {deliveryLoading ? (
