@@ -17,6 +17,7 @@ import {
   removeCartItem as apiRemoveCartItem,
   clearCart as apiClearCart,
   type ApiCartItem,
+  type UpdateCartItemInput,
 } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
@@ -70,6 +71,14 @@ export interface CartContextValue {
   addItem: (
     item: Omit<CartItem, "quantity">,
     quantity?: number,
+  ) => Promise<boolean>;
+  /**
+   * Edit an existing cart line without deleting/re-adding it.
+   * Supports quantity, selected variant/color and personalization.
+   */
+  updateItem: (
+    id: string,
+    update: UpdateCartItemInput,
   ) => Promise<boolean>;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -332,6 +341,36 @@ export function CartProvider({
     [],
   );
 
+  const updateItem = useCallback(
+    async (
+      id: string,
+      update: UpdateCartItemInput,
+    ) => {
+      try {
+        const res =
+          await apiUpdateCartItem(
+            id,
+            update,
+          );
+
+        dispatch({
+          type: "HYDRATE",
+          items: res.items.map(
+            mapCartItem,
+          ),
+        });
+        setError(null);
+        return true;
+      } catch {
+        setError(
+          "Erreur lors de la modification du produit",
+        );
+        return false;
+      }
+    },
+    [],
+  );
+
   const removeItem = useCallback(
     async (id: string) => {
       try {
@@ -363,7 +402,7 @@ export function CartProvider({
         const res =
           await apiUpdateCartItem(
             id,
-            quantity,
+            { quantity },
           );
 
         dispatch({
@@ -438,6 +477,7 @@ export function CartProvider({
         loading,
         error,
         addItem,
+        updateItem,
         removeItem,
         updateQuantity,
         clearCart,
@@ -450,6 +490,7 @@ export function CartProvider({
         loading,
         error,
         addItem,
+        updateItem,
         removeItem,
         updateQuantity,
         clearCart,

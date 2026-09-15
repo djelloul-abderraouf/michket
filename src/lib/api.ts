@@ -784,15 +784,38 @@ export async function addToCart(payload: {
   });
 }
 
-/** PUT /carts/items/:itemId — update quantity (0 = remove) */
+export interface UpdateCartItemInput {
+  /** Quantity 0 removes the line; 1..99 updates it. */
+  quantity?: number;
+  /** Change the selected variant/color. null explicitly clears it. */
+  variantId?: string | null;
+  /** Change personalization. null explicitly clears it. */
+  personalization?: Record<string, unknown> | null;
+}
+
+/**
+ * PUT /carts/items/:itemId
+ *
+ * Supports quantity, variant/color and personalization edits.
+ * A numeric second argument is still accepted so existing quantity controls
+ * keep working while the cart UI is migrated to the richer editor.
+ */
 export async function updateCartItem(
   itemId: string,
-  quantity: number,
+  update: number | UpdateCartItemInput,
 ): Promise<ApiCart> {
-  return cartFetch<ApiCart>(`/carts/items/${encodeURIComponent(itemId)}`, {
-    method: "PUT",
-    body: JSON.stringify({ quantity }),
-  });
+  const payload: UpdateCartItemInput =
+    typeof update === "number"
+      ? { quantity: update }
+      : update;
+
+  return cartFetch<ApiCart>(
+    `/carts/items/${encodeURIComponent(itemId)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 /** DELETE /carts/items/:itemId — remove a single item */
@@ -904,7 +927,6 @@ export interface CreateOrderInput {
   addressLine1: string;
   addressLine2?: string;
   wilayaCode: number;
-  communeId: number;
   commune: string;
   deliveryType: "home" | "office";
   notes?: string;
