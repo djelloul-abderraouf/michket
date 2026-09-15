@@ -633,55 +633,56 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               )}
             </button>
 
-            {/* Miniatures : visibles aussi sur mobile */}
+            {/* Miniatures : mobile inchangé, plus compactes sur PC */}
             {galleryImages.length > 1 && (
-              <div className="flex snap-x gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0">
+              <div className="-mx-0.5 flex snap-x gap-2 overflow-x-auto px-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {galleryImages.map((image, index) => (
                   <button
                     key={`${image.src}-${index}`}
                     type="button"
                     onClick={() => setSelectedImage(index)}
-                    className={`relative h-[72px] w-[72px] shrink-0 snap-start overflow-hidden rounded-[10px] border-2 bg-[#EDE3D7] sm:h-auto sm:w-auto ${
+                    aria-label={`عرض الصورة ${index + 1}`}
+                    className={`relative h-[72px] w-[72px] shrink-0 snap-start overflow-hidden rounded-[10px] border-2 bg-[#EDE3D7] transition sm:h-[68px] sm:w-[68px] lg:h-[58px] lg:w-[58px] xl:h-[62px] xl:w-[62px] ${
                       selectedImage === index
-                        ? "border-[#ECAB1C]"
-                        : "border-transparent"
+                        ? "border-[#ECAB1C] shadow-[0_0_0_2px_rgba(236,171,28,0.10)]"
+                        : "border-transparent hover:border-[#251713]/15"
                     }`}
                   >
-                    <div className="relative h-full w-full sm:aspect-square">
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        fill
-                        className="object-cover"
-                        sizes="120px"
-                      />
-                    </div>
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 639px) 72px, (max-width: 1023px) 68px, 62px"
+                    />
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Choix de couleur : juste après les photos */}
+            {/* Couleurs : intégration compacte pour ne pas alourdir la landing page */}
             {product.variants && product.variants.length > 0 && (
-              <div className="rounded-[14px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_10px_28px_rgba(37,23,19,0.04)]">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-extrabold tracking-[0.08em] text-[#251713]/55">
+              <div className="rounded-[13px] border border-[#251713]/[0.08] bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(37,23,19,0.035)] sm:px-3.5 sm:py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold text-[#251713]/70">
                       اختر اللون
                     </p>
-                    <p className="mt-1 text-[11px] leading-5 text-[#251713]/45">
-                      تظهر الألوان المتوفرة لهذا المنتج تلقائيًا هنا.
+                    <p className="mt-0.5 text-[9px] leading-4 text-[#251713]/38">
+                      اختر اللون المناسب للمنتج
                     </p>
                   </div>
 
                   {selectedVariant && (
-                    <span className="shrink-0 rounded-full bg-[#FFF4D5] px-2.5 py-1 text-[10px] font-extrabold text-[#8A6200]">
-                      {selectedVariant.colorName || selectedVariant.name}
+                    <span className="max-w-[46%] truncate rounded-full bg-[#FFF4D5] px-2.5 py-1 text-[9px] font-extrabold text-[#8A6200]">
+                      {localizeColorLabel(
+                        selectedVariant.colorName || selectedVariant.name,
+                      )}
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="-mx-0.5 mt-2 flex snap-x gap-1.5 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {product.variants.map((variant) => {
                     const rawLabel =
                       variant.colorName || variant.name;
@@ -700,14 +701,14 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         aria-label={`اختيار ${label}`}
                         aria-pressed={isSelected}
                         className={[
-                          "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-right transition",
+                          "inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 text-right transition sm:h-9",
                           isSelected
-                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_3px_rgba(236,171,28,0.12)]"
-                            : "border-[#251713]/10 bg-white hover:border-[#251713]/25 hover:bg-[#FCFAF6]",
+                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.10)]"
+                            : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/22 hover:bg-white",
                         ].join(" ")}
                       >
                         <span
-                          className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
+                          className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
                           aria-hidden="true"
                         >
                           {variant.isMulticolor ? (
@@ -729,13 +730,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           ) : null}
                         </span>
 
-                        <span className="max-w-[140px] truncate text-[11px] font-bold text-[#251713]">
+                        <span className="max-w-[100px] truncate text-[10px] font-bold text-[#251713]">
                           {label}
                         </span>
 
                         {isSelected ? (
                           <span
-                            className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[10px] font-black text-[#251713]"
+                            className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[8px] font-black text-[#251713]"
                             aria-hidden="true"
                           >
                             ✓
@@ -745,10 +746,6 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     );
                   })}
                 </div>
-
-                <p className="mt-3 text-[10px] leading-4 text-[#251713]/35">
-                  تُعرض الألوان المتوفرة تلقائيًا حسب إعدادات المنتج.
-                </p>
               </div>
             )}
 
