@@ -22,7 +22,7 @@ export async function generateMetadata({
   const category = await fetchCategoryBySlugSafe(categorySlug);
 
   if (!category || category.parentId) {
-    return { title: "الفئة غير موجودة | Michket" };
+    return { title: "Catégorie introuvable | Michket" };
   }
 
   return {
@@ -30,59 +30,21 @@ export async function generateMetadata({
     description:
       category.metaDescription ||
       category.description ||
-      `اكتشف مجموعة ${category.name} على Michket.`,
+      `Découvrez la collection ${category.name} sur Michket.`,
   };
 }
 
 function formatPriceDA(price: number): string {
-  return `${new Intl.NumberFormat("ar-DZ", {
+  return `${new Intl.NumberFormat("fr-DZ", {
     maximumFractionDigits: 2,
-  }).format(price)} دج`;
-}
-
-function getArabicBadgeLabel(badge: string | null | undefined): string | null {
-  if (!badge) return null;
-
-  const labels: Record<string, string> = {
-    BEST_SELLER: "الأكثر مبيعًا",
-    NOUVEAU: "جديد",
-    PROMO: "عرض",
-    PERSONNALISABLE: "قابل للتخصيص",
-    ENVOI_GRATUIT: "توصيل مجاني",
-  };
-
-  return labels[badge] ?? badge;
-}
-
-function localizeCatalogueLabel(value: string): string {
-  const normalized = value.trim().toLocaleLowerCase("fr");
-
-  const labels: Record<string, string> = {
-    "lampes 3d": "مصابيح ثلاثية الأبعاد",
-    "anniversaire": "عيد الميلاد",
-    "médecine": "الطب",
-    "medecine": "الطب",
-    "mariage": "الزفاف",
-    "nouveau-né": "مولود جديد",
-    "nouveau né": "مولود جديد",
-    "football": "كرة القدم",
-    "soutenance": "التخرج",
-    "maman": "الأم",
-    "cartes du monde": "خرائط العالم",
-    "néon led": "نيون LED",
-    "neon led": "نيون LED",
-    "trophées": "الجوائز",
-    "trophees": "الجوائز",
-  };
-
-  return labels[normalized] ?? value;
+  }).format(price)} DA`;
 }
 
 function getTitleParts(name: string, pageTitle: string | null) {
   const fullTitle = pageTitle?.trim() || name;
 
   if (
-    fullTitle.toLocaleLowerCase("ar").startsWith(name.toLocaleLowerCase("ar"))
+    fullTitle.toLocaleLowerCase("fr").startsWith(name.toLocaleLowerCase("fr"))
   ) {
     return {
       primary: name,
@@ -122,24 +84,15 @@ export default async function GenericCategoryPage({
     .filter((child) => child.isActive)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
-  const localizedCategoryName =
-    localizeCatalogueLabel(category.name);
-  const localizedPageTitle = category.pageTitle
-    ? localizeCatalogueLabel(category.pageTitle)
-    : null;
-
   const displayName =
     category.productsTitle?.trim() ||
-    localizedPageTitle ||
-    localizedCategoryName;
+    category.pageTitle?.trim() ||
+    category.name;
 
-  const titleParts = getTitleParts(
-    localizedCategoryName,
-    localizedPageTitle,
-  );
+  const titleParts = getTitleParts(category.name, category.pageTitle);
 
   return (
-    <main lang="ar" dir="rtl" className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
+    <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
       {/* TOP */}
       <section
         className="relative border-b border-[#2A1B16]/[0.08]"
@@ -150,16 +103,16 @@ export default async function GenericCategoryPage({
       >
         <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
           <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:gap-10">
-            <div className="max-w-[620px] text-right">
+            <div className="max-w-[620px]">
               <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
                 <Link
                   href="/"
                   className="transition-colors hover:text-[#ECAB1C]"
                 >
-                  الرئيسية
+                  Accueil
                 </Link>
                 <span>/</span>
-                <span className="text-[#8A6A20]">{localizedCategoryName}</span>
+                <span className="text-[#8A6A20]">{category.name}</span>
               </div>
 
               <h1 className="mt-3 font-body text-[31px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[39px] lg:text-[48px]">
@@ -217,7 +170,7 @@ export default async function GenericCategoryPage({
                         {child.imageUrl ? (
                           <Image
                             src={child.imageUrl}
-                            alt={localizeCatalogueLabel(child.name)}
+                            alt={child.name}
                             fill
                             className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
                             sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
@@ -236,7 +189,7 @@ export default async function GenericCategoryPage({
 
                         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
                           <span className="line-clamp-2 text-[10px] font-semibold leading-4 text-white sm:text-[11px]">
-                            {localizeCatalogueLabel(child.name)}
+                            {child.name}
                           </span>
 
                           <span
@@ -253,7 +206,7 @@ export default async function GenericCategoryPage({
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M19 12H5m6-6-6 6 6 6"
+                                d="M5 12h14M13 6l6 6-6 6"
                               />
                             </svg>
                           </span>
@@ -309,7 +262,7 @@ export default async function GenericCategoryPage({
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M19 12H5m6-6-6 6 6 6"
+                                d="M5 12h14M13 6l6 6-6 6"
                               />
                             </svg>
                           </span>
@@ -335,7 +288,7 @@ export default async function GenericCategoryPage({
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10">
           <div className="mx-auto mb-5 max-w-[680px] text-center sm:mb-7">
             <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-[#8A6A20] sm:text-[10px]">
-              المجموعة المتوفرة
+              Collection disponible
             </p>
 
             <h2 className="mt-1.5 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[30px]">
@@ -343,19 +296,14 @@ export default async function GenericCategoryPage({
             </h2>
 
             <p className="mt-1.5 text-[10px] font-medium text-[#2A1B16]/42 sm:text-[11px]">
-              كل المنتجات
+              Tous les produits
             </p>
           </div>
 
           <div className="mb-5 flex items-center justify-between gap-3 border-y border-[#2A1B16]/[0.08] py-3 sm:mb-6 sm:py-3.5">
             <p className="text-[10px] font-medium text-[#2A1B16]/45 sm:text-[11px]">
-              {products.length === 0
-                ? "لا توجد منتجات"
-                : products.length === 1
-                  ? "منتج واحد"
-                  : products.length === 2
-                    ? "منتجان"
-                    : `${products.length} منتجات`}
+              {products.length} produit
+              {products.length > 1 ? "s" : ""}
             </p>
           </div>
 
@@ -405,7 +353,7 @@ export default async function GenericCategoryPage({
                         <div className="absolute left-2.5 top-2.5 flex gap-1.5">
                           {product.badge && (
                             <span className="inline-flex rounded-[5px] bg-[#ECAB1C] px-2 py-1.5 text-[7px] font-bold uppercase tracking-[0.09em] text-[#2A1B16] sm:text-[8px]">
-                              {getArabicBadgeLabel(product.badge)}
+                              {product.badge}
                             </span>
                           )}
 
@@ -420,7 +368,7 @@ export default async function GenericCategoryPage({
 
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
                       <p className="text-[7px] font-bold uppercase tracking-[0.12em] text-[#8A6A20] sm:text-[9px]">
-                        {localizeCatalogueLabel(product.categoryName ?? category.name)}
+                        {product.categoryName ?? category.name}
                       </p>
 
                       <Link href={`/produits/${product.slug}`}>
@@ -445,7 +393,7 @@ export default async function GenericCategoryPage({
                         href={`/produits/${product.slug}`}
                         className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-[8px] bg-[#2A1B16] px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-[#ECAB1C] hover:text-[#2A1B16] sm:min-h-10 sm:text-[9px]"
                       >
-                        عرض المنتج
+                        Voir le produit
                         <svg
                           className="h-3.5 w-3.5"
                           fill="none"
@@ -457,7 +405,7 @@ export default async function GenericCategoryPage({
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d="M19 12H5m6-6-6 6 6 6"
+                            d="M5 12h14M13 6l6 6-6 6"
                           />
                         </svg>
                       </Link>
@@ -469,16 +417,16 @@ export default async function GenericCategoryPage({
           ) : apiError ? (
             <div className="rounded-[12px] border border-red-200 bg-red-50 px-5 py-10 text-center">
               <p className="font-body text-base font-semibold text-red-800">
-                تعذر تحميل المنتجات في الوقت الحالي.
+                Impossible de charger les produits pour le moment.
               </p>
               <p className="mt-1 text-[11px] text-red-600/70">
-                يرجى المحاولة مرة أخرى لاحقًا.
+                Veuillez réessayer plus tard.
               </p>
             </div>
           ) : (
             <div className="border border-[#2A1B16]/[0.08] bg-white px-5 py-10 text-center">
               <p className="font-body text-base font-semibold">
-                لا توجد منتجات متوفرة حاليًا.
+                Aucun produit disponible pour le moment.
               </p>
             </div>
           )}
