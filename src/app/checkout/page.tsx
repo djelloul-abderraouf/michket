@@ -229,7 +229,10 @@ export default function CheckoutPage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim(),
-        addressLine1: addressLine1.trim(),
+        addressLine1:
+          deliveryType === "home"
+            ? addressLine1.trim()
+            : `Bureau Yalidine - ${commune.trim()}`,
         wilayaCode: wilayaCode!,
         communeId: communeId!,
         commune: commune.trim(),
@@ -343,8 +346,9 @@ export default function CheckoutPage() {
     commune.trim().length <= 100 &&
     selectedCommune?.available === true &&
     (deliveryType === "home" || selectedCommune?.hasStopDesk === true) &&
-    addressLine1.trim().length >= 1 &&
-    addressLine1.trim().length <= 200 &&
+    (deliveryType === "office" ||
+      (addressLine1.trim().length >= 1 &&
+        addressLine1.trim().length <= 200)) &&
     wilayaCode !== null &&
     wilayas.find((w) => w.code === wilayaCode)?.available === true;
 
@@ -751,23 +755,25 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label
-                        htmlFor="co-address"
-                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
-                      >
-                        Adresse *
-                      </label>
-                      <input
-                        id="co-address"
-                        type="text"
-                        value={addressLine1}
-                        onChange={(e) => setAddressLine1(e.target.value)}
-                        maxLength={200}
-                        className={inputClass}
-                        placeholder="Quartier, rue, numéro..."
-                      />
-                    </div>
+                    {deliveryType === "home" && (
+                      <div>
+                        <label
+                          htmlFor="co-address"
+                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
+                        >
+                          Adresse *
+                        </label>
+                        <input
+                          id="co-address"
+                          type="text"
+                          value={addressLine1}
+                          onChange={(e) => setAddressLine1(e.target.value)}
+                          maxLength={200}
+                          className={inputClass}
+                          placeholder="Quartier, rue, numéro..."
+                        />
+                      </div>
+                    )}
 
 
                     <div className="min-h-5 text-[10px]">
