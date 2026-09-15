@@ -9,11 +9,9 @@ import {
   getWilayas,
   getCommunes,
   getDeliveryRate,
-  previewPromo,
   type ApiWilaya,
   type ApiCommune,
   type ApiDeliveryRate,
-  type ApiPromoPreview,
 } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
@@ -56,7 +54,6 @@ export default function CheckoutPage() {
   const [deliveryType, setDeliveryType] = useState<"home" | "office">("home");
   const [addressLine1, setAddressLine1] = useState("");
   const [notes, setNotes] = useState("");
-  const [promoInput, setPromoInput] = useState("");
 
   /* ---------- wilayas ---------- */
   const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
@@ -74,12 +71,6 @@ export default function CheckoutPage() {
   );
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
-
-  /* ---------- promo ---------- */
-  const [promoResult, setPromoResult] = useState<ApiPromoPreview | null>(null);
-  const [promoLoading, setPromoLoading] = useState(false);
-  const [promoError, setPromoError] = useState<string | null>(null);
-  const [promoApplied, setPromoApplied] = useState(false);
 
   /* ---------- idempotency ---------- */
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -219,36 +210,6 @@ export default function CheckoutPage() {
   ]);
 
   /* ================================================================ */
-  /* Promo                                                            */
-  /* ================================================================ */
-
-  const handleApplyPromo = useCallback(async () => {
-    const code = promoInput.trim();
-    if (!code) return;
-    setPromoLoading(true);
-    setPromoError(null);
-    setPromoResult(null);
-    setPromoApplied(false);
-    try {
-      const subtotalCents = computeSubtotalCents(cart.items);
-      const data = await previewPromo(code, subtotalCents);
-      setPromoResult(data);
-      setPromoApplied(true);
-    } catch {
-      setPromoError("Code promo invalide ou expiré.");
-    } finally {
-      setPromoLoading(false);
-    }
-  }, [promoInput, cart.items]);
-
-  const handleRemovePromo = useCallback(() => {
-    setPromoResult(null);
-    setPromoApplied(false);
-    setPromoInput("");
-    setPromoError(null);
-  }, []);
-
-  /* ================================================================ */
   /* Submit order                                                     */
   /* ================================================================ */
 
@@ -275,7 +236,6 @@ export default function CheckoutPage() {
         commune: commune.trim(),
         deliveryType,
         notes: notes.trim() || undefined,
-        promoCode: promoApplied && promoResult ? promoResult.code : undefined,
       };
 
       // Deterministic fingerprint for idempotency
@@ -326,13 +286,6 @@ export default function CheckoutPage() {
             message =
               "Une variante sélectionnée n'est plus disponible. Veuillez modifier votre panier.";
           } else if (
-            detail.includes("promo") ||
-            detail.includes("Promo") ||
-            detail.includes("promotion")
-          ) {
-            message =
-              "Le code promo n'est plus valide. Veuillez vérifier votre code.";
-          } else if (
             detail.includes("delivery") ||
             detail.includes("livraison") ||
             detail.includes("wilaya")
@@ -369,8 +322,6 @@ export default function CheckoutPage() {
     commune,
     deliveryType,
     notes,
-    promoApplied,
-    promoResult,
     router,
   ]);
 
@@ -415,11 +366,8 @@ export default function CheckoutPage() {
 
   const subtotalCents = computeSubtotalCents(cart.items);
   const deliveryFeeCents = deliveryRate?.amountCents ?? 0;
-  const discountCents = promoResult?.discountCents ?? 0;
-  const totalEstimateCents = Math.max(
-    0,
-    subtotalCents + deliveryFeeCents - discountCents,
-  );
+  const totalEstimateCents =
+    subtotalCents + deliveryFeeCents;
 
   /* ================================================================ */
   /* Render                                                           */
@@ -844,60 +792,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Promo */}
-              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
-                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
-                  Code promo
-                </h2>
-
-                {promoApplied && promoResult ? (
-                  <div className="mt-4 flex items-center justify-between rounded-[11px] border border-emerald-200 bg-emerald-50 p-3">
-                    <div className="text-xs">
-                      <span className="font-bold text-emerald-700">
-                        {promoResult.code}
-                      </span>{" "}
-                      appliqué — réduction :{" "}
-                      <span className="font-bold">
-                        {formatDA(promoResult.discountCents)}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleRemovePromo}
-                      className="ml-4 shrink-0 text-xs font-semibold text-red-600"
-                    >
-                      Retirer
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-4 flex gap-2">
-                    <input
-                      type="text"
-                      value={promoInput}
-                      onChange={(e) => setPromoInput(e.target.value)}
-                      placeholder="Votre code promo"
-                      className={`${inputClass} flex-1`}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={handleApplyPromo}
-                      disabled={promoLoading || !promoInput.trim()}
-                      className="rounded-[10px] bg-[#251713] px-4 text-[10px] font-extrabold uppercase tracking-[0.06em] text-white transition hover:bg-[#3D2A24] disabled:opacity-40"
-                    >
-                      {promoLoading ? "…" : "Appliquer"}
-                    </button>
-                  </div>
-                )}
-
-                {promoError && (
-                  <p className="mt-2 text-xs text-red-700">
-                    {promoError}
-                  </p>
-                )}
-              </section>
-
               {/* Notes */}
               <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
                 <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
@@ -1060,14 +954,6 @@ export default function CheckoutPage() {
                       </span>
                     </div>
 
-                    {discountCents > 0 && (
-                      <div className="flex justify-between gap-4 text-emerald-700">
-                        <span>Réduction</span>
-                        <span className="font-semibold">
-                          −{formatDA(discountCents)}
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   <div className="my-4 h-px bg-[#251713]/[0.08]" />
