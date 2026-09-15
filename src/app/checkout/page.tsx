@@ -438,74 +438,100 @@ export default function CheckoutPage() {
   /* ================================================================ */
 
   return (
-    <main className="min-h-screen bg-michket-ivory">
-      <div className="michket-container py-8">
-        <div className="max-w-5xl mx-auto">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-block">
-              <span className="font-display text-xl text-michket-black">
-                Michket
-              </span>
+    <main className="min-h-screen bg-[#F7F1E8] text-[#251713]">
+      <section className="mx-auto w-full max-w-[1240px] px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mb-6 text-center sm:mb-8">
+          <Link href="/" className="inline-block">
+            <span className="font-display text-2xl text-[#251713]">
+              Michket
+            </span>
+          </Link>
+
+          <p className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
+            Finalisation de la commande
+          </p>
+
+          <h1 className="mt-2 font-body text-[28px] font-semibold tracking-[-0.04em] sm:text-[36px]">
+            Votre commande en quelques étapes
+          </h1>
+
+          <p className="mx-auto mt-2 max-w-[620px] text-[12px] leading-6 text-[#251713]/50 sm:text-[13px]">
+            Vérifiez vos informations, choisissez votre livraison puis confirmez votre commande.
+          </p>
+        </div>
+
+        {/* Empty cart */}
+        {cart.hydrated && cart.items.length === 0 && (
+          <div className="mx-auto max-w-xl rounded-[18px] border border-[#251713]/[0.07] bg-white p-8 text-center shadow-[0_14px_34px_rgba(37,23,19,0.05)]">
+            <p className="text-sm text-[#251713]/55">
+              Votre panier est vide.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-5 inline-flex min-h-12 items-center justify-center rounded-[11px] bg-[#ECAB1C] px-6 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#251713] transition hover:bg-[#F1B82F]"
+            >
+              Découvrir nos créations
             </Link>
           </div>
+        )}
 
-          {/* Empty cart */}
-          {cart.hydrated && cart.items.length === 0 && (
-            <div className="bg-michket-white p-8 text-center">
-              <p className="text-michket-charcoal/60 mb-4">
-                Votre panier est vide.
-              </p>
-              <Link
-                href="/"
-                className="inline-block px-6 py-3 bg-michket-gold text-white text-sm font-semibold hover:bg-michket-gold-dark transition-colors"
-              >
-                Découvrir nos créations
-              </Link>
-            </div>
-          )}
+        {/* Cart loading */}
+        {!cart.hydrated && (
+          <div className="mx-auto max-w-xl rounded-[18px] border border-[#251713]/[0.07] bg-white p-8 text-center">
+            <p className="text-sm text-[#251713]/40">
+              Chargement du panier…
+            </p>
+          </div>
+        )}
 
-          {/* Cart loading */}
-          {!cart.hydrated && (
-            <div className="bg-michket-white p-8 text-center">
-              <p className="text-michket-charcoal/40 text-sm">
-                Chargement du panier…
-              </p>
-            </div>
-          )}
+        {/* Cart error */}
+        {cart.hydrated && cart.error && (
+          <div className="mx-auto max-w-xl rounded-[18px] border border-red-200 bg-red-50 p-8 text-center">
+            <p className="text-sm text-red-700">
+              Erreur lors du chargement du panier.
+            </p>
 
-          {/* Cart error */}
-          {cart.hydrated && cart.error && (
-            <div className="bg-michket-white p-8 text-center">
-              <p className="text-red-600 text-sm mb-4">
-                Erreur lors du chargement du panier.
-              </p>
-              <Link
-                href="/panier"
-                className="text-sm text-michket-gold hover:underline"
-              >
-                Retour au panier
-              </Link>
-            </div>
-          )}
+            <Link
+              href="/panier"
+              className="mt-4 inline-block text-sm font-semibold text-[#8A6A20] hover:underline"
+            >
+              Retour au panier
+            </Link>
+          </div>
+        )}
 
-          {/* Main checkout form */}
-          {cart.hydrated && !cart.error && cart.items.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-              {/* ── Left: Form ── */}
-              <div className="lg:col-span-3 space-y-6">
-                {/* Customer info */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h1 className="font-display text-xl text-michket-black mb-6">
-                    Informations client
-                  </h1>
+        {/* Main checkout */}
+        {cart.hydrated && !cart.error && cart.items.length > 0 && (
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] lg:items-start lg:gap-7">
+            {/* Left */}
+            <div className="space-y-4 sm:space-y-5">
+              {/* Client */}
+              <section className="overflow-hidden rounded-[18px] border border-[#251713]/[0.08] bg-white shadow-[0_14px_36px_rgba(37,23,19,0.05)]">
+                <div className="h-1.5 bg-[#ECAB1C]" />
+
+                <div className="p-4 sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECAB1C] text-[11px] font-extrabold text-[#251713]">
+                      1
+                    </span>
+
+                    <div>
+                      <h2 className="font-body text-[20px] font-semibold tracking-[-0.03em]">
+                        Vos informations
+                      </h2>
+                      <p className="mt-0.5 text-[10px] leading-4 text-[#251713]/45">
+                        Ces informations nous servent à confirmer votre commande.
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label
                           htmlFor="co-firstname"
-                          className="block text-xs font-medium text-michket-charcoal mb-1"
+                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                         >
                           Prénom *
                         </label>
@@ -515,13 +541,15 @@ export default function CheckoutPage() {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           maxLength={100}
-                          className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                          className={inputClass}
+                          placeholder="Votre prénom"
                         />
                       </div>
+
                       <div>
                         <label
                           htmlFor="co-lastname"
-                          className="block text-xs font-medium text-michket-charcoal mb-1"
+                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                         >
                           Nom *
                         </label>
@@ -531,7 +559,8 @@ export default function CheckoutPage() {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           maxLength={100}
-                          className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                          className={inputClass}
+                          placeholder="Votre nom"
                         />
                       </div>
                     </div>
@@ -539,7 +568,7 @@ export default function CheckoutPage() {
                     <div>
                       <label
                         htmlFor="co-phone"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
+                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                       >
                         Téléphone *
                       </label>
@@ -549,14 +578,15 @@ export default function CheckoutPage() {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         maxLength={30}
-                        className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                        className={inputClass}
+                        placeholder="05 XX XX XX XX"
                       />
                     </div>
 
                     <div>
                       <label
                         htmlFor="co-email"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
+                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                       >
                         Email
                       </label>
@@ -565,164 +595,249 @@ export default function CheckoutPage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                        className={inputClass}
+                        placeholder="Votre email"
                       />
                     </div>
                   </div>
-                </section>
+                </div>
+              </section>
 
-                {/* Address */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h2 className="font-display text-lg text-michket-black mb-6">
-                    Adresse de livraison
-                  </h2>
+              {/* Livraison */}
+              <section className="overflow-hidden rounded-[18px] border border-[#251713]/[0.08] bg-white shadow-[0_14px_36px_rgba(37,23,19,0.05)]">
+                <div className="p-4 sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECAB1C] text-[11px] font-extrabold text-[#251713]">
+                      2
+                    </span>
+
+                    <div>
+                      <h2 className="font-body text-[20px] font-semibold tracking-[-0.03em]">
+                        Livraison
+                      </h2>
+                      <p className="mt-0.5 text-[10px] leading-4 text-[#251713]/45">
+                        Choisissez votre wilaya, commune et mode de livraison.
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="space-y-4">
-                    <div>
-                      <label
-                        htmlFor="co-wilaya"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
-                      >
-                        Wilaya *
-                      </label>
-                      {wilayasLoading ? (
-                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm text-michket-charcoal/40">
-                          Chargement…
-                        </div>
-                      ) : wilayasError ? (
-                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-red-300 text-sm text-red-600">
-                          {wilayasError}
-                        </div>
-                      ) : (
-                        <select
-                          id="co-wilaya"
-                          value={wilayaCode ?? ""}
-                          onChange={(e) => {
-                            const raw = e.target.value;
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="co-wilaya"
+                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
+                        >
+                          Wilaya *
+                        </label>
 
-                            if (!raw) {
-                              setWilayaCode(null);
-                              setWilayaName("");
+                        {wilayasLoading ? (
+                          <div className={`${inputClass} flex items-center text-[#251713]/35`}>
+                            Chargement…
+                          </div>
+                        ) : wilayasError ? (
+                          <div className="min-h-12 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-700">
+                            {wilayasError}
+                          </div>
+                        ) : (
+                          <select
+                            id="co-wilaya"
+                            value={wilayaCode ?? ""}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+
+                              if (!raw) {
+                                setWilayaCode(null);
+                                setWilayaName("");
+                                setCommuneId(null);
+                                setCommune("");
+                                setCommunes([]);
+                                setDeliveryRate(null);
+                                setDeliveryError(null);
+                                setDeliveryType("home");
+                                return;
+                              }
+
+                              const val = Number(raw);
+                              const w = wilayas.find((item) => item.code === val);
+
+                              setWilayaCode(val);
+                              setWilayaName(w?.name ?? "");
                               setCommuneId(null);
                               setCommune("");
-                              setCommunes([]);
                               setDeliveryRate(null);
                               setDeliveryError(null);
-                                                        setDeliveryType("home");
-                              return;
-                            }
+                              setDeliveryType("home");
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">Choisir une wilaya</option>
+                            {wilayas.map((w) => (
+                              <option
+                                key={w.code}
+                                value={w.code}
+                                disabled={!w.available}
+                              >
+                                {w.code} — {w.name}
+                                {!w.available ? " (Indisponible)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
 
-                            const val = Number(raw);
-                            const w = wilayas.find((item) => item.code === val);
-
-                            setWilayaCode(val);
-                            setWilayaName(w?.name ?? "");
-                            setCommuneId(null);
-                            setCommune("");
-                            setDeliveryRate(null);
-                            setDeliveryError(null);
-                                                    setDeliveryType("home");
-                          }}
-                          className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                      <div>
+                        <label
+                          htmlFor="co-commune"
+                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                         >
-                          <option value="">— Sélectionnez —</option>
-                          {wilayas.map((w) => (
-                            <option
-                              key={w.code}
-                              value={w.code}
-                              disabled={!w.available}
-                            >
-                              {w.code} — {w.name}
-                              {!w.available ? " (Indisponible)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                          Commune *
+                        </label>
+
+                        {wilayaCode === null ? (
+                          <div className={`${inputClass} flex items-center text-[#251713]/35`}>
+                            Choisir d&apos;abord la wilaya
+                          </div>
+                        ) : communesLoading ? (
+                          <div className={`${inputClass} flex items-center text-[#251713]/35`}>
+                            Chargement…
+                          </div>
+                        ) : communesError ? (
+                          <div className="min-h-12 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-700">
+                            {communesError}
+                          </div>
+                        ) : (
+                          <select
+                            id="co-commune"
+                            value={communeId ?? ""}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+
+                              if (!raw) {
+                                setCommuneId(null);
+                                setCommune("");
+                                setDeliveryType("home");
+                                setDeliveryRate(null);
+                                setDeliveryError(null);
+                                return;
+                              }
+
+                              const id = Number(raw);
+                              const selected = communes.find(
+                                (item) => item.id === id,
+                              );
+
+                              setCommuneId(id);
+                              setCommune(selected?.name ?? "");
+                              setDeliveryType((current) =>
+                                current === "office" && !selected?.hasStopDesk
+                                  ? "home"
+                                  : current,
+                              );
+                              setDeliveryRate(null);
+                              setDeliveryError(null);
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">Choisir une commune</option>
+                            {communes.map((item) => (
+                              <option
+                                key={item.id}
+                                value={item.id}
+                                disabled={!item.available}
+                              >
+                                {item.name}
+                                {!item.available ? " (Indisponible)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Wilaya unavailable */}
                     {wilayaCode !== null &&
                       !wilayasLoading &&
-                      wilayas.find((w) => w.code === wilayaCode)
-                        ?.available === false && (
-                        <p className="text-sm text-red-600">
+                      wilayas.find((w) => w.code === wilayaCode)?.available === false && (
+                        <p className="text-xs font-medium text-red-700">
                           Livraison indisponible pour cette wilaya.
                         </p>
                       )}
 
                     <div>
-                      <label
-                        htmlFor="co-commune"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
-                      >
-                        Commune *
-                      </label>
+                      <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55">
+                        Mode de livraison *
+                      </span>
 
-                      {wilayaCode === null ? (
-                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm text-michket-charcoal/40">
-                          Sélectionnez d&apos;abord une wilaya.
-                        </div>
-                      ) : communesLoading ? (
-                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm text-michket-charcoal/40">
-                          Chargement des communes…
-                        </div>
-                      ) : communesError ? (
-                        <div className="w-full px-3 py-2.5 bg-michket-ivory border border-red-300 text-sm text-red-600">
-                          {communesError}
-                        </div>
-                      ) : (
-                        <select
-                          id="co-commune"
-                          value={communeId ?? ""}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-
-                            if (!raw) {
-                              setCommuneId(null);
-                              setCommune("");
-                              setDeliveryType("home");
-                              setDeliveryRate(null);
-                              setDeliveryError(null);
-                                                        return;
-                            }
-
-                            const id = Number(raw);
-                            const selected = communes.find(
-                              (item) => item.id === id,
-                            );
-
-                            setCommuneId(id);
-                            setCommune(selected?.name ?? "");
-                            setDeliveryType((current) =>
-                              current === "office" && !selected?.hasStopDesk
-                                ? "home"
-                                : current,
-                            );
-                            setDeliveryRate(null);
-                            setDeliveryError(null);
-                                                  }}
-                          className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          disabled={
+                            communeId === null ||
+                            selectedCommune?.available !== true
+                          }
+                          onClick={() => setDeliveryType("home")}
+                          className={`rounded-[11px] border p-3.5 text-left transition ${
+                            communeId === null ||
+                            selectedCommune?.available !== true
+                              ? "cursor-not-allowed border-[#251713]/[0.06] bg-[#EFE8DF] text-[#251713]/35"
+                              : deliveryType === "home"
+                                ? "border-[#ECAB1C] bg-[#FFF8E8]"
+                                : "border-[#251713]/10 bg-white"
+                          }`}
                         >
-                          <option value="">— Sélectionnez —</option>
-                          {communes.map((item) => (
-                            <option
-                              key={item.id}
-                              value={item.id}
-                              disabled={!item.available}
-                            >
-                              {item.name}
-                              {!item.available ? " (Indisponible)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                          <p className="text-[11px] font-bold">
+                            Domicile
+                          </p>
 
+                          {deliveryType === "home" && deliveryRate && (
+                            <p className="mt-1 text-[10px] font-extrabold text-[#8A6A20]">
+                              {formatDA(deliveryRate.amountCents)}
+                            </p>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            communeId === null ||
+                            selectedCommune?.available !== true ||
+                            selectedCommune?.hasStopDesk !== true
+                          }
+                          onClick={() => setDeliveryType("office")}
+                          className={`rounded-[11px] border p-3.5 text-left transition ${
+                            communeId === null ||
+                            selectedCommune?.available !== true ||
+                            selectedCommune?.hasStopDesk !== true
+                              ? "cursor-not-allowed border-[#251713]/[0.06] bg-[#EFE8DF] text-[#251713]/35"
+                              : deliveryType === "office"
+                                ? "border-[#ECAB1C] bg-[#FFF8E8]"
+                                : "border-[#251713]/10 bg-white"
+                          }`}
+                        >
+                          <p className="text-[11px] font-bold">
+                            Bureau Yalidine
+                          </p>
+
+                          {deliveryType === "office" && deliveryRate && (
+                            <p className="mt-1 text-[10px] font-extrabold text-[#8A6A20]">
+                              {formatDA(deliveryRate.amountCents)}
+                            </p>
+                          )}
+
+                          {communeId !== null &&
+                            selectedCommune?.hasStopDesk !== true && (
+                              <p className="mt-1 text-[9px] font-semibold">
+                                Indisponible
+                              </p>
+                            )}
+                        </button>
+                      </div>
+                    </div>
 
                     <div>
                       <label
                         htmlFor="co-address"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
+                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                       >
                         Adresse *
                       </label>
@@ -732,14 +847,15 @@ export default function CheckoutPage() {
                         value={addressLine1}
                         onChange={(e) => setAddressLine1(e.target.value)}
                         maxLength={200}
-                        className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                        className={inputClass}
+                        placeholder="Quartier, rue, numéro..."
                       />
                     </div>
 
                     <div>
                       <label
                         htmlFor="co-address2"
-                        className="block text-xs font-medium text-michket-charcoal mb-1"
+                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
                       >
                         Complément d&apos;adresse
                       </label>
@@ -749,234 +865,170 @@ export default function CheckoutPage() {
                         value={addressLine2}
                         onChange={(e) => setAddressLine2(e.target.value)}
                         maxLength={200}
-                        className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
+                        className={inputClass}
+                        placeholder="Appartement, étage..."
                       />
+                    </div>
+
+                    <div className="min-h-5 text-[10px]">
+                      {deliveryLoading ? (
+                        <span className="text-[#251713]/45">
+                          Calcul de la livraison…
+                        </span>
+                      ) : deliveryError ? (
+                        <span className="font-medium text-amber-800">
+                          {deliveryError}
+                        </span>
+                      ) : deliveryRate ? (
+                        <span className="font-semibold text-emerald-700">
+                          Livraison : {formatDA(deliveryRate.amountCents)}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
-                </section>
+                </div>
+              </section>
 
-                {/* Delivery type */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h2 className="font-display text-lg text-michket-black mb-4">
-                    Type de livraison
-                  </h2>
+              {/* Promo */}
+              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
+                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
+                  Code promo
+                </h2>
 
-                  <div className="space-y-3">
-                    <label
-                      className={`flex items-center gap-3 p-3 border bg-michket-ivory ${
-                        communeId === null || selectedCommune?.available !== true
-                          ? "border-michket-gold/10 opacity-50 cursor-not-allowed"
-                          : deliveryType === "home"
-                            ? "border-michket-gold/40 cursor-pointer"
-                            : "border-michket-gold/20 cursor-pointer"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="delivery-type"
-                        value="home"
-                        checked={deliveryType === "home"}
-                        disabled={
-                          communeId === null ||
-                          selectedCommune?.available !== true
-                        }
-                        onChange={() => setDeliveryType("home")}
-                        className="accent-michket-gold"
-                      />
-                      <span className="text-sm text-michket-black">
-                        Livraison à domicile
+                {promoApplied && promoResult ? (
+                  <div className="mt-4 flex items-center justify-between rounded-[11px] border border-emerald-200 bg-emerald-50 p-3">
+                    <div className="text-xs">
+                      <span className="font-bold text-emerald-700">
+                        {promoResult.code}
+                      </span>{" "}
+                      appliqué — réduction :{" "}
+                      <span className="font-bold">
+                        {formatDA(promoResult.discountCents)}
                       </span>
-                    </label>
+                    </div>
 
-                    <label
-                      className={`flex items-center gap-3 p-3 border bg-michket-ivory ${
-                        communeId === null ||
-                        selectedCommune?.available !== true ||
-                        selectedCommune?.hasStopDesk !== true
-                          ? "border-michket-gold/10 opacity-50 cursor-not-allowed"
-                          : deliveryType === "office"
-                            ? "border-michket-gold/40 cursor-pointer"
-                            : "border-michket-gold/20 cursor-pointer"
-                      }`}
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="ml-4 shrink-0 text-xs font-semibold text-red-600"
                     >
-                      <input
-                        type="radio"
-                        name="delivery-type"
-                        value="office"
-                        checked={deliveryType === "office"}
-                        disabled={
-                          communeId === null ||
-                          selectedCommune?.available !== true ||
-                          selectedCommune?.hasStopDesk !== true
-                        }
-                        onChange={() => setDeliveryType("office")}
-                        className="accent-michket-gold"
-                      />
-                      <span className="text-sm text-michket-black">
-                        Livraison en bureau Yalidine
-                        {communeId !== null &&
-                        selectedCommune?.hasStopDesk !== true
-                          ? " — Indisponible dans cette commune"
-                          : ""}
-                      </span>
-                    </label>
+                      Retirer
+                    </button>
                   </div>
-
-                  {deliveryLoading && (
-                    <p className="mt-4 text-sm text-michket-charcoal/60">
-                      Calcul du tarif Yalidine…
-                    </p>
-                  )}
-
-                  {deliveryError && !deliveryLoading && (
-                    <p className="mt-4 text-sm text-red-600">
-                      {deliveryError}
-                    </p>
-                  )}
-
-                  {deliveryRate && !deliveryLoading && (
-                    <div className="mt-4 p-3 bg-michket-ivory border border-michket-gold/15">
-                      <p className="text-sm text-michket-black">
-                        Tarif de livraison :{" "}
-                        <span className="font-semibold">
-                          {formatDA(deliveryRate.amountCents)}
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                </section>
-
-                {/* Promo code */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h2 className="font-display text-lg text-michket-black mb-4">
-                    Code promo
-                  </h2>
-
-                  {promoApplied && promoResult ? (
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200">
-                      <div className="text-sm">
-                        <span className="font-semibold text-green-700">
-                          {promoResult.code}
-                        </span>{" "}
-                        appliqué — Réduction :{" "}
-                        <span className="font-semibold">
-                          {formatDA(promoResult.discountCents)}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemovePromo}
-                        className="text-sm text-red-600 hover:underline ml-4 shrink-0"
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={promoInput}
-                        onChange={(e) => setPromoInput(e.target.value)}
-                        placeholder="Votre code promo"
-                        className="flex-1 px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleApplyPromo}
-                        disabled={promoLoading || !promoInput.trim()}
-                        className="px-4 py-2.5 bg-michket-gold text-white text-sm font-semibold hover:bg-michket-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {promoLoading ? "…" : "Appliquer"}
-                      </button>
-                    </div>
-                  )}
-
-                  {promoError && (
-                    <p className="mt-2 text-sm text-red-600">{promoError}</p>
-                  )}
-                </section>
-
-                {/* Notes */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h2 className="font-display text-lg text-michket-black mb-4">
-                    Notes pour la commande
-                  </h2>
-                  <textarea
-                    value={notes}
-                    onChange={(e) =>
-                      setNotes(e.target.value.slice(0, 1000))
-                    }
-                    maxLength={1000}
-                    rows={3}
-                    placeholder="Instructions de livraison, demandes spéciales…"
-                    className="w-full px-3 py-2.5 bg-michket-ivory border border-michket-gold/15 text-sm focus:outline-none focus:border-michket-gold/40 transition-colors resize-none"
-                  />
-                  <p className="text-xs text-michket-charcoal/40 mt-1 text-right">
-                    {notes.length}/1000
-                  </p>
-                </section>
-
-                {/* Payment */}
-                <section className="bg-michket-white p-6 sm:p-8">
-                  <h2 className="font-display text-lg text-michket-black mb-4">
-                    Mode de paiement
-                  </h2>
-
-                  <label className="flex items-center gap-3 p-3 border border-michket-gold/20 bg-michket-ivory cursor-pointer">
+                ) : (
+                  <div className="mt-4 flex gap-2">
                     <input
-                      type="radio"
-                      name="payment-method"
-                      checked
-                      readOnly
-                      className="accent-michket-gold"
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => setPromoInput(e.target.value)}
+                      placeholder="Votre code promo"
+                      className={`${inputClass} flex-1`}
                     />
-                    <div>
-                      <span className="text-sm text-michket-black font-medium">
-                        Paiement à la livraison
-                      </span>
-                      <p className="text-xs text-michket-charcoal/60 mt-0.5">
-                        Vous paierez votre commande lors de la livraison.
-                      </p>
-                    </div>
-                  </label>
-                </section>
-              </div>
 
-              {/* ── Right: Summary (sticky) ── */}
-              <div className="lg:col-span-2">
-                <div className="bg-michket-white p-6 sticky top-24">
-                  <h2 className="text-sm font-semibold text-michket-black mb-4">
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      disabled={promoLoading || !promoInput.trim()}
+                      className="rounded-[10px] bg-[#251713] px-4 text-[10px] font-extrabold uppercase tracking-[0.06em] text-white transition hover:bg-[#3D2A24] disabled:opacity-40"
+                    >
+                      {promoLoading ? "…" : "Appliquer"}
+                    </button>
+                  </div>
+                )}
+
+                {promoError && (
+                  <p className="mt-2 text-xs text-red-700">
+                    {promoError}
+                  </p>
+                )}
+              </section>
+
+              {/* Notes */}
+              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
+                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
+                  Notes pour la commande
+                </h2>
+
+                <textarea
+                  value={notes}
+                  onChange={(e) =>
+                    setNotes(e.target.value.slice(0, 1000))
+                  }
+                  maxLength={1000}
+                  rows={3}
+                  placeholder="Instructions de livraison, demandes spéciales…"
+                  className={`${inputClass} mt-4 min-h-[100px] resize-none py-3`}
+                />
+
+                <p className="mt-1 text-right text-[9px] text-[#251713]/35">
+                  {notes.length}/1000
+                </p>
+              </section>
+
+              {/* Paiement */}
+              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
+                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
+                  Paiement
+                </h2>
+
+                <div className="mt-4 flex items-start gap-3 rounded-[12px] border border-[#ECAB1C]/35 bg-[#FFF8E8] p-4">
+                  <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#ECAB1C] text-[10px] font-black text-[#251713]">
+                    ✓
+                  </span>
+
+                  <div>
+                    <p className="text-[12px] font-bold">
+                      Paiement à la livraison
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-[#251713]/45">
+                      Vous paierez votre commande lors de sa livraison.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* Right summary */}
+            <aside className="lg:sticky lg:top-5">
+              <div className="overflow-hidden rounded-[18px] border border-[#251713]/[0.08] bg-white shadow-[0_18px_45px_rgba(37,23,19,0.08)]">
+                <div className="h-1.5 bg-[#ECAB1C]" />
+
+                <div className="p-4 sm:p-6">
+                  <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
+                    Votre panier
+                  </p>
+
+                  <h2 className="mt-1 font-body text-[22px] font-semibold tracking-[-0.035em]">
                     Récapitulatif
                   </h2>
 
-                  {/* Items */}
-                  <div className="space-y-4 mb-4">
+                  <div className="mt-5 space-y-4">
                     {cart.items.map((item) => (
                       <div key={item.id} className="flex gap-3">
-                        {/* Image placeholder */}
-                        <div className="w-14 h-14 bg-michket-ivory flex items-center justify-center text-xs text-michket-charcoal/30 shrink-0">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-[#EDE3D7]">
                           {item.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={item.image}
                               alt={item.title}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-[10px]">IMG</span>
+                            <div className="flex h-full items-center justify-center text-[9px] text-[#251713]/30">
+                              IMG
+                            </div>
                           )}
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-michket-black font-medium truncate">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12px] font-bold">
                             {item.title}
                           </p>
 
-                          {/* Variant swatch */}
                           {item.variantId && (
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="mt-1 flex items-center gap-1.5">
                               <span
-                                className="inline-block w-3 h-3 rounded-full border border-michket-gold/20"
+                                className="inline-block h-3 w-3 rounded-full border border-[#251713]/10"
                                 style={
                                   item.selectedIsMulticolor
                                     ? {
@@ -990,7 +1042,8 @@ export default function CheckoutPage() {
                                 }
                                 aria-hidden="true"
                               />
-                              <span className="text-xs text-michket-charcoal/60">
+
+                              <span className="text-[10px] text-[#251713]/48">
                                 {item.selectedColorName ??
                                   (item.selectedIsMulticolor
                                     ? "Multicolore"
@@ -999,9 +1052,8 @@ export default function CheckoutPage() {
                             </div>
                           )}
 
-                          {/* Personalization */}
                           {item.personalization && (
-                            <p className="text-xs text-michket-charcoal/50 mt-0.5 truncate">
+                            <p className="mt-1 truncate text-[10px] text-[#251713]/45">
                               {typeof item.personalization.text === "string"
                                 ? item.personalization.text
                                 : Object.values(item.personalization).join(
@@ -1010,11 +1062,12 @@ export default function CheckoutPage() {
                             </p>
                           )}
 
-                          <div className="flex justify-between mt-1">
-                            <span className="text-xs text-michket-charcoal/60">
+                          <div className="mt-1.5 flex items-center justify-between gap-3">
+                            <span className="text-[10px] text-[#251713]/45">
                               ×{item.quantity}
                             </span>
-                            <span className="text-sm text-michket-black font-medium">
+
+                            <span className="text-[12px] font-bold">
                               {formatDA(
                                 Math.round(item.price * 100) * item.quantity,
                               )}
@@ -1025,22 +1078,23 @@ export default function CheckoutPage() {
                     ))}
                   </div>
 
-                  {/* Totals */}
-                  <div className="border-t border-michket-ivory pt-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-michket-charcoal/60">
+                  <div className="my-5 h-px bg-[#251713]/[0.08]" />
+
+                  <div className="space-y-2.5 text-[12px]">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[#251713]/50">
                         Sous-total
                       </span>
-                      <span className="text-michket-black">
+                      <span className="font-semibold">
                         {formatDA(subtotalCents)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between text-sm">
-                      <span className="text-michket-charcoal/60">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[#251713]/50">
                         Livraison
                       </span>
-                      <span className="text-michket-black">
+                      <span className="font-semibold">
                         {deliveryLoading
                           ? "Calcul…"
                           : deliveryRate
@@ -1052,73 +1106,80 @@ export default function CheckoutPage() {
                     </div>
 
                     {discountCents > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-green-600">Réduction</span>
-                        <span className="text-green-600">
+                      <div className="flex justify-between gap-4 text-emerald-700">
+                        <span>Réduction</span>
+                        <span className="font-semibold">
                           −{formatDA(discountCents)}
                         </span>
                       </div>
                     )}
-
-                    <div className="flex justify-between text-sm font-semibold pt-2 border-t border-michket-ivory">
-                      <span className="text-michket-black">
-                        Total estimé
-                      </span>
-                      <span className="text-michket-black">
-                        {formatDA(totalEstimateCents)}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-michket-charcoal/40">
-                      Le total final sera calculé par le serveur.
-                    </p>
                   </div>
 
-                  {/* Order error */}
+                  <div className="my-4 h-px bg-[#251713]/[0.08]" />
+
+                  <div className="flex items-end justify-between gap-4">
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#8A6A20]">
+                      Total
+                    </span>
+
+                    <span className="text-[27px] font-extrabold tracking-[-0.04em]">
+                      {formatDA(totalEstimateCents)}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-[9px] leading-4 text-[#251713]/35">
+                    Le montant final est validé par le serveur au moment de la commande.
+                  </p>
+
                   {orderError && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 text-sm text-red-700">
+                    <div className="mt-4 rounded-[10px] border border-red-200 bg-red-50 p-3 text-[11px] font-medium text-red-700">
                       {orderError}
                     </div>
                   )}
 
-                  {/* Submit button */}
-                  <div className="mt-6">
-                    <button
-                      type="button"
-                      disabled={!canSubmit || submitting}
-                      onClick={handleSubmit}
-                      className="w-full py-3 bg-michket-gold text-white font-semibold text-sm hover:bg-michket-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {submitting
-                        ? "Création de la commande…"
-                        : "Confirmer ma commande"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={!canSubmit || submitting}
+                    onClick={handleSubmit}
+                    className="mt-5 flex min-h-[56px] w-full items-center justify-center rounded-[11px] bg-[#ECAB1C] px-5 text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#251713] shadow-[0_12px_26px_rgba(236,171,28,0.24)] transition hover:bg-[#F1B82F] disabled:cursor-not-allowed disabled:bg-[#D8C8A3] disabled:text-[#251713]/45"
+                  >
+                    {submitting
+                      ? "Création de la commande…"
+                      : "Confirmer ma commande"}
+                  </button>
 
-                  {/* Back link */}
+                  <p className="mt-3 text-center text-[10px] font-medium text-[#251713]/42">
+                    Paiement à la livraison
+                  </p>
+
                   <div className="mt-4 text-center">
                     <Link
                       href="/panier"
-                      className="text-xs text-michket-charcoal/60 hover:text-michket-gold transition-colors"
+                      className="text-[10px] font-semibold text-[#251713]/55 transition hover:text-[#8A6A20]"
                     >
                       ← Retour au panier
                     </Link>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Back to shop */}
-          <div className="mt-6 text-center">
-            <Link
-              href="/"
-              className="text-sm text-michket-charcoal/60 hover:text-michket-gold transition-colors"
-            >
-              ← Retour à la boutique
-            </Link>
+            </aside>
           </div>
+        )}
+
+        <div className="mt-6 text-center">
+          <Link
+            href="/"
+            className="text-[10px] font-semibold text-[#251713]/45 transition hover:text-[#8A6A20]"
+          >
+            ← Retour à la boutique
+          </Link>
         </div>
-      </div>
+      </section>
     </main>
+
   );
 }
+
+
+const inputClass =
+  "min-h-12 w-full rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-[13px] text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
