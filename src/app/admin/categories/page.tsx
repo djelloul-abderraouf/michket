@@ -2260,11 +2260,17 @@ export default function AdminCategoriesPage() {
                 </div>
               ) : null}
 
-              <p className="text-xs leading-5 text-neutral-500">
-                Important : si un produit utilise encore cette catégorie ou une catégorie
-                de cette branche, le backend bloquera la suppression pour éviter de casser
-                le catalogue. Les produits ne sont jamais supprimés automatiquement.
-              </p>
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-xs font-semibold text-red-800">
+                  Les produits seront également supprimés
+                </p>
+                <p className="mt-1 text-xs leading-5 text-red-700">
+                  Tous les produits rattachés à cette catégorie, à ses sous-catégories
+                  ou à ses sous-sous-catégories seront supprimés définitivement avec
+                  leurs variantes, leur inventaire et leurs images. Les anciennes
+                  commandes restent conservées.
+                </p>
+              </div>
             </div>
 
             <label className="mt-5 block">
