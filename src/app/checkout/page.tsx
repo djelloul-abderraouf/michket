@@ -792,26 +792,7 @@ export default function CheckoutPage() {
               </section>
 
               {/* Paiement */}
-              <section className="rounded-[18px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
-                <h2 className="font-body text-[18px] font-semibold tracking-[-0.03em]">
-                  Paiement
-                </h2>
-
-                <div className="mt-4 flex items-start gap-3 rounded-[12px] border border-[#ECAB1C]/35 bg-[#FFF8E8] p-4">
-                  <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#ECAB1C] text-[10px] font-black text-[#251713]">
-                    ✓
-                  </span>
-
-                  <div>
-                    <p className="text-[12px] font-bold">
-                      Paiement à la livraison
-                    </p>
-                    <p className="mt-1 text-[10px] leading-4 text-[#251713]/45">
-                      Vous paierez votre commande lors de sa livraison.
-                    </p>
-                  </div>
-                </div>
-              </section>
+              
             </div>
 
             {/* Right summary */}
