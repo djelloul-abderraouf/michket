@@ -10,6 +10,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Cairo } from "next/font/google";
 import {
   type FormEvent,
   type ReactNode,
@@ -29,6 +30,12 @@ import {
 } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 
+const arabicFont = Cairo({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
 interface ProductDetailProps {
   product: Product;
   relatedProducts?: Product[];
@@ -47,11 +54,45 @@ type OrderState =
   | { status: "sending" }
   | { status: "error"; message: string };
 
+function getArabicBadgeLabel(
+  badge: string | null | undefined,
+): string | null {
+  if (!badge) return null;
+
+  const labels: Record<string, string> = {
+    BEST_SELLER: "الأكثر مبيعًا",
+    NOUVEAU: "جديد",
+    PROMO: "عرض",
+    PERSONNALISABLE: "قابل للتخصيص",
+    ENVOI_GRATUIT: "توصيل مجاني",
+  };
+
+  return labels[badge] ?? badge;
+}
+
+function localizeColorLabel(value: string): string {
+  const normalized = value.trim().toLocaleLowerCase("fr");
+
+  const labels: Record<string, string> = {
+    rouge: "أحمر",
+    vert: "أخضر",
+    bleu: "أزرق",
+    rose: "وردي",
+    "bleu ciel": "أزرق سماوي",
+    jaune: "أصفر",
+    blanc: "أبيض",
+    multicolore: "متعدد الألوان",
+    multicolor: "متعدد الألوان",
+  };
+
+  return labels[normalized] ?? value;
+}
+
 function formatPriceDA(price: number): string {
-  return `${new Intl.NumberFormat("fr-DZ", {
+  return `${new Intl.NumberFormat("ar-DZ", {
     minimumFractionDigits: Number.isInteger(price) ? 0 : 2,
     maximumFractionDigits: 2,
-  }).format(price)} DA`;
+  }).format(price)} دج`;
 }
 
 export function ProductDetail({ product, relatedProducts = [] }: ProductDetailProps) {
@@ -157,7 +198,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       } catch {
         if (!cancelled) {
           setWilayas([]);
-          setWilayasError("Impossible de charger les wilayas Yalidine.");
+          setWilayasError("تعذر تحميل ولايات ياليدين.");
         }
       } finally {
         if (!cancelled) {
@@ -209,7 +250,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       } catch {
         if (!cancelled) {
           setCommunes([]);
-          setCommunesError("Impossible de charger les communes Yalidine.");
+          setCommunesError("تعذر تحميل بلديات ياليدين.");
         }
       } finally {
         if (!cancelled) {
@@ -242,7 +283,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
     if (!selectedWilaya.available || !selectedCommune.available) {
       setDeliveryLoading(false);
-      setDeliveryMessage("Livraison indisponible pour cette destination.");
+      setDeliveryMessage("التوصيل غير متوفر لهذه الوجهة.");
       return () => {
         cancelled = true;
       };
@@ -251,7 +292,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     if (deliveryType === "office" && !selectedCommune.hasStopDesk) {
       setDeliveryLoading(false);
       setDeliveryMessage(
-        "La livraison en bureau Yalidine n'est pas disponible pour cette commune.",
+        "التوصيل إلى مكتب ياليدين غير متوفر في هذه البلدية.",
       );
       return () => {
         cancelled = true;
@@ -275,7 +316,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
         if (!cancelled) {
           setDeliveryFee(null);
                 setDeliveryMessage(
-            "Impossible de calculer le tarif Yalidine pour cette livraison.",
+            "تعذر حساب سعر التوصيل عبر ياليدين.",
           );
         }
       } finally {
@@ -318,7 +359,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     ) {
       setOrderState({
         status: "error",
-        message: "Sélectionnez une variante avant de commander.",
+        message: "اختر اللون أو الخيار المناسب قبل تأكيد الطلب.",
       });
       return;
     }
@@ -333,7 +374,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       setOrderState({
         status: "error",
         message:
-          "Sélectionnez votre wilaya, votre commune et un mode de livraison Yalidine disponible.",
+          "اختر الولاية والبلدية وطريقة توصيل متوفرة عبر ياليدين.",
       });
       return;
     }
@@ -385,7 +426,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       };
 
       if (!response.ok || !data.ok || !data.reference) {
-        throw new Error(data.message || "Impossible d'envoyer la commande.");
+        throw new Error(data.message || "تعذر إرسال الطلب.");
       }
 
       if (data.guestAccessToken) {
@@ -402,7 +443,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
         message:
           error instanceof Error
             ? error.message
-            : "Impossible d'envoyer la commande.",
+            : "تعذر إرسال الطلب.",
       });
     }
   }
@@ -435,13 +476,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
   async function handleAddToCart() {
     // Block if variants exist but none selected
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
-      setCartMessage("Veuillez sélectionner une option");
+      setCartMessage("يرجى اختيار اللون أو الخيار المناسب");
       return;
     }
 
     // Block if personalization is required but empty
     if (!isPersonalizationValid) {
-      setCartMessage("Veuillez remplir la personnalisation");
+      setCartMessage("يرجى إدخال معلومات التخصيص المطلوبة");
       return;
     }
 
@@ -484,8 +525,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
     setCartMessage(
       added
-        ? "Produit ajouté au panier"
-        : "Impossible d'ajouter le produit au panier",
+        ? "تمت إضافة المنتج إلى السلة"
+        : "تعذر إضافة المنتج إلى السلة",
     );
   }
 
@@ -508,24 +549,39 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     orderState.status !== "sending";
 
   const whatsappHref = `https://wa.me/213542638242?text=${encodeURIComponent(
-    `Bonjour Michket, j'ai une question concernant le produit "${product.title}".`,
+    `مرحبًا Michket، لدي سؤال بخصوص المنتج "${product.title}".`,
   )}`;
 
   return (
-    <main className="min-h-screen bg-[#F7F1E8] pb-8 text-[#251713]">
+    <main
+      lang="ar"
+      dir="rtl"
+      className={`${arabicFont.className} michket-arabic min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-8 text-[#251713]`}
+    >
       <style>{`
+        .michket-arabic {
+          font-synthesis: none;
+        }
+
+        .michket-arabic input,
+        .michket-arabic textarea,
+        .michket-arabic select,
+        .michket-arabic button {
+          font: inherit;
+        }
+
         @keyframes michketWhatsAppFloat {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-5px); }
         }
       `}</style>
 
-      <section className="mx-auto max-w-[1240px] px-3 py-3 sm:px-6 sm:py-8 lg:px-8">
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
+      <section className="mx-auto w-full max-w-[1240px] px-3 py-3 sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:py-8">
+        <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)] lg:items-start lg:gap-6 xl:gap-8">
           {/* ------------------------------------------------------ */}
           {/* PRODUIT / ARGUMENTAIRE                                */}
           {/* ------------------------------------------------------ */}
-          <div className="space-y-3 sm:space-y-4 lg:sticky lg:top-5">
+          <div className="min-w-0 space-y-3 sm:space-y-4 xl:sticky xl:top-5">
             {/* Image principale */}
             <button
               type="button"
@@ -535,7 +591,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               disabled={!activeImage}
               className="group relative block w-full overflow-hidden rounded-[18px] border border-[#251713]/[0.07] bg-[#EDE3D7] shadow-[0_18px_45px_rgba(37,23,19,0.08)] disabled:cursor-default sm:rounded-[22px]"
             >
-              <div className="relative aspect-[1/1.08] sm:aspect-square">
+              <div className="relative aspect-square sm:aspect-[4/3] lg:aspect-square">
                 {activeImage ? (
                   <Image
                     src={activeImage.src}
@@ -571,21 +627,21 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </div>
 
               {activeImage && (
-                <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-bold shadow">
-                  Voir en grand
+                <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-bold shadow">
+                  عرض الصورة بحجم أكبر
                 </span>
               )}
             </button>
 
             {/* Miniatures : visibles aussi sur mobile */}
             {galleryImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0">
+              <div className="flex snap-x gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0">
                 {galleryImages.map((image, index) => (
                   <button
                     key={`${image.src}-${index}`}
                     type="button"
                     onClick={() => setSelectedImage(index)}
-                    className={`relative h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[10px] border-2 bg-[#EDE3D7] sm:h-auto sm:w-auto ${
+                    className={`relative h-[72px] w-[72px] shrink-0 snap-start overflow-hidden rounded-[10px] border-2 bg-[#EDE3D7] sm:h-auto sm:w-auto ${
                       selectedImage === index
                         ? "border-[#ECAB1C]"
                         : "border-transparent"
@@ -610,11 +666,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               <div className="rounded-[14px] border border-[#251713]/[0.08] bg-white p-4 shadow-[0_10px_28px_rgba(37,23,19,0.04)]">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#251713]/55">
-                      Choisissez la couleur
+                    <p className="text-[10px] font-extrabold tracking-[0.08em] text-[#251713]/55">
+                      اختر اللون
                     </p>
                     <p className="mt-1 text-[11px] leading-5 text-[#251713]/45">
-                      Les couleurs définies dans l&apos;admin s&apos;affichent ici automatiquement.
+                      تظهر الألوان المتوفرة لهذا المنتج تلقائيًا هنا.
                     </p>
                   </div>
 
@@ -627,8 +683,9 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                 <div className="flex flex-wrap gap-2">
                   {product.variants.map((variant) => {
-                    const label =
+                    const rawLabel =
                       variant.colorName || variant.name;
+                    const label = localizeColorLabel(rawLabel);
                     const isSelected =
                       selectedVariant?.id === variant.id;
 
@@ -640,10 +697,10 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           handleVariantSelect(variant)
                         }
                         title={label}
-                        aria-label={`Choisir ${label}`}
+                        aria-label={`اختيار ${label}`}
                         aria-pressed={isSelected}
                         className={[
-                          "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-left transition",
+                          "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-right transition",
                           isSelected
                             ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_3px_rgba(236,171,28,0.12)]"
                             : "border-[#251713]/10 bg-white hover:border-[#251713]/25 hover:bg-[#FCFAF6]",
@@ -690,7 +747,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 </div>
 
                 <p className="mt-3 text-[10px] leading-4 text-[#251713]/35">
-                  Rouge, vert, bleu, rose, bleu ciel, jaune, blanc, multicolore et les couleurs personnalisées sont gérés avec les données de la variante.
+                  تُعرض الألوان المتوفرة تلقائيًا حسب إعدادات المنتج.
                 </p>
               </div>
             )}
@@ -698,17 +755,17 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
             {/* Informations principales */}
             <div className="rounded-[18px] border border-[#251713]/[0.07] bg-white p-4 shadow-[0_12px_35px_rgba(37,23,19,0.05)] sm:p-6">
               {product.badge && (
-                <span className="inline-flex rounded-full bg-[#FFF4D5] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#8A6200]">
-                  {product.badge}
+                <span className="inline-flex rounded-full bg-[#FFF4D5] px-3 py-1 text-[9px] font-extrabold tracking-[0.1em] text-[#8A6200]">
+                  {getArabicBadgeLabel(product.badge)}
                 </span>
               )}
 
-              <h1 className="mt-2 font-body text-[26px] font-semibold leading-[1.08] tracking-[-0.04em] sm:text-[36px]">
+              <h1 className="mt-2 text-[24px] font-semibold leading-[1.35] tracking-[-0.04em] sm:text-[36px]">
                 {product.title}
               </h1>
 
               <div className="mt-3 flex flex-wrap items-end gap-3">
-                <span className="text-[29px] font-extrabold tracking-[-0.04em] sm:text-[32px]">
+                <span className="text-[27px] font-extrabold tracking-[-0.04em] sm:text-[32px]">
                   {formatPriceDA(effectiveUnitPrice)}
                 </span>
 
@@ -724,7 +781,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 {product.description}
               </p>
 
-              <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+              <div className="mt-5 grid gap-2.5 min-[460px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -735,24 +792,24 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         block: "start",
                       })
                   }
-                  className="flex min-h-[52px] items-center justify-center rounded-[11px] bg-[#ECAB1C] px-5 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#251713] shadow-[0_10px_24px_rgba(236,171,28,0.24)] transition hover:bg-[#F1B82F]"
+                  className="flex min-h-[52px] items-center justify-center rounded-[11px] bg-[#ECAB1C] px-5 text-[12px] font-extrabold tracking-[0.08em] text-[#251713] shadow-[0_10px_24px_rgba(236,171,28,0.24)] transition hover:bg-[#F1B82F]"
                 >
-                  Commander maintenant
+                  اطلب الآن
                 </button>
 
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="flex min-h-[52px] items-center justify-center rounded-[11px] border-2 border-[#251713] bg-white px-5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#251713] transition hover:bg-[#251713] hover:text-white"
+                  className="flex min-h-[52px] items-center justify-center rounded-[11px] border-2 border-[#251713] bg-white px-5 text-[11px] font-extrabold tracking-[0.08em] text-[#251713] transition hover:bg-[#251713] hover:text-white"
                 >
-                  Ajouter au panier
+                  أضف إلى السلة
                 </button>
               </div>
 
               {cartMessage && (
                 <p
                   className={`mt-2 text-center text-[11px] font-semibold ${
-                    cartMessage.includes("ajouté")
+                    cartMessage.includes("تمت إضافة")
                       ? "text-emerald-700"
                       : "text-red-700"
                   }`}
@@ -774,16 +831,16 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
             <div className="h-1.5 bg-[#ECAB1C]" />
 
             <div className="border-b border-[#251713]/[0.07] bg-white p-4 sm:p-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-3 min-[440px]:flex-row min-[440px]:items-start min-[440px]:justify-between">
                 <div>
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
-                    Commande rapide
+                  <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
+                    طلب سريع
                   </p>
-                  <h2 className="mt-1 font-body text-[24px] font-semibold tracking-[-0.04em] sm:text-[28px]">
-                    Commandez en quelques étapes
+                  <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] sm:text-[28px]">
+                    اطلب بسهولة في بضع خطوات
                   </h2>
                   <p className="mt-1 text-[11px] leading-5 text-[#251713]/45">
-                    Remplissez vos informations, choisissez la livraison puis confirmez.
+                    أدخل معلوماتك، اختر طريقة التوصيل ثم أكّد طلبك.
                   </p>
                 </div>
 
@@ -793,38 +850,38 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </div>
             </div>
 
-            <div className="space-y-5 p-4 sm:p-6">
+            <div className="space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-6">
               {/* Étape 1 */}
               <FormSection
                 number="1"
-                title="Vos informations"
-                subtitle="Pour confirmer et livrer votre commande."
+                title="معلوماتك"
+                subtitle="نحتاجها لتأكيد الطلب وتوصيله إليك."
               >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Prénom" required>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field label="الاسم" required>
                     <input
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
                       autoComplete="given-name"
                       className={inputClass}
-                      placeholder="Votre prénom"
+                      placeholder="اكتب اسمك"
                     />
                   </Field>
 
-                  <Field label="Nom" required>
+                  <Field label="اللقب" required>
                     <input
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
                       autoComplete="family-name"
                       className={inputClass}
-                      placeholder="Votre nom"
+                      placeholder="اكتب لقبك"
                     />
                   </Field>
                 </div>
 
-                <Field label="Téléphone" required>
+                <Field label="رقم الهاتف" required>
                   <input
                     type="tel"
                     value={phone}
@@ -832,7 +889,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     required
                     autoComplete="tel"
                     inputMode="tel"
-                    className={inputClass}
+                    dir="ltr"
+                    className={`${inputClass} !text-left`}
                     placeholder="05 XX XX XX XX"
                   />
                 </Field>
@@ -842,8 +900,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {(isFreeMode || isOptionsMode || product.personalizable) && (
                 <FormSection
                   number="2"
-                  title="Personnalisation"
-                  subtitle="Indiquez exactement ce que vous souhaitez."
+                  title="التخصيص"
+                  subtitle="اكتب تفاصيل التخصيص كما تريدها بالضبط."
                 >
                   {isFreeMode && (
                     <Field label={config.label} required={config.required}>
@@ -885,7 +943,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                                 required={field.required}
                                 className={inputClass}
                               >
-                                <option value="">Choisir…</option>
+                                <option value="">اختر...</option>
                                 {field.options.map((opt) => (
                                   <option key={opt} value={opt}>
                                     {opt}
@@ -924,7 +982,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   {product.personalizable && !isFreeMode && !isOptionsMode && (
                     <div className="rounded-[10px] border border-[#251713]/[0.08] bg-[#F7F1E8] px-4 py-3 text-[11px] text-[#251713]/50">
-                      Configuration de personnalisation indisponible.
+                      إعدادات التخصيص غير متوفرة.
                     </div>
                   )}
                 </FormSection>
@@ -933,11 +991,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {/* Livraison */}
               <FormSection
                 number={product.personalizable ? "3" : "2"}
-                title="Livraison"
-                subtitle="Le tarif se calcule automatiquement."
+                title="التوصيل"
+                subtitle="يُحسب سعر التوصيل تلقائيًا."
               >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Wilaya" required>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field label="الولاية" required>
                     <select
                       value={wilayaCode}
                       onChange={(e) => setWilayaCode(e.target.value)}
@@ -947,8 +1005,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     >
                       <option value="">
                         {wilayasLoading
-                          ? "Chargement des wilayas…"
-                          : "Choisir une wilaya"}
+                          ? "جارٍ تحميل الولايات..."
+                          : "اختر الولاية"}
                       </option>
 
                       {wilayas.map((wilaya) => (
@@ -958,7 +1016,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           disabled={!wilaya.available}
                         >
                           {String(wilaya.code).padStart(2, "0")} — {wilaya.name}
-                          {!wilaya.available ? " (Indisponible)" : ""}
+                          {!wilaya.available ? " (غير متاح)" : ""}
                         </option>
                       ))}
                     </select>
@@ -970,7 +1028,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     )}
                   </Field>
 
-                  <Field label="Commune" required>
+                  <Field label="البلدية" required>
                     <select
                       value={communeId}
                       onChange={(e) => {
@@ -999,10 +1057,10 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     >
                       <option value="">
                         {!wilayaCode
-                          ? "Choisir d'abord la wilaya"
+                          ? "اختر الولاية أولًا"
                           : communesLoading
-                            ? "Chargement des communes…"
-                            : "Choisir une commune"}
+                            ? "جارٍ تحميل البلديات..."
+                            : "اختر البلدية"}
                       </option>
 
                       {communes.map((item) => (
@@ -1012,7 +1070,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           disabled={!item.available}
                         >
                           {item.name}
-                          {!item.available ? " (Indisponible)" : ""}
+                          {!item.available ? " (غير متاح)" : ""}
                         </option>
                       ))}
                     </select>
@@ -1026,14 +1084,14 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 </div>
 
                 <div>
-                  <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.06em] text-[#251713]/55">
-                    Mode de livraison *
+                  <span className="mb-2 block text-[10px] font-bold tracking-[0.06em] text-[#251713]/55">
+                    طريقة التوصيل *
                   </span>
 
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 gap-2.5 min-[430px]:grid-cols-2">
                     <DeliveryChoice
                       active={deliveryType === "home"}
-                      title="Domicile"
+                      title="إلى المنزل"
                       price={
                         deliveryType === "home" && deliveryFee !== null
                           ? formatPriceDA(deliveryFee)
@@ -1045,7 +1103,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                     <DeliveryChoice
                       active={deliveryType === "office"}
-                      title="Bureau Yalidine"
+                      title="مكتب ياليدين"
                       price={
                         deliveryType === "office" && deliveryFee !== null
                           ? formatPriceDA(deliveryFee)
@@ -1058,7 +1116,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                       unavailableText={
                         selectedCommune &&
                         selectedCommune.hasStopDesk !== true
-                          ? "Indisponible"
+                          ? "غير متاح"
                           : undefined
                       }
                       onClick={() => setDeliveryType("office")}
@@ -1067,14 +1125,14 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 </div>
 
                 {deliveryType === "home" && (
-                  <Field label="Adresse" required>
+                  <Field label="العنوان" required>
                     <input
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       required
                       autoComplete="street-address"
                       className={inputClass}
-                      placeholder="Quartier, rue, numéro..."
+                      placeholder="الحي، الشارع، رقم المنزل..."
                     />
                   </Field>
                 )}
@@ -1082,7 +1140,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 <div className="min-h-5 text-[10px]">
                   {deliveryLoading ? (
                     <span className="text-[#251713]/45">
-                      Calcul de la livraison…
+                      جارٍ حساب سعر التوصيل...
                     </span>
                   ) : deliveryMessage ? (
                     <span className="font-medium text-amber-800">
@@ -1090,7 +1148,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     </span>
                   ) : deliveryFee !== null ? (
                     <span className="font-semibold text-emerald-700">
-                      Livraison : {formatPriceDA(deliveryFee)}
+                      التوصيل: {formatPriceDA(deliveryFee)}
                     </span>
                   ) : null}
                 </div>
@@ -1099,13 +1157,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {/* Total et CTA */}
               <FormSection
                 number={product.personalizable ? "4" : "3"}
-                title="Votre total"
-                subtitle="Vous paierez ce montant à la livraison."
+                title="إجمالي الطلب"
+                subtitle="ستدفع هذا المبلغ عند الاستلام."
               >
                 <div className="rounded-[14px] border border-[#251713]/[0.08] bg-[#F7F1E8] p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold">
-                      Quantité
+                      الكمية
                     </span>
 
                     <div className="flex items-center overflow-hidden rounded-[9px] border border-[#251713]/10 bg-white">
@@ -1115,7 +1173,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           setQuantity((value) => Math.max(1, value - 1))
                         }
                         className="flex h-10 w-10 items-center justify-center text-lg"
-                        aria-label="Diminuer la quantité"
+                        aria-label="تقليل الكمية"
                       >
                         −
                       </button>
@@ -1130,7 +1188,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           setQuantity((value) => Math.min(10, value + 1))
                         }
                         className="flex h-10 w-10 items-center justify-center text-lg"
-                        aria-label="Augmenter la quantité"
+                        aria-label="زيادة الكمية"
                       >
                         +
                       </button>
@@ -1141,15 +1199,15 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   <div className="space-y-2 text-[12px]">
                     <PriceRow
-                      label="Produit"
+                      label="المنتج"
                       value={formatPriceDA(subtotal)}
                     />
 
                     <PriceRow
-                      label="Livraison"
+                      label="التوصيل"
                       value={
                         deliveryLoading
-                          ? "Calcul…"
+                          ? "جارٍ الحساب..."
                           : deliveryFee === null
                             ? "—"
                             : formatPriceDA(deliveryFee)
@@ -1159,9 +1217,9 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   <div className="my-3 h-px bg-[#251713]/[0.08]" />
 
-                  <div className="flex items-end justify-between gap-3">
-                    <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#8A6A20]">
-                      Total à payer
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <span className="text-[11px] font-extrabold tracking-[0.1em] text-[#8A6A20]">
+                      المبلغ الإجمالي
                     </span>
 
                     <span className="text-[30px] font-extrabold tracking-[-0.04em]">
@@ -1188,11 +1246,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="flex min-h-[58px] w-full items-center justify-center rounded-[12px] bg-[#ECAB1C] px-5 text-[13px] font-extrabold uppercase tracking-[0.09em] text-[#251713] shadow-[0_14px_30px_rgba(236,171,28,0.28)] transition hover:bg-[#F1B82F] disabled:cursor-not-allowed disabled:bg-[#D8C8A3] disabled:text-[#251713]/45"
+                  className="flex min-h-[58px] w-full items-center justify-center rounded-[12px] bg-[#ECAB1C] px-5 text-[13px] font-extrabold tracking-[0.09em] text-[#251713] shadow-[0_14px_30px_rgba(236,171,28,0.28)] transition hover:bg-[#F1B82F] disabled:cursor-not-allowed disabled:bg-[#D8C8A3] disabled:text-[#251713]/45"
                 >
                   {orderState.status === "sending"
-                    ? "Envoi en cours…"
-                    : "Commander maintenant"}
+                    ? "جارٍ إرسال الطلب..."
+                    : "تأكيد الطلب"}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 text-center text-[10px] font-medium text-[#251713]/45">
@@ -1207,7 +1265,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
                     <path d="M9 12l2 2 4-4" />
                   </svg>
-                  Paiement à la livraison · confirmation de commande
+                  الدفع عند الاستلام · تأكيد سريع للطلب
                 </div>
               </FormSection>
             </div>
@@ -1217,10 +1275,10 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
       {/* Réassurance : placée tout en bas, juste avant les produits suggérés */}
       <section className="mx-auto max-w-[1240px] px-3 pb-4 sm:px-6 sm:pb-6 lg:px-8">
-        <div className="grid grid-cols-3 gap-2 rounded-[18px] border border-[#251713]/[0.07] bg-white p-3 shadow-[0_12px_30px_rgba(37,23,19,0.04)] sm:gap-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-2 rounded-[18px] min-[430px]:grid-cols-3 border border-[#251713]/[0.07] bg-white p-3 shadow-[0_12px_30px_rgba(37,23,19,0.04)] sm:gap-3 sm:p-4">
           <TrustPoint
-            title="Paiement"
-            text="À la livraison"
+            title="الدفع"
+            text="عند الاستلام"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
                 <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -1230,8 +1288,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           />
 
           <TrustPoint
-            title="Livraison"
-            text="Tarif calculé"
+            title="التوصيل"
+            text="سعر محسوب تلقائيًا"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
                 <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
@@ -1242,8 +1300,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           />
 
           <TrustPoint
-            title="Commande"
-            text="Confirmation"
+            title="الطلب"
+            text="تأكيد سريع"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
                 <path d="M5 12l4 4L19 6" />
@@ -1257,15 +1315,15 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
         <section className="mx-auto mt-2 max-w-[1240px] px-3 pb-6 sm:px-6 sm:pb-10 lg:px-8">
           <div className="rounded-[20px] border border-[#251713]/[0.07] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
             <div className="mb-4">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
-                Vous aimerez aussi
+              <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
+                قد يعجبك أيضًا
               </p>
-              <h2 className="mt-1 font-body text-[22px] font-semibold tracking-[-0.035em] sm:text-[27px]">
-                Découvrez aussi ces produits
+              <h2 className="mt-1 text-[22px] font-semibold tracking-[-0.035em] sm:text-[27px]">
+                اكتشف منتجات أخرى
               </h2>
             </div>
 
-            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
+            <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
               {relatedProducts.slice(0, 4).map((related) => {
                 const relatedImage =
                   related.images.find((image) => image.variantId === null) ??
@@ -1275,7 +1333,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                   <Link
                     key={related.id}
                     href={`/produits/${related.slug}`}
-                    className="group w-[72vw] max-w-[260px] shrink-0 overflow-hidden rounded-[15px] border border-[#251713]/[0.08] bg-[#FFFCF8] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,23,19,0.08)] sm:w-auto sm:max-w-none"
+                    className="group w-[78vw] max-w-[290px] shrink-0 snap-start overflow-hidden rounded-[15px] border border-[#251713]/[0.08] bg-[#FFFCF8] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,23,19,0.08)] sm:w-auto sm:max-w-none"
                   >
                     <div className="relative aspect-square bg-[#EDE3D7]">
                       {relatedImage ? (
@@ -1288,7 +1346,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-xs text-[#251713]/30">
-                          Image indisponible 
+                          الصورة غير متوفرة 
                         </div>
                       )}
                     </div>
@@ -1304,7 +1362,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         </span>
 
                         <span className="text-[10px] font-bold text-[#8A6A20]">
-                          Voir
+                          عرض
                         </span>
                       </div>
                     </div>
@@ -1321,9 +1379,9 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
         href={whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Contacter Michket sur WhatsApp"
-        title="Besoin d'aide ? Écrivez-nous sur WhatsApp"
-        className="fixed bottom-5 right-4 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_rgba(0,0,0,0.22)] ring-4 ring-white/80 transition hover:scale-105 sm:bottom-6 sm:right-6 sm:h-16 sm:w-16"
+        aria-label="تواصل مع Michket عبر واتساب"
+        title="هل تحتاج إلى مساعدة؟ راسلنا عبر واتساب"
+        className="fixed bottom-5 left-4 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_rgba(0,0,0,0.22)] ring-4 ring-white/80 transition hover:scale-105 sm:bottom-6 sm:left-6 sm:h-16 sm:w-16"
         style={{
           animation: "michketWhatsAppFloat 3s ease-in-out infinite",
         }}
@@ -1343,7 +1401,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
             fill="#25D366"
           />
         </svg>
-        <span className="absolute -left-1 -top-1 h-3 w-3 rounded-full bg-white/90 shadow" />
+        <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-white/90 shadow" />
       </a>
 
       {/* Galerie plein écran */}
@@ -1359,8 +1417,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
             <button
               type="button"
               onClick={() => setImageModalOpen(false)}
-              className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl font-bold shadow-lg"
-              aria-label="Fermer l'image"
+              className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl font-bold shadow-lg"
+              aria-label="إغلاق الصورة"
             >
               ×
             </button>
@@ -1409,7 +1467,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 }
 
 const inputClass =
-  "min-h-12 w-full rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-[13px] text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
+  "min-h-12 w-full min-w-0 rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-right text-[13px] text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
 
 function Field({
   label,
@@ -1422,9 +1480,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55">
+      <span className="mb-1.5 block text-[10px] font-bold tracking-[0.055em] text-[#251713]/55">
         {label}
-        {required && <span className="ml-1 text-[#A87406]">*</span>}
+        {required && <span className="mr-1 text-[#A87406]">*</span>}
       </span>
       {children}
     </label>
@@ -1451,7 +1509,7 @@ function DeliveryChoice({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-[11px] border p-3.5 text-left transition ${
+      className={`rounded-[11px] border p-3.5 text-right transition ${
         disabled
           ? "cursor-not-allowed border-[#251713]/[0.06] bg-[#EFE8DF] text-[#251713]/35"
           : active
@@ -1488,7 +1546,7 @@ function TrustPoint({
       <div className="mx-auto flex h-7 w-7 items-center justify-center text-[#8A6A20]">
         {icon}
       </div>
-      <p className="mt-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#251713]/60">
+      <p className="mt-1 text-[9px] font-extrabold tracking-[0.06em] text-[#251713]/60">
         {title}
       </p>
       <p className="mt-0.5 text-[9px] leading-4 text-[#251713]/45">
@@ -1510,7 +1568,7 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[15px] border border-[#251713]/[0.07] bg-white p-4 sm:p-5">
+    <section className="rounded-[15px] border border-[#251713]/[0.07] bg-white p-3.5 sm:p-5">
       <div className="mb-4 flex items-start gap-3">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#ECAB1C] text-[11px] font-extrabold text-[#251713]">
           {number}
