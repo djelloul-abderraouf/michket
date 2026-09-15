@@ -1461,6 +1461,66 @@ export default function AdminCategoriesPage() {
     }
   }
 
+  const deleteImpact = useMemo(() => {
+    if (!deleteTarget) {
+      return {
+        descendants: [] as Category[],
+        secondLevelCount: 0,
+        thirdLevelCount: 0,
+      };
+    }
+
+    const descendants: Category[] = [];
+    const visited = new Set<string>([deleteTarget.id]);
+    let frontier = [deleteTarget.id];
+
+    while (frontier.length > 0) {
+      const nextFrontier: string[] = [];
+
+      for (const parentId of frontier) {
+        const children =
+          childrenByParent.get(parentId) ?? [];
+
+        for (const child of children) {
+          if (visited.has(child.id)) {
+            continue;
+          }
+
+          visited.add(child.id);
+          descendants.push(child);
+          nextFrontier.push(child.id);
+        }
+      }
+
+      frontier = nextFrontier;
+    }
+
+    let secondLevelCount = 0;
+    let thirdLevelCount = 0;
+
+    for (const descendant of descendants) {
+      const parent = descendant.parentId
+        ? categoryById.get(descendant.parentId)
+        : null;
+
+      if (parent?.parentId) {
+        thirdLevelCount += 1;
+      } else {
+        secondLevelCount += 1;
+      }
+    }
+
+    return {
+      descendants,
+      secondLevelCount,
+      thirdLevelCount,
+    };
+  }, [
+    categoryById,
+    childrenByParent,
+    deleteTarget,
+  ]);
+
   function openDeleteCategory(category: Category) {
     setDeleteTarget(category);
     setDeleteConfirmationText("");
@@ -1535,12 +1595,26 @@ export default function AdminCategoriesPage() {
             (await response.json()) as ApiErrorPayload;
         } catch {}
 
-        setDeleteError(
-          apiMessage(
-            payload,
-            "Impossible de supprimer définitivement cette catégorie.",
-          ),
+        const message = apiMessage(
+          payload,
+          "Impossible de supprimer définitivement cette catégorie.",
         );
+
+        const normalizedMessage =
+          message.toLowerCase();
+
+        if (
+          normalizedMessage.includes("sous-catégorie") ||
+          normalizedMessage.includes("sous catégorie") ||
+          normalizedMessage.includes("child categor") ||
+          normalizedMessage.includes("children")
+        ) {
+          setDeleteError(
+            "Le backend utilisé par cette page bloque encore les catégories enfants. Le code actuel du backend Michket autorise déjà la suppression en cascade : vérifiez que la dernière version du backend est bien déployée.",
+          );
+        } else {
+          setDeleteError(message);
+        }
         return;
       }
 
@@ -2155,11 +2229,43 @@ export default function AdminCategoriesPage() {
             <h2 className="mt-2 text-xl font-semibold text-neutral-950">
               Supprimer « {deleteTarget.name} » ?
             </h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-600">
-              Cette action est irréversible. Une catégorie qui contient encore des catégories enfants
-              (sous-catégories ou sous-sous-catégories) ou des produits ne pourra pas être supprimée.
-              Ses images enregistrées seront également nettoyées.
-            </p>
+            <div className="mt-3 space-y-3">
+              <p className="text-sm leading-6 text-neutral-600">
+                Cette action est irréversible. La catégorie sélectionnée sera supprimée
+                avec toutes les sous-catégories et sous-sous-catégories qu&apos;elle contient.
+                Les images enregistrées pour toute cette branche seront également nettoyées.
+              </p>
+
+              {deleteImpact.descendants.length > 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-900">
+                    Suppression en cascade
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    Cette suppression enlèvera aussi{" "}
+                    {deleteImpact.descendants.length} catégorie
+                    {deleteImpact.descendants.length > 1 ? "s" : ""} enfant
+                    {deleteImpact.descendants.length > 1 ? "s" : ""}.
+                    {deleteImpact.secondLevelCount > 0
+                      ? ` ${deleteImpact.secondLevelCount} sous-catégorie${
+                          deleteImpact.secondLevelCount > 1 ? "s" : ""
+                        }.`
+                      : ""}
+                    {deleteImpact.thirdLevelCount > 0
+                      ? ` ${deleteImpact.thirdLevelCount} sous-sous-catégorie${
+                          deleteImpact.thirdLevelCount > 1 ? "s" : ""
+                        }.`
+                      : ""}
+                  </p>
+                </div>
+              ) : null}
+
+              <p className="text-xs leading-5 text-neutral-500">
+                Important : si un produit utilise encore cette catégorie ou une catégorie
+                de cette branche, le backend bloquera la suppression pour éviter de casser
+                le catalogue. Les produits ne sont jamais supprimés automatiquement.
+              </p>
+            </div>
 
             <label className="mt-5 block">
               <span className="text-xs font-semibold text-neutral-700">
