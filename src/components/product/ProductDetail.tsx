@@ -1288,7 +1288,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-xs text-[#251713]/30">
-                          Image indisponible
+                          Image indisponible 
                         </div>
                       )}
                     </div>
