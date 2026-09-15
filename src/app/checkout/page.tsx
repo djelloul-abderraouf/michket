@@ -27,11 +27,6 @@ function formatDA(cents: number): string {
   }).format(cents / 100) + " DA";
 }
 
-function isValidEmail(email: string): boolean {
-  if (!email) return true; // optional
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 /** Sum of unitPriceCents × quantity across all cart items */
 function computeSubtotalCents(
   items: { price: number; quantity: number }[],
@@ -54,7 +49,6 @@ export default function CheckoutPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [wilayaCode, setWilayaCode] = useState<number | null>(null);
   const [wilayaName, setWilayaName] = useState("");
   const [communeId, setCommuneId] = useState<number | null>(null);
@@ -276,7 +270,6 @@ export default function CheckoutPage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim(),
-        email: email.trim() || undefined,
         addressLine1: addressLine1.trim(),
         addressLine2: addressLine2.trim() || undefined,
         wilayaCode: wilayaCode!,
@@ -372,7 +365,6 @@ export default function CheckoutPage() {
     firstName,
     lastName,
     phone,
-    email,
     addressLine1,
     addressLine2,
     wilayaCode,
@@ -401,7 +393,6 @@ export default function CheckoutPage() {
     lastName.trim().length <= 100 &&
     phone.trim().length >= 6 &&
     phone.trim().length <= 30 &&
-    isValidEmail(email.trim()) &&
     communeId !== null &&
     commune.trim().length >= 1 &&
     commune.trim().length <= 100 &&
@@ -441,8 +432,11 @@ export default function CheckoutPage() {
     <main className="min-h-screen bg-[#F7F1E8] text-[#251713]">
       <section className="mx-auto w-full max-w-[1240px] px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-6 text-center sm:mb-8">
-          
-          
+          <Link href="/" className="inline-block">
+            <span className="font-display text-2xl text-[#251713]">
+              Michket
+            </span>
+          </Link>
 
           <p className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8A6A20]">
             Finalisation de la commande
@@ -580,22 +574,6 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <div>
-                      <label
-                        htmlFor="co-email"
-                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
-                      >
-                        Email
-                      </label>
-                      <input
-                        id="co-email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className={inputClass}
-                        placeholder="Votre email"
-                      />
-                    </div>
                   </div>
                 </div>
               </section>
