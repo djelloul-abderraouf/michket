@@ -175,13 +175,7 @@ export default function OrderConfirmationPage({
     <main className="min-h-screen bg-michket-ivory">
       <div className="michket-container py-8 sm:py-12">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-8 text-center">
-            <Link href="/" className="inline-block">
-              <span className="font-display text-2xl text-michket-black">
-                Michket
-              </span>
-            </Link>
-          </div>
+          
 
           <section className="relative overflow-hidden rounded-[24px] border border-michket-gold/15 bg-michket-white px-6 py-10 text-center shadow-[0_20px_60px_rgba(37,23,19,0.06)] sm:px-10 sm:py-12">
             <div
