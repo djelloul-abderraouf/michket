@@ -103,6 +103,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] =
     useState<ProductVariant | null>(null);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   // Keep the complete gallery visible at all times.
   // Choosing a color only changes the large/main image.
@@ -120,6 +121,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     if (variantImageIndex >= 0) {
       setSelectedImage(variantImageIndex);
     }
+
+    setColorPickerOpen(false);
   }
 
   // Auto-dismiss cart message after 3s
@@ -660,87 +663,156 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </div>
             )}
 
-            {/* Couleurs : toutes visibles, compactes et sans scroll */}
+            {/* Couleurs : sélecteur compact, déplié uniquement à la demande */}
             {product.variants && product.variants.length > 0 && (
-              <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/90 px-3 py-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:px-3.5 sm:py-3">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-extrabold text-[#251713]/65 sm:text-[11px]">
-                    اختر اللون
-                  </p>
-
-                  {selectedVariant && (
-                    <span className="max-w-[52%] truncate text-[9px] font-bold text-[#8A6200] sm:text-[10px]">
-                      {localizeColorLabel(
-                        selectedVariant.colorName || selectedVariant.name,
+              <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/95 p-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:p-3">
+                <button
+                  type="button"
+                  onClick={() => setColorPickerOpen((value) => !value)}
+                  aria-expanded={colorPickerOpen}
+                  aria-controls="michket-color-options"
+                  className={[
+                    "flex min-h-11 w-full items-center justify-between gap-3 rounded-[10px] border px-3 py-2 text-right transition",
+                    colorPickerOpen
+                      ? "border-[#ECAB1C] bg-[#FFF8E8]"
+                      : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
+                  ].join(" ")}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
+                      aria-hidden="true"
+                    >
+                      {selectedVariant ? (
+                        selectedVariant.isMulticolor ? (
+                          <span
+                            className="absolute inset-0"
+                            style={{
+                              background:
+                                "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                            }}
+                          />
+                        ) : selectedVariant.colorHex ? (
+                          <span
+                            className="absolute inset-0"
+                            style={{
+                              backgroundColor:
+                                selectedVariant.colorHex,
+                            }}
+                          />
+                        ) : (
+                          <span className="absolute inset-0 bg-[#E7DED3]" />
+                        )
+                      ) : (
+                        <span className="absolute inset-0 grid place-items-center text-[12px] font-black text-[#251713]/35">
+                          +
+                        </span>
                       )}
                     </span>
-                  )}
-                </div>
 
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {product.variants.map((variant) => {
-                    const rawLabel =
-                      variant.colorName || variant.name;
-                    const label = localizeColorLabel(rawLabel);
-                    const isSelected =
-                      selectedVariant?.id === variant.id;
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-extrabold text-[#251713]/55">
+                        اختر اللون
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] font-bold text-[#251713]">
+                        {selectedVariant
+                          ? localizeColorLabel(
+                              selectedVariant.colorName ||
+                                selectedVariant.name,
+                            )
+                          : "اضغط لعرض الألوان المتوفرة"}
+                      </span>
+                    </span>
+                  </span>
 
-                    return (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={() =>
-                          handleVariantSelect(variant)
-                        }
-                        title={label}
-                        aria-label={`اختيار ${label}`}
-                        aria-pressed={isSelected}
-                        className={[
-                          "inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-right transition sm:min-h-9 sm:px-2.5",
-                          isSelected
-                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.08)]"
-                            : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
-                        ].join(" ")}
-                      >
-                        <span
-                          className="relative h-4.5 w-4.5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3] sm:h-5 sm:w-5"
-                          aria-hidden="true"
+                  <svg
+                    className={`h-4 w-4 shrink-0 text-[#251713]/45 transition-transform duration-200 ${
+                      colorPickerOpen ? "rotate-180" : ""
+                    }`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="m6 9 6 6 6-6"
+                    />
+                  </svg>
+                </button>
+
+                {colorPickerOpen && (
+                  <div
+                    id="michket-color-options"
+                    className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2"
+                  >
+                    {product.variants.map((variant) => {
+                      const rawLabel =
+                        variant.colorName || variant.name;
+                      const label =
+                        localizeColorLabel(rawLabel);
+                      const isSelected =
+                        selectedVariant?.id === variant.id;
+
+                      return (
+                        <button
+                          key={variant.id}
+                          type="button"
+                          onClick={() =>
+                            handleVariantSelect(variant)
+                          }
+                          title={label}
+                          aria-label={`اختيار ${label}`}
+                          aria-pressed={isSelected}
+                          className={[
+                            "flex min-h-10 min-w-0 items-center gap-2 rounded-[9px] border px-2.5 py-2 text-right transition",
+                            isSelected
+                              ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.08)]"
+                              : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
+                          ].join(" ")}
                         >
-                          {variant.isMulticolor ? (
-                            <span
-                              className="absolute inset-0"
-                              style={{
-                                background:
-                                  "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                              }}
-                            />
-                          ) : variant.colorHex ? (
-                            <span
-                              className="absolute inset-0"
-                              style={{
-                                backgroundColor:
-                                  variant.colorHex,
-                              }}
-                            />
-                          ) : null}
-                        </span>
-
-                        <span className="max-w-[88px] truncate text-[9px] font-bold leading-none text-[#251713] sm:max-w-[105px] sm:text-[10px]">
-                          {label}
-                        </span>
-
-                        {isSelected ? (
                           <span
-                            className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[7px] font-black leading-none text-[#251713] sm:h-4 sm:w-4 sm:text-[8px]"
+                            className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
                             aria-hidden="true"
                           >
-                            ✓
+                            {variant.isMulticolor ? (
+                              <span
+                                className="absolute inset-0"
+                                style={{
+                                  background:
+                                    "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                                }}
+                              />
+                            ) : variant.colorHex ? (
+                              <span
+                                className="absolute inset-0"
+                                style={{
+                                  backgroundColor:
+                                    variant.colorHex,
+                                }}
+                              />
+                            ) : null}
                           </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                          <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[#251713]">
+                            {label}
+                          </span>
+
+                          {isSelected && (
+                            <span
+                              className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[8px] font-black text-[#251713]"
+                              aria-hidden="true"
+                            >
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
