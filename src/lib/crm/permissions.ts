@@ -56,6 +56,10 @@ export function canChangeOrderStatus(
   from: OrderStatus,
   to: OrderStatus,
 ) {
+  if (hasAnyRole(userRoles, ["admin"])) {
+    return from !== to;
+  }
+
   if (!statusTransitions[from].includes(to)) {
     return false;
   }

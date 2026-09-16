@@ -1,106 +1,112 @@
 import { useState } from "react";
 import type { Order } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { orderStatusLabels } from "@/lib/crm/types";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle } from "./CrmUi";
+
+function statusVariant(order: Order) {
+  if (order.status === "livre") return "success" as const;
+  if (order.status === "retour_echec") return "danger" as const;
+  if (order.status === "confirme") return "warning" as const;
+  return "info" as const;
+}
 
 export function CrmDelivery({
   orders,
   onCreateParcel,
+  onSyncParcel,
   onDelivered,
   onReturned,
 }: {
   orders: Order[];
   onCreateParcel: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
   onDelivered: (order: Order) => void;
   onReturned: (order: Order) => void;
 }) {
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
-  const deliveredOrders = orders.filter((order) => order.status === "livre");
-  const inTransitOrders = orders.filter((order) => order.status === "en_livraison");
-  const averageDeliveryTime = "2.1 jours"; // Would be calculated from real data
+  const ready = orders.filter((order) => order.status === "confirme");
+  const inTransit = orders.filter((order) => order.status === "en_livraison");
+  const delivered = orders.filter((order) => order.status === "livre");
+  const returned = orders.filter((order) => order.status === "retour_echec");
 
   return (
     <div className="space-y-6">
-      {/* Statistics */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <CrmPanel className="!p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">
-            En transit
-          </p>
-          <p className="mt-2 text-2xl font-bold text-black">{inTransitOrders.length}</p>
-          <p className="mt-1 text-sm text-black/60">Colis en cours</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">À expédier</p>
+          <p className="mt-2 text-2xl font-bold">{ready.length}</p>
+          <p className="mt-1 text-sm text-black/60">Commandes confirmées</p>
         </CrmPanel>
         <CrmPanel className="!p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">
-            Livrés
-          </p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">{deliveredOrders.length}</p>
-          <p className="mt-1 text-sm text-black/60">Livraison confirmée</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">En transit</p>
+          <p className="mt-2 text-2xl font-bold">{inTransit.length}</p>
+          <p className="mt-1 text-sm text-black/60">Colis Yalidine</p>
         </CrmPanel>
         <CrmPanel className="!p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">
-            Délai moyen
-          </p>
-          <p className="mt-2 text-2xl font-bold text-black">{averageDeliveryTime}</p>
-          <p className="mt-1 text-sm text-black/60">Temps de livraison</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">Livrés</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-600">{delivered.length}</p>
+        </CrmPanel>
+        <CrmPanel className="!p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-black/50">Retours</p>
+          <p className="mt-2 text-2xl font-bold text-rose-600">{returned.length}</p>
         </CrmPanel>
       </div>
 
-      {/* Delivery Management */}
       <CrmPanel
-        title={`Gestion des livraisons (${orders.length})`}
-        actions={
-          <div className="flex items-center gap-3">
-            <CrmBadge variant="info">
-              {inTransitOrders.length} en transit
-            </CrmBadge>
-            <ViewToggle view={view} onViewChange={setView} type="grid" />
-            <CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle livraison" />
-          </div>
-        }
+        title={`Livraisons (${orders.length})`}
+        actions={<ViewToggle view={view} onViewChange={setView} type="grid" />}
       >
         {orders.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-lg font-semibold text-black/40">Aucune livraison en cours</p>
-            <p className="mt-2 text-sm text-black/30">
-              Les commandes validées en préparation apparaîtront ici
-            </p>
+            <p className="text-lg font-semibold text-black/40">Aucune livraison</p>
+            <p className="mt-2 text-sm text-black/30">Les commandes confirmées apparaissent ici automatiquement.</p>
           </div>
         ) : view === "list" ? (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1100px]">
               <thead>
                 <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
-                  <th className="px-4 py-3">Référence</th>
-                  <th className="px-4 py-3">Client</th>
-                  <th className="px-4 py-3">Wilaya</th>
-                  <th className="px-4 py-3">Statut</th>
-                  <th className="px-4 py-3">Suivi</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Date</th>
+                  <th className="px-3 py-3">Référence</th>
+                  <th className="px-3 py-3">Client</th>
+                  <th className="px-3 py-3">Destination</th>
+                  <th className="px-3 py-3">Type</th>
+                  <th className="px-3 py-3">Suivi</th>
+                  <th className="px-3 py-3">Statut</th>
+                  <th className="px-3 py-3">Total</th>
+                  <th className="px-3 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="border-b border-black/5 transition hover:bg-black/[0.02]"
-                  >
-                    <td className="px-4 py-3 text-sm font-bold">{order.id}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{order.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{order.wilaya}</td>
-                    <td className="px-4 py-3">
-                      <CrmBadge variant={order.status === "livre" ? "success" : "info"}>
-                        {order.status === "livre" ? "Livré" : "En transit"}
-                      </CrmBadge>
+                  <tr key={order.id} className="border-b border-black/5">
+                    <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{orderRef(order)}</td>
+                    <td className="px-3 py-3 text-sm">
+                      <p>{order.clientName}</p>
+                      <p className="text-xs text-black/50">{order.phone}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <CrmBadge variant={order.trackingNumber ? "success" : "warning"}>
-                        {order.trackingNumber ? "Yalidine" : "À créer"}
-                      </CrmBadge>
+                    <td className="px-3 py-3 text-sm">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</td>
+                    <td className="px-3 py-3 text-sm">{order.deliveryType === "office" ? "Stop desk" : "Domicile"}</td>
+                    <td className="px-3 py-3 text-sm">{order.trackingNumber || "À créer"}</td>
+                    <td className="px-3 py-3">
+                      <CrmBadge variant={statusVariant(order)}>{orderStatusLabels[order.status]}</CrmBadge>
                     </td>
-                    <td className="px-4 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
-                    <td className="px-4 py-3 text-sm text-black/60">{formatDate(order.createdAt)}</td>
+                    <td className="px-3 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {!order.trackingNumber && (
+                          <CrmButton size="sm" onClick={() => onCreateParcel(order)}>Yalidine</CrmButton>
+                        )}
+                        {order.trackingNumber && onSyncParcel && (
+                          <CrmButton size="sm" variant="ghost" onClick={() => onSyncParcel(order)}>Sync</CrmButton>
+                        )}
+                        {order.status === "en_livraison" && (
+                          <>
+                            <CrmButton size="sm" variant="success" onClick={() => onDelivered(order)}>Livré</CrmButton>
+                            <CrmButton size="sm" variant="danger" onClick={() => onReturned(order)}>Retour</CrmButton>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -109,125 +115,40 @@ export function CrmDelivery({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {orders.map((order) => (
-              <CrmCard key={order.id} className="p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base">{order.id}</h3>
-                      <CrmBadge variant={order.status === "livre" ? "success" : "info"}>
-                        {order.status === "livre" ? "Livré" : "En transit"}
-                      </CrmBadge>
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-black/70">{order.clientName}</p>
+              <CrmCard key={order.id} className="p-5 overflow-hidden">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h3 className="font-bold truncate">{orderRef(order)}</h3>
+                    <p className="text-sm truncate">{order.clientName}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-black">{dzd.format(order.total)}</p>
-                    <p className="text-xs text-black/50">{formatDate(order.createdAt)}</p>
-                  </div>
+                  <CrmBadge variant={statusVariant(order)}>{orderStatusLabels[order.status]}</CrmBadge>
                 </div>
-
-                <div className="space-y-2 text-sm mb-4">
-                  <div className="flex items-center gap-2 text-black/70">
-                    <span className="font-medium">{order.wilaya}</span>
-                  </div>
-                  <div className="rounded-lg border border-black/10 bg-black/[0.02] p-3">
-                    <p className="text-xs font-medium text-black/60 mb-1">Contenu</p>
-                    <p className="text-sm font-semibold">{productSummary(order)}</p>
-                  </div>
-                </div>
-
-                {/* Tracking Information */}
-                <div className="rounded-lg border border-black/10 bg-black/[0.02] p-3 mb-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-black/60">Numéro de suivi</p>
-                      <p className="text-sm font-bold">
-                        {order.trackingNumber || "Non créé"}
-                      </p>
-                    </div>
-                    <CrmBadge variant={order.trackingNumber ? "success" : "warning"}>
-                      {order.trackingNumber ? "Yalidine" : "À créer"}
-                    </CrmBadge>
-                  </div>
-                  {order.carrierStatus && (
-                    <p className="mt-2 text-xs text-black/60">{order.carrierStatus}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
+                <p className="text-sm text-black/70">{order.phone}</p>
+                <p className="text-sm text-black/70">{order.wilaya} · {order.commune || "-"}</p>
+                <p className="text-xs text-black/50 mt-1">{order.addressLine1}</p>
+                <p className="mt-3 text-xs break-words">{productSummary(order)}</p>
+                <p className="mt-2 text-sm font-bold">{dzd.format(order.total)}</p>
+                <p className="text-xs text-black/50 mt-1">Suivi: {order.trackingNumber || "non créé"} {order.carrierStatus ? `· ${order.carrierStatus}` : ""}</p>
+                <div className="mt-3 space-y-2">
                   {!order.trackingNumber && (
-                    <CrmButton
-                      variant="ghost"
-                      onClick={() => onCreateParcel(order)}
-                    >
-                      Créer colis Yalidine
-                    </CrmButton>
+                    <CrmButton onClick={() => onCreateParcel(order)}>Créer colis Yalidine</CrmButton>
+                  )}
+                  {order.trackingNumber && onSyncParcel && (
+                    <CrmButton variant="ghost" onClick={() => onSyncParcel(order)}>Actualiser Yalidine</CrmButton>
                   )}
                   {order.status === "en_livraison" && (
                     <div className="grid grid-cols-2 gap-2">
-                      <CrmButton
-                        onClick={() => onDelivered(order)}
-                        variant="success"
-                        size="sm"
-                      >
-                        Livré
-                      </CrmButton>
-                      <CrmButton
-                        onClick={() => onReturned(order)}
-                        variant="danger"
-                        size="sm"
-                      >
-                        Retour
-                      </CrmButton>
+                      <CrmButton variant="success" size="sm" onClick={() => onDelivered(order)}>Livré</CrmButton>
+                      <CrmButton variant="danger" size="sm" onClick={() => onReturned(order)}>Retour</CrmButton>
                     </div>
                   )}
                 </div>
+                <p className="mt-2 text-xs text-black/40">{formatDate(order.createdAt)}</p>
               </CrmCard>
             ))}
           </div>
         )}
       </CrmPanel>
-
-      {/* New Delivery Popup */}
-      <CrmPopup
-        isOpen={isPopupOpen}
-        onClose={() => setIsPopupOpen(false)}
-        title="Nouvelle livraison"
-      >
-        <form className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Référence commande
-            </label>
-            <input
-              placeholder="CMD-XXX"
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Transporteur
-            </label>
-            <select className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold">
-              <option value="yalidine">Yalidine</option>
-              <option value="other">Autre</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <CrmButton
-              type="button"
-              variant="ghost"
-              onClick={() => setIsPopupOpen(false)}
-              className="flex-1"
-            >
-              Annuler
-            </CrmButton>
-            <CrmButton type="submit" className="flex-1">
-              Créer livraison
-            </CrmButton>
-          </div>
-        </form>
-      </CrmPopup>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function CrmContacts(props: {
   const [selectedContact, setSelectedContact] = useState<Contact | undefined>();
   const [form, setForm] = useState<ContactForm>(emptyForm);
   const [view, setView] = useState<"list" | "kanban" | "grid">("list");
-  const [filterType, setFilterType] = useState<"all" | "particulier" | "professionnel">("all");
+  const [filterType, setFilterType] = useState<"all" | "particulier" | "professionnel">("particulier");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredContacts = props.contacts.filter((contact) => {
@@ -64,8 +64,11 @@ export function CrmContacts(props: {
     <div className="space-y-6">
       {/* Header with actions */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold tracking-[0]">Contacts et entreprises</h2>
+        <h2 className="text-lg font-bold tracking-[0]">Clients individuels</h2>
         <div className="flex items-center gap-3">
+          <p className="hidden sm:block text-xs text-black/50">
+            Les comptes boutique (role customer) deviennent des clients individuels. Les entreprises restent dans la table crm_companies.
+          </p>
           <ViewToggle view={view} onViewChange={setView} type="grid" />
           <CrmAddButton
             onClick={() => {
@@ -97,6 +100,7 @@ export function CrmContacts(props: {
             Pro
           </p>
           <p className="mt-2 text-2xl font-bold text-black">{contactCount.professionnel}</p>
+          <p className="text-xs text-black/40 mt-1">Liés à crm_companies</p>
         </div>
       </div>
 
@@ -133,7 +137,7 @@ export function CrmContacts(props: {
                     : "bg-white text-black/70 hover:bg-black/5"
                 }`}
               >
-                Particulier
+                Clients (indiv.)
               </button>
               <button
                 onClick={() => setFilterType("professionnel")}
@@ -143,14 +147,14 @@ export function CrmContacts(props: {
                     : "bg-white text-black/70 hover:bg-black/5"
                 }`}
               >
-                Pro
+                Pro (entreprise)
               </button>
             </div>
           </div>
         </CrmPanel>
 
         {/* Contacts Grid */}
-        <CrmPanel title="Contacts et entreprises">
+        <CrmPanel title="Clients individuels">
           {view === "list" ? (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -160,6 +164,7 @@ export function CrmContacts(props: {
                     <th className="px-4 py-3">Téléphone</th>
                     <th className="px-4 py-3">Wilaya</th>
                     <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Source</th>
                     <th className="px-4 py-3">Entreprise</th>
                     <th className="px-4 py-3">Date</th>
                   </tr>
@@ -183,8 +188,11 @@ export function CrmContacts(props: {
                         <td className="px-4 py-3 text-sm text-black/70">{contact.wilaya}</td>
                         <td className="px-4 py-3">
                           <CrmBadge variant={contact.type === "professionnel" ? "info" : "default"}>
-                            {contact.type}
+                            {contact.type === "professionnel" ? "Pro" : "Client"}
                           </CrmBadge>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-black/70">
+                          {contact.source === "boutique" ? "Boutique" : "CRM"}
                         </td>
                         <td className="px-4 py-3 text-sm text-black/70">{companyName || "-"}</td>
                         <td className="px-4 py-3 text-sm text-black/60">{formatDate(contact.createdAt)}</td>

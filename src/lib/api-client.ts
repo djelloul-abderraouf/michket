@@ -133,16 +133,35 @@ export interface PaginatedOrders {
 }
 
 export interface EnhancedDashboardStats {
+  filters?: { from?: string | null; to?: string | null; wilaya?: string };
+  wilayas?: string[];
   revenue: {
     total: number;
+    gmv?: number;
     avgOrderValue: number;
     totalOrders: number;
+    deliveredOrders?: number;
+    deliveryFee?: number;
+    discount?: number;
+  };
+  funnel?: {
+    pending: number;
+    confirmed: number;
+    processing: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+    confirmationRate: number;
+    deliveryRate: number;
+    cancelRate: number;
   };
   orderStatusBreakdown: Array<{
     status: string;
     count: number;
     total: number;
   }>;
+  paymentBreakdown?: Array<{ status: string; count: number; total: number }>;
+  deliveryTypeBreakdown?: Array<{ type: string; count: number; total: number }>;
   topWilayas: Array<{
     wilaya: string;
     count: number;
@@ -151,6 +170,7 @@ export interface EnhancedDashboardStats {
   revenueTrends: Array<{
     date: string;
     revenue: number;
+    gmv?: number;
     orders: number;
   }>;
   productionQueue: Array<{
@@ -170,11 +190,15 @@ export interface KPIs {
     currentMonth: number;
     lastMonth: number;
     growthRate: number;
+    gmv?: number;
   };
   orders: {
     currentMonth: number;
+    pending?: number;
+    cancelled?: number;
     confirmationRate: number;
     deliveryRate: number;
+    avgOrderValue?: number;
   };
   production: {
     inProgress: number;
@@ -182,13 +206,18 @@ export interface KPIs {
   sales: {
     pipelineAmount: number;
   };
+  tasks?: {
+    open: number;
+  };
 }
 
 export const dashboardApi = {
-  getStats: () => apiClient.get<EnhancedDashboardStats>('/crm/dashboard/stats'),
-  getEnhancedStats: () =>
-    apiClient.get<EnhancedDashboardStats>('/crm/dashboard/enhanced-stats'),
-  getKPIs: () => apiClient.get<KPIs>('/crm/dashboard/kpis'),
+  getStats: (params?: { from?: string; to?: string; wilaya?: string }) =>
+    apiClient.get<EnhancedDashboardStats>('/crm/dashboard/stats', params),
+  getEnhancedStats: (params?: { from?: string; to?: string; wilaya?: string }) =>
+    apiClient.get<EnhancedDashboardStats>('/crm/dashboard/enhanced-stats', params),
+  getKPIs: (params?: { from?: string; to?: string; wilaya?: string }) =>
+    apiClient.get<KPIs>('/crm/dashboard/kpis', params),
 };
 
 export const crmOrdersApi = {
@@ -334,6 +363,13 @@ export const crmProductsApi = {
   delete: (id: string) => apiClient.delete(`/crm/products/${id}`),
 };
 
+export const crmDeliveryApi = {
+  createParcel: (orderId: string) =>
+    apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}`),
+  syncParcel: (orderId: string) =>
+    apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}/sync`),
+};
+
 export const crmUsersApi = {
   getAll: () => apiClient.get<Array<{
     id: string;
@@ -345,7 +381,26 @@ export const crmUsersApi = {
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
+    lastLoginAt?: string | null;
   }>>('/crm/users'),
+  getPerformance: (id: string, params?: { period?: string; from?: string; to?: string }) =>
+    apiClient.get<{
+      user: { id: string; email: string; firstName?: string | null; lastName?: string | null; role: string };
+      period: { label: string; from: string; to: string };
+      kpis: {
+        statusChanges: number;
+        confirmations: number;
+        deliveries: number;
+        ordersTouched: number;
+        activities: number;
+        tasksDone: number;
+        tasksOpen: number;
+        dealsOwned: number;
+        logins: number;
+      };
+      daily: Array<{ date: string; statusChanges: number; activities: number; tasks: number; logins: number }>;
+      timeline: Array<{ at: string; type: string; label: string; detail?: string | null }>;
+    }>(`/crm/users/${id}/performance`, params),
   create: (data: {
     email: string;
     password: string;
@@ -407,6 +462,7 @@ export function mapApiUserToCrmUser(user: {
     role: string;
   isActive: boolean;
   createdAt?: string;
+  lastLoginAt?: string | null;
 }): CrmUser {
   const roleMapping: Record<string, CrmUser['roles']> = {
     admin: ['admin', 'commercial', 'confirmation', 'atelier_design', 'fabrication', 'preparation', 'livraison'],
@@ -424,7 +480,7 @@ export function mapApiUserToCrmUser(user: {
     email: user.email,
     roles: roleMapping[user.role] || [],
     active: user.isActive,
-    lastLoginAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt || user.createdAt,
     businessRole: user.role,
     phone: user.phone ?? undefined,
   };

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { roleLabels, type CrmUser } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
 import { Mail, Calendar, Shield } from "lucide-react";
+import { crmUsersApi } from "@/lib/api-client";
 
 export function CrmUsers({
   users,
@@ -36,6 +37,9 @@ export function CrmUsers({
     role: "commercial",
   });
   const [editRole, setEditRole] = useState("commercial");
+  const [period, setPeriod] = useState<"day" | "week" | "month">("week");
+  const [performance, setPerformance] = useState<any>(null);
+  const [performanceLoading, setPerformanceLoading] = useState(false);
   const staffRoles = [
     { id: "admin", label: "Admin" },
     { id: "commercial", label: "Commercial" },
@@ -46,6 +50,28 @@ export function CrmUsers({
   ];
   const activeUsers = users.filter((user) => user.active);
   const inactiveUsers = users.filter((user) => !user.active);
+
+  useEffect(() => {
+    if (!selectedUser || !isDetailsPopupOpen) {
+      return;
+    }
+    let cancelled = false;
+    setPerformanceLoading(true);
+    crmUsersApi
+      .getPerformance(selectedUser.id, { period })
+      .then((data) => {
+        if (!cancelled) setPerformance(data);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformance(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPerformanceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUser, isDetailsPopupOpen, period]);
 
   return (
     <div className="space-y-6">
@@ -344,16 +370,81 @@ export function CrmUsers({
             <div>
               <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-black/60">
                 <Calendar className="h-4 w-4" />
-                Activite
+                Performance
               </h4>
-              <div className="space-y-2 text-sm">
+              <div className="mb-3 flex gap-2">
+                {(["day", "week", "month"] as const).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeriod(key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                      period === key ? "bg-black text-white" : "bg-black/5 text-black/70"
+                    }`}
+                  >
+                    {key === "day" ? "Jour" : key === "week" ? "Semaine" : "Mois"}
+                  </button>
+                ))}
+              </div>
+              {performanceLoading ? (
+                <p className="text-sm text-black/50">Chargement des KPIs...</p>
+              ) : performance ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Changements statut</p>
+                      <p className="text-lg font-bold">{performance.kpis.statusChanges}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Confirmations</p>
+                      <p className="text-lg font-bold">{performance.kpis.confirmations}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Livraisons</p>
+                      <p className="text-lg font-bold">{performance.kpis.deliveries}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Commandes touchées</p>
+                      <p className="text-lg font-bold">{performance.kpis.ordersTouched}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Activités</p>
+                      <p className="text-lg font-bold">{performance.kpis.activities}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Tâches faites</p>
+                      <p className="text-lg font-bold">{performance.kpis.tasksDone}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Connexions</p>
+                      <p className="text-lg font-bold">{performance.kpis.logins}</p>
+                    </div>
+                    <div className="rounded-lg border border-black/10 p-3">
+                      <p className="text-xs text-black/50">Affaires</p>
+                      <p className="text-lg font-bold">{performance.kpis.dealsOwned}</p>
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-auto space-y-2">
+                    {(performance.timeline || []).slice(0, 20).map((item: any, index: number) => (
+                      <div key={index} className="rounded-lg border border-black/5 bg-black/[0.02] p-2 text-xs">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-semibold">{item.label}</span>
+                          <span className="text-black/40 shrink-0">{formatDate(item.at)}</span>
+                        </div>
+                        {item.detail && <p className="mt-1 text-black/60">{item.detail}</p>}
+                      </div>
+                    ))}
+                    {(performance.timeline || []).length === 0 && (
+                      <p className="text-sm text-black/40">Aucune activité sur cette période.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-black/50">Impossible de charger la performance.</p>
+              )}
+              <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between py-2 border-b border-black/5">
                   <span className="text-black/60">Derniere connexion</span>
                   <span className="font-medium">{formatDate(selectedUser.lastLoginAt)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-black/5">
-                  <span className="text-black/60">Statut</span>
-                  <span className="font-medium">{selectedUser.active ? "Actif" : "Inactif"}</span>
                 </div>
               </div>
             </div>

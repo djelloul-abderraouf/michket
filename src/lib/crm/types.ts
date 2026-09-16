@@ -111,6 +111,7 @@ export interface Contact {
   wilaya: string;
   type: "particulier" | "professionnel";
   companyId?: string;
+  source?: "boutique" | "crm";
   createdAt: string;
 }
 
@@ -174,8 +175,13 @@ export interface Deal {
 export interface OrderItem {
   productId: string;
   productName: string;
+  productSlug?: string;
+  variantName?: string | null;
+  colorName?: string | null;
   quantity: number;
   unitPrice: number;
+  lineTotal?: number;
+  personalization?: unknown;
 }
 
 export interface OrderStatusEvent {
@@ -190,22 +196,44 @@ export interface OrderStatusEvent {
 
 export interface Order {
   id: string;
+  reference?: string;
   source: "directe" | "affaire";
   clientName: string;
+  firstName?: string;
+  lastName?: string;
   phone: string;
+  email?: string | null;
   wilaya: string;
+  wilayaCode?: number;
+  commune?: string;
+  addressLine1?: string;
+  addressLine2?: string | null;
+  deliveryType?: string;
+  deliveryOfficeName?: string | null;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  promoCode?: string | null;
+  subtotal?: number;
+  deliveryFee?: number;
+  discount?: number;
+  currency?: string;
+  dbStatus?: string;
   status: OrderStatus;
   items: OrderItem[];
   total: number;
   notes?: string;
+  cancelReason?: string | null;
   confirmationReason?: "injoignable" | "refus" | "a_rappeler";
   reminderAt?: string;
-  trackingNumber?: string;
-  carrierStatus?: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  carrierStatus?: string | null;
   deliveredAt?: string;
   shippedAt?: string;
-  returnReason?: string;
+  cancelledAt?: string;
+  paidAt?: string;
   createdAt: string;
+  updatedAt?: string;
   history: OrderStatusEvent[];
 }
 

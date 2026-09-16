@@ -54,6 +54,7 @@ import {
   crmCompaniesApi,
   crmCustomersApi,
   crmDealsApi,
+  crmDeliveryApi,
   crmOrdersApi,
   crmProductionApi,
   crmProductsApi,
@@ -96,25 +97,54 @@ function toIsoDate(value: string): string {
 function normalizeOrder(order: any): Order {
   return {
     id: order.id,
+    reference: order.reference,
     source: order.source || "directe",
     clientName: order.clientName || `${order.firstName || ""} ${order.lastName || ""}`.trim(),
+    firstName: order.firstName,
+    lastName: order.lastName,
     phone: order.phone,
+    email: order.email,
     wilaya: order.wilaya || order.wilayaName || "",
+    wilayaCode: order.wilayaCode,
+    commune: order.commune,
+    addressLine1: order.addressLine1,
+    addressLine2: order.addressLine2,
+    deliveryType: order.deliveryType,
+    deliveryOfficeName: order.deliveryOfficeName,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    promoCode: order.promoCode,
+    subtotal: Number(order.subtotal ?? 0),
+    deliveryFee: Number(order.deliveryFee ?? 0),
+    discount: Number(order.discount ?? 0),
+    currency: order.currency,
+    dbStatus: order.dbStatus,
     status: order.status,
     items: Array.isArray(order.items)
       ? order.items.map((item: any) => ({
           productId: item.productId || "",
           productName: item.productName,
+          productSlug: item.productSlug,
+          variantName: item.variantName,
+          colorName: item.colorName,
           quantity: item.quantity,
           unitPrice: item.unitPrice ?? 0,
+          lineTotal: item.lineTotal,
+          personalization: item.personalization,
         }))
       : [],
     total: Number(order.total ?? 0),
     notes: order.notes,
+    cancelReason: order.cancelReason,
     trackingNumber: order.trackingNumber,
+    carrier: order.carrier,
+    carrierStatus: order.carrierStatus,
     deliveredAt: order.deliveredAt,
     shippedAt: order.shippedAt,
+    cancelledAt: order.cancelledAt,
+    paidAt: order.paidAt,
     createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
     history: Array.isArray(order.history) ? order.history : [],
   };
 }
@@ -332,7 +362,7 @@ export function CrmApp() {
     return orders.filter((order) => {
       const matchesText =
         query.trim().length === 0 ||
-        `${order.clientName} ${order.phone} ${order.id}`
+        `${order.clientName} ${order.phone} ${order.id} ${order.reference || ""}`
           .toLowerCase()
           .includes(query.toLowerCase());
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
@@ -412,7 +442,18 @@ export function CrmApp() {
   }
 
   function createParcel(order: Order) {
-    setToast(`Colis prepare pour ${order.clientName}. Passez en livre une fois remis.`);
+    crmDeliveryApi
+      .createParcel(order.id)
+      .then((updated) => {
+        const mapped = normalizeOrder(updated);
+        setOrders((current) =>
+          current.map((item) => (item.id === order.id ? mapped : item)),
+        );
+        setToast(`Colis Yalidine cree: ${mapped.trackingNumber || mapped.clientName}`);
+      })
+      .catch((error) => {
+        setToast(error instanceof Error ? error.message : "Erreur Yalidine");
+      });
   }
 
   function addOrder(event: FormEvent<HTMLFormElement>) {
@@ -997,7 +1038,18 @@ export function CrmApp() {
               onQuery={setQuery}
               onStatusFilter={setStatusFilter}
               onWilayaFilter={setWilayaFilter}
-              onSelect={setSelectedOrderId}
+              onSelect={(id) => {
+                setSelectedOrderId(id);
+                crmOrdersApi
+                  .getById(id)
+                  .then((order) => {
+                    const mapped = normalizeOrder(order);
+                    setOrders((current) =>
+                      current.map((item) => (item.id === id ? mapped : item)),
+                    );
+                  })
+                  .catch(() => undefined);
+              }}
               onMove={moveOrder}
               onCreateOrder={addOrder}
               newOrderName={newOrderName}
@@ -1121,9 +1173,23 @@ export function CrmApp() {
           {canSeeActivePage && activePage === "delivery" && (
             <CrmDelivery
               orders={orders.filter((order) =>
-                ["en_livraison", "livre", "retour_echec"].includes(order.status),
+                ["confirme", "en_livraison", "livre", "retour_echec"].includes(order.status),
               )}
               onCreateParcel={createParcel}
+              onSyncParcel={(order) => {
+                crmDeliveryApi
+                  .syncParcel(order.id)
+                  .then((updated) => {
+                    const mapped = normalizeOrder(updated);
+                    setOrders((current) =>
+                      current.map((item) => (item.id === order.id ? mapped : item)),
+                    );
+                    setToast(`Suivi Yalidine mis a jour: ${mapped.trackingNumber || mapped.reference || order.id}`);
+                  })
+                  .catch((error) => {
+                    setToast(error instanceof Error ? error.message : "Erreur suivi Yalidine");
+                  });
+              }}
               onDelivered={(order) => moveOrder(order, "livre", "Livraison confirmee.")}
               onReturned={(order) =>
                 moveOrder(order, "retour_echec", "Echec livraison / retour.")

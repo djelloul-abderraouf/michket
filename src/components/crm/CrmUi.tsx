@@ -28,9 +28,16 @@ export function formatDate(value?: string) {
 }
 
 export function productSummary(order: Pick<Order, "items">) {
+  if (!order.items?.length) {
+    return "Aucun article";
+  }
   return order.items
     .map((item) => `${item.quantity} x ${item.productName}`)
     .join(", ");
+}
+
+export function orderRef(order: Pick<Order, "id" | "reference">) {
+  return order.reference || order.id.slice(0, 8).toUpperCase();
 }
 
 export function CrmButton({
@@ -245,7 +252,7 @@ export function CrmPopup({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto max-h-[80vh]">{children}</div>
       </div>
     </div>
   );
