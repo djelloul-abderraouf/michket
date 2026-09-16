@@ -712,7 +712,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                     <span className="min-w-0 flex-1">
                       <span className="block text-[10px] font-extrabold text-[#251713]/55">
-                        اختر اللون
+                        Choisir une couleur ¦ اختر اللون
                       </span>
                       <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-bold leading-4 text-[#251713]">
                         {selectedVariant
@@ -894,7 +894,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               <div className="flex flex-col gap-3 min-[440px]:flex-row min-[440px]:items-start min-[440px]:justify-between">
                 <div>
                   <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
-                    طلب سريع
+                    Commande rapide ¦ طلب سريع
                   </p>
                   <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] sm:text-[28px]">
                     اطلب بسهولة في بضع خطوات
@@ -914,11 +914,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {/* Étape 1 */}
               <FormSection
                 number="1"
-                title="معلوماتك"
+                title={<BilingualText fr="Vos informations" ar="معلوماتك" />}
                 subtitle="نحتاجها لتأكيد الطلب وتوصيله إليك."
               >
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="الاسم" required>
+                  <Field label={<BilingualText fr="Prénom" ar="الاسم" />} required>
                     <input
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -929,7 +929,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     />
                   </Field>
 
-                  <Field label="اللقب" required>
+                  <Field label={<BilingualText fr="Nom" ar="اللقب" />} required>
                     <input
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
@@ -941,7 +941,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                   </Field>
                 </div>
 
-                <Field label="رقم الهاتف" required>
+                <Field label={<BilingualText fr="Téléphone" ar="رقم الهاتف" />} required>
                   <input
                     type="tel"
                     value={phone}
@@ -960,7 +960,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {(isFreeMode || isOptionsMode || product.personalizable) && (
                 <FormSection
                   number="2"
-                  title="التخصيص"
+                  title={<BilingualText fr="Personnalisation" ar="التخصيص" />}
                   subtitle="اكتب تفاصيل التخصيص كما تريدها بالضبط."
                 >
                   {isFreeMode && (
@@ -1051,11 +1051,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {/* Livraison */}
               <FormSection
                 number={product.personalizable ? "3" : "2"}
-                title="التوصيل"
+                title={<BilingualText fr="Livraison" ar="التوصيل" />}
                 subtitle="يُحسب سعر التوصيل تلقائيًا."
               >
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="الولاية" required>
+                  <Field label={<BilingualText fr="Wilaya" ar="الولاية" />} required>
                     <select
                       value={wilayaCode}
                       onChange={(e) => setWilayaCode(e.target.value)}
@@ -1088,7 +1088,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     )}
                   </Field>
 
-                  <Field label="البلدية" required>
+                  <Field label={<BilingualText fr="Commune" ar="البلدية" />} required>
                     <select
                       value={communeId}
                       onChange={(e) => {
@@ -1145,13 +1145,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                 <div>
                   <span className="mb-2 block text-[10px] font-bold tracking-[0.06em] text-[#251713]/55">
-                    طريقة التوصيل *
+                    Mode de livraison ¦ طريقة التوصيل *
                   </span>
 
                   <div className="grid grid-cols-1 gap-2.5 min-[430px]:grid-cols-2">
                     <DeliveryChoice
                       active={deliveryType === "home"}
-                      title="إلى المنزل"
+                      title={<BilingualText fr="Domicile" ar="إلى المنزل" />}
                       price={
                         deliveryType === "home" && deliveryFee !== null
                           ? formatPriceDA(deliveryFee)
@@ -1163,7 +1163,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                     <DeliveryChoice
                       active={deliveryType === "office"}
-                      title="مكتب ياليدين"
+                      title={<BilingualText fr="Bureau Yalidine" ar="مكتب ياليدين" />}
                       price={
                         deliveryType === "office" && deliveryFee !== null
                           ? formatPriceDA(deliveryFee)
@@ -1185,7 +1185,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 </div>
 
                 {deliveryType === "home" && (
-                  <Field label="العنوان" required>
+                  <Field label={<BilingualText fr="Adresse" ar="العنوان" />} required>
                     <input
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
@@ -1217,13 +1217,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               {/* Total et CTA */}
               <FormSection
                 number={product.personalizable ? "4" : "3"}
-                title="إجمالي الطلب"
+                title={<BilingualText fr="Votre total" ar="إجمالي الطلب" />}
                 subtitle="ستدفع هذا المبلغ عند الاستلام."
               >
                 <div className="rounded-[14px] border border-[#251713]/[0.08] bg-[#F7F1E8] p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold">
-                      الكمية
+                      Quantité ¦ الكمية
                     </span>
 
                     <div className="flex items-center overflow-hidden rounded-[9px] border border-[#251713]/10 bg-white">
@@ -1259,12 +1259,12 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   <div className="space-y-2 text-[12px]">
                     <PriceRow
-                      label="المنتج"
+                      label={<BilingualText fr="Produit" ar="المنتج" />}
                       value={formatPriceDA(subtotal)}
                     />
 
                     <PriceRow
-                      label="التوصيل"
+                      label={<BilingualText fr="Livraison" ar="التوصيل" />}
                       value={
                         deliveryLoading
                           ? "جارٍ الحساب..."
@@ -1279,7 +1279,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <span className="text-[11px] font-extrabold tracking-[0.1em] text-[#8A6A20]">
-                      المبلغ الإجمالي
+                      Total à payer ¦ المبلغ الإجمالي
                     </span>
 
                     <span className="text-[30px] font-extrabold tracking-[-0.04em]">
@@ -1337,7 +1337,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       <section className="mx-auto max-w-[1240px] px-3 pb-4 sm:px-6 sm:pb-6 lg:px-8">
         <div className="grid grid-cols-1 gap-2 rounded-[18px] min-[430px]:grid-cols-3 border border-[#251713]/[0.07] bg-white p-3 shadow-[0_12px_30px_rgba(37,23,19,0.04)] sm:gap-3 sm:p-4">
           <TrustPoint
-            title="الدفع"
+            title="Paiement ¦ الدفع"
             text="عند الاستلام"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1348,7 +1348,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           />
 
           <TrustPoint
-            title="التوصيل"
+            title={<BilingualText fr="Livraison" ar="التوصيل" />}
             text="سعر محسوب تلقائيًا"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1360,7 +1360,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           />
 
           <TrustPoint
-            title="الطلب"
+            title="Commande ¦ الطلب"
             text="تأكيد سريع"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1529,12 +1529,35 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 const inputClass =
   "min-h-12 w-full min-w-0 rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-right text-[13px] text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
 
+function BilingualText({
+  fr,
+  ar,
+}: {
+  fr: string;
+  ar: string;
+}) {
+  return (
+    <span
+      dir="ltr"
+      className="inline-flex flex-wrap items-baseline justify-end gap-x-1"
+    >
+      <span lang="fr">{fr}</span>
+      <span aria-hidden="true" className="text-[#251713]/30">
+        ¦
+      </span>
+      <span lang="ar" dir="rtl">
+        {ar}
+      </span>
+    </span>
+  );
+}
+
 function Field({
   label,
   required = false,
   children,
 }: {
-  label: string;
+  label: ReactNode;
   required?: boolean;
   children: ReactNode;
 }) {
@@ -1558,7 +1581,7 @@ function DeliveryChoice({
   onClick,
 }: {
   active: boolean;
-  title: string;
+  title: ReactNode;
   price?: string;
   disabled?: boolean;
   unavailableText?: string;
@@ -1597,7 +1620,7 @@ function TrustPoint({
   text,
   icon,
 }: {
-  title: string;
+  title: ReactNode;
   text: string;
   icon: ReactNode;
 }) {
@@ -1623,7 +1646,7 @@ function FormSection({
   children,
 }: {
   number: string;
-  title: string;
+  title: ReactNode;
   subtitle: string;
   children: ReactNode;
 }) {
@@ -1651,7 +1674,7 @@ function FormSection({
   );
 }
 
-function PriceRow({ label, value }: { label: string; value: string }) {
+function PriceRow({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-[#251713]/48">{label}</span>
