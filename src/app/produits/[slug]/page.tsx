@@ -17,69 +17,80 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
+/*
+ * Product pages depend on live backend data.
+ *
+ * Do not pre-render them during `next build`: the backend may not be reachable
+ * from the build environment (local machine, CI or Hostinger build worker).
+ * Rendering them dynamically also ensures the customer always receives the
+ * current price, variants, personalization settings and availability.
+ */
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
+export const revalidate = 0;
 
 export async function generateStaticParams() {
-  // At build time, try to pre-generate product pages.
-  // Verify each slug against the detail endpoint — skip broken ones (500/inconsistent data).
-  // If backend is entirely unavailable, dynamicParams=true handles runtime generation.
-  try {
-    const { fetchProducts } = await import("@/lib/api");
-    const res = await fetchProducts({ limit: 50 });
-    const validSlugs: { slug: string }[] = [];
-
-    for (const p of res.data) {
-      try {
-        await fetchProductDetail(p.slug);
-        validSlugs.push({ slug: p.slug });
-      } catch {
-        // Detail endpoint returned 500 or other error — skip this slug.
-      }
-    }
-
-    return validSlugs;
-  } catch {
-    return [];
-  }
+  return [];
 }
 
-export async function generateMetadata({ params }: ProductPageProps) {
+export async function generateMetadata({
+  params,
+}: ProductPageProps) {
   const { slug } = await params;
 
-  let detail: Awaited<ReturnType<typeof fetchProductBySlugSafe>> = null;
+  let detail: Awaited<
+    ReturnType<typeof fetchProductBySlugSafe>
+  > = null;
 
   try {
     detail = await fetchProductBySlugSafe(slug);
   } catch {
-    // Server error during build — return fallback metadata.
-    return { title: "Produit | Michket" };
+    return {
+      title: "Produit | Michket",
+    };
   }
 
   if (!detail) {
-    return { title: "Produit non trouvé | Michket" };
+    return {
+      title: "Produit non trouvé | Michket",
+    };
   }
 
-  const title = detail.metaTitle ?? `${detail.name} | Michket`;
+  const title =
+    detail.metaTitle ??
+    `${detail.name} | Michket`;
+
   const description =
-    detail.metaDescription ?? detail.description ?? "";
+    detail.metaDescription ??
+    detail.description ??
+    "";
 
   const firstImage =
     detail.images.length > 0
-      ? [...detail.images]
-          .sort((a, b) => {
-            if (a.isPrimary && !b.isPrimary) return -1;
-            if (!a.isPrimary && b.isPrimary) return 1;
-            return a.sortOrder - b.sortOrder;
-          })[0]
+      ? [...detail.images].sort((a, b) => {
+          if (a.isPrimary && !b.isPrimary) {
+            return -1;
+          }
+
+          if (!a.isPrimary && b.isPrimary) {
+            return 1;
+          }
+
+          return a.sortOrder - b.sortOrder;
+        })[0]
       : null;
 
   return {
     title,
     description,
     openGraph: {
-      title: detail.metaTitle ?? detail.name,
+      title:
+        detail.metaTitle ??
+        detail.name,
       description,
-      images: firstImage ? [{ url: firstImage.url }] : [],
+      images: firstImage
+        ? [{ url: firstImage.url }]
+        : [],
     },
   };
 }
@@ -95,27 +106,37 @@ export default async function ProductPage({
   };
 
   try {
-    product = await fetchProductDetail(slug);
-  } catch (e) {
-    if (e instanceof ApiNotFoundError) {
+    product =
+      await fetchProductDetail(slug);
+  } catch (error) {
+    if (
+      error instanceof
+      ApiNotFoundError
+    ) {
       notFound();
     }
 
-    // Server error (500/network) — propagate to error.tsx, NOT notFound().
-    throw e;
+    throw error;
   }
 
-  // Fetch related products from same category.
-  let relatedProducts: Product[] = [];
+  let relatedProducts: Product[] =
+    [];
 
   if (product.category) {
     try {
       const allCategoryProducts =
-        await fetchProductsForCategory(product.category);
+        await fetchProductsForCategory(
+          product.category,
+        );
 
-      relatedProducts = allCategoryProducts
-        .filter((p) => p.id !== product.id)
-        .slice(0, 4);
+      relatedProducts =
+        allCategoryProducts
+          .filter(
+            (relatedProduct) =>
+              relatedProduct.id !==
+              product.id,
+          )
+          .slice(0, 4);
     } catch {
       relatedProducts = [];
     }
@@ -130,7 +151,9 @@ export default async function ProductPage({
 
       <ProductDetail
         product={product}
-        relatedProducts={relatedProducts}
+        relatedProducts={
+          relatedProducts
+        }
       />
     </>
   );
