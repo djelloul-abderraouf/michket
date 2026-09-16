@@ -663,7 +663,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </div>
             )}
 
-            {/* Couleurs : sélecteur compact, déplié uniquement à la demande */}
+            {/* Couleurs : sélecteur compact avec libellés toujours complets */}
             {product.variants && product.variants.length > 0 && (
               <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/95 p-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:p-3">
                 <button
@@ -678,7 +678,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                       : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
                   ].join(" ")}
                 >
-                  <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
                     <span
                       className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
                       aria-hidden="true"
@@ -710,11 +710,11 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                       )}
                     </span>
 
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block text-[10px] font-extrabold text-[#251713]/55">
                         اختر اللون
                       </span>
-                      <span className="mt-0.5 block truncate text-[11px] font-bold text-[#251713]">
+                      <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-bold leading-4 text-[#251713]">
                         {selectedVariant
                           ? localizeColorLabel(
                               selectedVariant.colorName ||
@@ -746,7 +746,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 {colorPickerOpen && (
                   <div
                     id="michket-color-options"
-                    className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5"
+                    className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 xl:grid-cols-4"
                   >
                     {product.variants.map((variant) => {
                       const rawLabel =
@@ -767,14 +767,19 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           aria-label={`اختيار ${label}`}
                           aria-pressed={isSelected}
                           className={[
-                            "flex h-[34px] min-w-0 items-center gap-1.5 rounded-[8px] border px-2 text-right transition sm:h-9 sm:px-2.5",
+                            "flex min-h-[42px] min-w-0 items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-right transition sm:min-h-[44px]",
                             isSelected
                               ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_1px_rgba(236,171,28,0.10)]"
                               : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
                           ].join(" ")}
                         >
                           <span
-                            className="relative h-4 w-4 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3] sm:h-[18px] sm:w-[18px]"
+                            className={[
+                              "relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full border bg-[#E7DED3] sm:h-5 sm:w-5",
+                              isSelected
+                                ? "border-[#ECAB1C] ring-2 ring-[#ECAB1C]/20"
+                                : "border-black/10",
+                            ].join(" ")}
                             aria-hidden="true"
                           >
                             {variant.isMulticolor ? (
@@ -796,18 +801,9 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                             ) : null}
                           </span>
 
-                          <span className="min-w-0 flex-1 truncate text-[8px] font-bold leading-none text-[#251713] sm:text-[9px]">
+                          <span className="min-w-0 flex-1 whitespace-normal break-words text-[9px] font-bold leading-4 text-[#251713] sm:text-[10px]">
                             {label}
                           </span>
-
-                          {isSelected && (
-                            <span
-                              className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[7px] font-black leading-none text-[#251713]"
-                              aria-hidden="true"
-                            >
-                              ✓
-                            </span>
-                          )}
                         </button>
                       );
                     })}
