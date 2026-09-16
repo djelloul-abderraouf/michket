@@ -746,7 +746,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 {colorPickerOpen && (
                   <div
                     id="michket-color-options"
-                    className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2"
+                    className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5"
                   >
                     {product.variants.map((variant) => {
                       const rawLabel =
@@ -767,14 +767,14 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           aria-label={`اختيار ${label}`}
                           aria-pressed={isSelected}
                           className={[
-                            "flex min-h-10 min-w-0 items-center gap-2 rounded-[9px] border px-2.5 py-2 text-right transition",
+                            "flex h-[34px] min-w-0 items-center gap-1.5 rounded-[8px] border px-2 text-right transition sm:h-9 sm:px-2.5",
                             isSelected
-                              ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.08)]"
+                              ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_1px_rgba(236,171,28,0.10)]"
                               : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
                           ].join(" ")}
                         >
                           <span
-                            className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
+                            className="relative h-4 w-4 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3] sm:h-[18px] sm:w-[18px]"
                             aria-hidden="true"
                           >
                             {variant.isMulticolor ? (
@@ -796,13 +796,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                             ) : null}
                           </span>
 
-                          <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-[#251713]">
+                          <span className="min-w-0 flex-1 truncate text-[8px] font-bold leading-none text-[#251713] sm:text-[9px]">
                             {label}
                           </span>
 
                           {isSelected && (
                             <span
-                              className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[8px] font-black text-[#251713]"
+                              className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[7px] font-black leading-none text-[#251713]"
                               aria-hidden="true"
                             >
                               ✓
