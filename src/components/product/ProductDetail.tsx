@@ -712,7 +712,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                     <span className="min-w-0 flex-1">
                       <span className="block text-[10px] font-extrabold text-[#251713]/55">
-                        Choisir une couleur ¦ اختر اللون
+                        Choisir une couleur | اختر اللون
                       </span>
                       <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-bold leading-4 text-[#251713]">
                         {selectedVariant
@@ -894,7 +894,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               <div className="flex flex-col gap-3 min-[440px]:flex-row min-[440px]:items-start min-[440px]:justify-between">
                 <div>
                   <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
-                    Commande rapide ¦ طلب سريع
+                    Commande rapide | طلب سريع
                   </p>
                   <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] sm:text-[28px]">
                     اطلب بسهولة في بضع خطوات
@@ -1145,7 +1145,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                 <div>
                   <span className="mb-2 block text-[10px] font-bold tracking-[0.06em] text-[#251713]/55">
-                    Mode de livraison ¦ طريقة التوصيل *
+                    Mode de livraison | طريقة التوصيل *
                   </span>
 
                   <div className="grid grid-cols-1 gap-2.5 min-[430px]:grid-cols-2">
@@ -1223,7 +1223,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 <div className="rounded-[14px] border border-[#251713]/[0.08] bg-[#F7F1E8] p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold">
-                      Quantité ¦ الكمية
+                      Quantité | الكمية
                     </span>
 
                     <div className="flex items-center overflow-hidden rounded-[9px] border border-[#251713]/10 bg-white">
@@ -1279,7 +1279,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <span className="text-[11px] font-extrabold tracking-[0.1em] text-[#8A6A20]">
-                      Total à payer ¦ المبلغ الإجمالي
+                      Total à payer | المبلغ الإجمالي
                     </span>
 
                     <span className="text-[30px] font-extrabold tracking-[-0.04em]">
@@ -1337,7 +1337,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
       <section className="mx-auto max-w-[1240px] px-3 pb-4 sm:px-6 sm:pb-6 lg:px-8">
         <div className="grid grid-cols-1 gap-2 rounded-[18px] min-[430px]:grid-cols-3 border border-[#251713]/[0.07] bg-white p-3 shadow-[0_12px_30px_rgba(37,23,19,0.04)] sm:gap-3 sm:p-4">
           <TrustPoint
-            title="Paiement ¦ الدفع"
+            title="Paiement | الدفع"
             text="عند الاستلام"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1360,7 +1360,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           />
 
           <TrustPoint
-            title="Commande ¦ الطلب"
+            title="Commande | الطلب"
             text="تأكيد سريع"
             icon={
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1543,7 +1543,7 @@ function BilingualText({
     >
       <span lang="fr">{fr}</span>
       <span aria-hidden="true" className="text-[#251713]/30">
-        ¦
+        |
       </span>
       <span lang="ar" dir="rtl">
         {ar}
