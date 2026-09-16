@@ -660,21 +660,16 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               </div>
             )}
 
-            {/* Couleurs : intégration compacte pour ne pas alourdir la landing page */}
+            {/* Couleurs : toutes visibles, compactes et sans scroll */}
             {product.variants && product.variants.length > 0 && (
-              <div className="rounded-[13px] border border-[#251713]/[0.08] bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(37,23,19,0.035)] sm:px-3.5 sm:py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-extrabold text-[#251713]/70">
-                      اختر اللون
-                    </p>
-                    <p className="mt-0.5 text-[9px] leading-4 text-[#251713]/38">
-                      اختر اللون المناسب للمنتج
-                    </p>
-                  </div>
+              <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/90 px-3 py-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:px-3.5 sm:py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-extrabold text-[#251713]/65 sm:text-[11px]">
+                    اختر اللون
+                  </p>
 
                   {selectedVariant && (
-                    <span className="max-w-[46%] truncate rounded-full bg-[#FFF4D5] px-2.5 py-1 text-[9px] font-extrabold text-[#8A6200]">
+                    <span className="max-w-[52%] truncate text-[9px] font-bold text-[#8A6200] sm:text-[10px]">
                       {localizeColorLabel(
                         selectedVariant.colorName || selectedVariant.name,
                       )}
@@ -682,7 +677,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                   )}
                 </div>
 
-                <div className="-mx-0.5 mt-2 flex snap-x gap-1.5 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {product.variants.map((variant) => {
                     const rawLabel =
                       variant.colorName || variant.name;
@@ -701,14 +696,14 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         aria-label={`اختيار ${label}`}
                         aria-pressed={isSelected}
                         className={[
-                          "inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 text-right transition sm:h-9",
+                          "inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-right transition sm:min-h-9 sm:px-2.5",
                           isSelected
-                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.10)]"
-                            : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/22 hover:bg-white",
+                            ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_2px_rgba(236,171,28,0.08)]"
+                            : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
                         ].join(" ")}
                       >
                         <span
-                          className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
+                          className="relative h-4.5 w-4.5 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3] sm:h-5 sm:w-5"
                           aria-hidden="true"
                         >
                           {variant.isMulticolor ? (
@@ -730,13 +725,13 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                           ) : null}
                         </span>
 
-                        <span className="max-w-[100px] truncate text-[10px] font-bold text-[#251713]">
+                        <span className="max-w-[88px] truncate text-[9px] font-bold leading-none text-[#251713] sm:max-w-[105px] sm:text-[10px]">
                           {label}
                         </span>
 
                         {isSelected ? (
                           <span
-                            className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[8px] font-black text-[#251713]"
+                            className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-[#ECAB1C] text-[7px] font-black leading-none text-[#251713] sm:h-4 sm:w-4 sm:text-[8px]"
                             aria-hidden="true"
                           >
                             ✓
