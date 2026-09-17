@@ -892,8 +892,7 @@ export interface ApiOrder {
   discountCents: number;
   totalCents: number;
   currency: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email: string | null;
   addressLine1: string;
@@ -920,8 +919,7 @@ export interface CreateOrderInput {
     quantity: number;
     personalization?: Record<string, unknown>;
   }>;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email?: string;
   addressLine1: string;

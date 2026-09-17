@@ -96,14 +96,9 @@ export async function POST(request: Request) {
       clean(body.variantId, 100) ||
       null;
 
-    const firstName = clean(
-      body.firstName,
-      100,
-    );
-
-    const lastName = clean(
-      body.lastName,
-      100,
+    const fullName = clean(
+      body.fullName,
+      200,
     );
 
     const phone = normalizePhone(
@@ -152,14 +147,23 @@ export async function POST(request: Request) {
 
     if (
       !productSlug ||
-      !firstName ||
-      !lastName ||
+      !fullName ||
       !commune
     ) {
       return NextResponse.json(
         {
           message:
             "Merci de compléter tous les champs obligatoires.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (fullName.length < 2) {
+      return NextResponse.json(
+        {
+          message:
+            "Merci d'indiquer le nom complet du client.",
         },
         { status: 400 },
       );
@@ -319,8 +323,7 @@ export async function POST(request: Request) {
         },
       ],
 
-      firstName,
-      lastName,
+      fullName,
       phone,
 
       // Backend DTO currently requires addressLine1 for every order.

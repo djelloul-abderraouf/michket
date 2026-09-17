@@ -273,7 +273,7 @@ export default function OrderConfirmationPage({
 
                 <div className="mt-4 space-y-2 text-sm">
                   <p className="font-medium text-michket-black">
-                    {order.firstName} {order.lastName}
+                    {order.fullName}
                   </p>
 
                   <p className="text-michket-charcoal/60">

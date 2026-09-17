@@ -53,8 +53,7 @@ type OrderRow = {
   totalCents: number;
   currency: string;
 
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email: string | null;
 
@@ -147,8 +146,7 @@ type AdminProductDetail = {
 };
 
 type OrderEditForm = {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   email: string;
 
@@ -293,8 +291,7 @@ function parseDaToCents(value: string): number | null {
 
 function orderToEditForm(order: OrderRow): OrderEditForm {
   return {
-    firstName: order.firstName,
-    lastName: order.lastName,
+    fullName: order.fullName,
     phone: order.phone,
     email: order.email ?? "",
 
@@ -578,7 +575,7 @@ export default function AdminOrdersPage() {
 
     return orders.filter((order) => {
       const customerName =
-        `${order.firstName} ${order.lastName}`.toLowerCase();
+        order.fullName.toLowerCase();
 
       return (
         order.reference
@@ -900,7 +897,7 @@ export default function AdminOrdersPage() {
 
                             <td className="px-4 py-4">
                               <p className="text-sm font-semibold text-neutral-900">
-                                {order.firstName} {order.lastName}
+                                {order.fullName}
                               </p>
                               <a
                                 href={`tel:${order.phone}`}
@@ -1061,7 +1058,7 @@ export default function AdminOrdersPage() {
                             {order.reference}
                           </p>
                           <p className="mt-1 text-sm text-neutral-700">
-                            {order.firstName} {order.lastName}
+                            {order.fullName}
                           </p>
                           <p className="mt-1 text-xs text-neutral-400">
                             {order.phone}
@@ -1245,8 +1242,8 @@ function OrderDetails({
       <div className="grid gap-4 lg:grid-cols-3">
         <DetailCard title="Client">
           <DetailRow
-            label="Nom"
-            value={`${order.firstName} ${order.lastName}`}
+            label="Nom et prénom"
+            value={order.fullName}
           />
           <DetailRow label="Téléphone" value={order.phone} />
           {order.email ? (
@@ -1834,12 +1831,12 @@ function OrderEditor({
     setSuccess(null);
 
     if (
-      !form.firstName.trim() ||
-      !form.lastName.trim() ||
+      form.fullName.trim().length < 2 ||
+      form.fullName.trim().length > 200 ||
       !form.phone.trim()
     ) {
       setError(
-        "Le prénom, le nom et le téléphone sont obligatoires.",
+        "Le nom et prénom ainsi que le téléphone sont obligatoires.",
       );
       return;
     }
@@ -1890,8 +1887,7 @@ function OrderEditor({
     }
 
     const payload: Record<string, unknown> = {
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
+      fullName: form.fullName.trim(),
       phone: form.phone.trim(),
       email: form.email.trim() || null,
 
@@ -2011,28 +2007,18 @@ function OrderEditor({
       <div className="grid gap-4 xl:grid-cols-2">
         <EditSection title="Client">
           <div className="grid gap-3 sm:grid-cols-2">
-            <EditField label="Prénom">
+            <EditField label="Nom et prénom">
               <input
-                value={form.firstName}
+                value={form.fullName}
                 onChange={(event) =>
                   setField(
-                    "firstName",
+                    "fullName",
                     event.target.value,
                   )
                 }
-                className={adminInputClass}
-              />
-            </EditField>
-
-            <EditField label="Nom">
-              <input
-                value={form.lastName}
-                onChange={(event) =>
-                  setField(
-                    "lastName",
-                    event.target.value,
-                  )
-                }
+                minLength={2}
+                maxLength={200}
+                autoComplete="name"
                 className={adminInputClass}
               />
             </EditField>

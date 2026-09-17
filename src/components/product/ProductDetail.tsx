@@ -132,8 +132,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     return () => clearTimeout(timer);
   }, [cartMessage]);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [personalization, setPersonalization] = useState("");
   const [personalizationFields, setPersonalizationFields] = useState<Record<string, string>>({});
@@ -407,8 +406,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           productSlug: product.slug,
           variantId: selectedVariant?.id ?? null,
           quantity,
-          firstName,
-          lastName,
+          fullName,
           phone,
           personalization: personalizationValue,
           wilayaCode: selectedWilaya.code,
@@ -534,8 +532,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
   }
 
   const canSubmit =
-    Boolean(firstName.trim()) &&
-    Boolean(lastName.trim()) &&
+    fullName.trim().length >= 2 &&
     (!product.variants ||
       product.variants.length === 0 ||
       Boolean(selectedVariant)) &&
@@ -917,29 +914,26 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                 title={<BilingualText fr="Vos informations" ar="معلوماتك" />}
                 subtitle="نحتاجها لتأكيد الطلب وتوصيله إليك."
               >
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Field label={<BilingualText fr="Prénom" ar="الاسم" />} required>
-                    <input
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      required
-                      autoComplete="given-name"
-                      className={inputClass}
-                      placeholder="اكتب اسمك"
+                <Field
+                  label={
+                    <BilingualText
+                      fr="Nom et prénom"
+                      ar="الاسم واللقب"
                     />
-                  </Field>
-
-                  <Field label={<BilingualText fr="Nom" ar="اللقب" />} required>
-                    <input
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      required
-                      autoComplete="family-name"
-                      className={inputClass}
-                      placeholder="اكتب لقبك"
-                    />
-                  </Field>
-                </div>
+                  }
+                  required
+                >
+                  <input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    minLength={2}
+                    maxLength={200}
+                    autoComplete="name"
+                    className={inputClass}
+                    placeholder="اكتب الاسم واللقب"
+                  />
+                </Field>
 
                 <Field label={<BilingualText fr="Téléphone" ar="رقم الهاتف" />} required>
                   <input

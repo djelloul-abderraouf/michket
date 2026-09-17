@@ -44,8 +44,7 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   /* ---------- form state ---------- */
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [wilayaCode, setWilayaCode] = useState<number | null>(null);
   const [wilayaName, setWilayaName] = useState("");
@@ -226,8 +225,7 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           personalization: item.personalization,
         })),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        fullName: fullName.trim(),
         phone: phone.trim(),
         addressLine1:
           deliveryType === "home"
@@ -314,8 +312,7 @@ export default function CheckoutPage() {
   }, [
     submitting,
     cart,
-    firstName,
-    lastName,
+    fullName,
     phone,
     addressLine1,
     wilayaCode,
@@ -335,10 +332,8 @@ export default function CheckoutPage() {
       : null;
 
   const formValid =
-    firstName.trim().length >= 1 &&
-    firstName.trim().length <= 100 &&
-    lastName.trim().length >= 1 &&
-    lastName.trim().length <= 100 &&
+    fullName.trim().length >= 2 &&
+    fullName.trim().length <= 200 &&
     phone.trim().length >= 6 &&
     phone.trim().length <= 30 &&
     communeId !== null &&
@@ -460,42 +455,24 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label
-                          htmlFor="co-firstname"
-                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
-                        >
-                          Prénom *
-                        </label>
-                        <input
-                          id="co-firstname"
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          maxLength={100}
-                          className={inputClass}
-                          placeholder="Votre prénom"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="co-lastname"
-                          className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
-                        >
-                          Nom *
-                        </label>
-                        <input
-                          id="co-lastname"
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          maxLength={100}
-                          className={inputClass}
-                          placeholder="Votre nom"
-                        />
-                      </div>
+                    <div>
+                      <label
+                        htmlFor="co-fullname"
+                        className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.055em] text-[#251713]/55"
+                      >
+                        Nom et prénom *
+                      </label>
+                      <input
+                        id="co-fullname"
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        minLength={2}
+                        maxLength={200}
+                        autoComplete="name"
+                        className={inputClass}
+                        placeholder="Votre nom et prénom"
+                      />
                     </div>
 
                     <div>
