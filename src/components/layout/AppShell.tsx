@@ -56,7 +56,7 @@ export function AppShell({
         {children}
       </main>
 
-      <Footer />
+      <Footer navItems={mainNav} />
 
       {!isProductLandingPage && (
         <a
