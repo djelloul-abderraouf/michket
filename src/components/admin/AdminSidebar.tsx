@@ -77,6 +77,27 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "Nos références",
+    href: "/admin/references",
+    icon: (
+      <svg
+        className={iconClassName}
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="2.5" y="4" width="15" height="12" rx="2" />
+        <path d="M6 8.25h8" />
+        <path d="M6 11.75h5" />
+        <path d="M4.75 2.5h10.5" />
+      </svg>
+    ),
+  },
+  {
     label: "Commandes",
     href: "/admin/orders",
     icon: (

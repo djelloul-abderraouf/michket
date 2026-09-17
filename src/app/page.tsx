@@ -4,6 +4,7 @@ import { FeaturedCategories } from "@/components/home/FeaturedCategories";
 import { NewArrivals } from "@/components/home/NewArrivals";
 import { FeaturedProducts } from "@/components/home/FeaturedProducts";
 import { BeforeAfterSection } from "@/components/home/BeforeAfterSection";
+import { ClientReferences } from "@/components/home/ClientReferences";
 import { USPSection } from "@/components/home/USPSection";
 import { Testimonials } from "@/components/home/Testimonials";
 
@@ -33,6 +34,7 @@ export default async function HomePage() {
       <FeaturedProducts products={popularProducts} />
       <BeforeAfterSection />
       <Testimonials />
+      <ClientReferences />
       <USPSection />
     </>
   );
