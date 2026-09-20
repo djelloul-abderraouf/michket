@@ -89,6 +89,8 @@ export interface ApiCategoryImage {
   categoryId: string;
   url: string;
   storagePath: string | null;
+  mobileUrl: string | null;
+  mobileStoragePath: string | null;
   altText: string | null;
   sortOrder: number;
   createdAt: string;

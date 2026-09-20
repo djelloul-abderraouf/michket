@@ -6,6 +6,8 @@ import {
   fetchCategoryBySlugSafe,
   fetchProductsForCategory,
 } from "@/lib/api";
+import { CategoryHeroCarousel } from "@/components/category/CategoryHeroCarousel";
+import { CategoryMosaic } from "@/components/category/CategoryMosaic";
 
 export const dynamicParams = true;
 
@@ -40,24 +42,6 @@ function formatPriceDA(price: number): string {
   }).format(price)} DA`;
 }
 
-function getTitleParts(name: string, pageTitle: string | null) {
-  const fullTitle = pageTitle?.trim() || name;
-
-  if (
-    fullTitle.toLocaleLowerCase("fr").startsWith(name.toLocaleLowerCase("fr"))
-  ) {
-    return {
-      primary: name,
-      accent: fullTitle.slice(name.length).trim(),
-    };
-  }
-
-  return {
-    primary: fullTitle,
-    accent: "",
-  };
-}
-
 export default async function GenericCategoryPage({
   params,
 }: {
@@ -89,193 +73,70 @@ export default async function GenericCategoryPage({
     category.pageTitle?.trim() ||
     category.name;
 
-  const titleParts = getTitleParts(category.name, category.pageTitle);
-
   return (
     <main className="min-h-screen bg-[#F8F3EB] text-[#2A1B16]">
-      {/* TOP */}
-      <section
-        className="relative border-b border-[#2A1B16]/[0.08]"
-        style={{
-          background:
-            "linear-gradient(120deg, rgba(236,171,28,0.065) 0%, rgba(248,243,235,0) 28%), linear-gradient(180deg, #FCF8F2 0%, #F6EFE6 100%)",
-        }}
-      >
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
-          <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:gap-10">
-            <div className="max-w-[620px]">
-              <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#2A1B16]/35 sm:text-[10px]">
-                <Link
-                  href="/"
-                  className="transition-colors hover:text-[#ECAB1C]"
-                >
-                  Accueil
-                </Link>
-                <span>/</span>
-                <span className="text-[#8A6A20]">{category.name}</span>
-              </div>
+      {category.heroImages.length > 0 ? (
+        <CategoryHeroCarousel
+          images={category.heroImages}
+          categoryName={category.name}
+        />
+      ) : null}
 
-              <h1 className="mt-3 font-body text-[31px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[39px] lg:text-[48px]">
-                {titleParts.primary}
-                {titleParts.accent && (
-                  <>
-                    {" "}
-                    <span className="text-[#8A6A20]">{titleParts.accent}</span>
-                  </>
-                )}
-              </h1>
+      {/* SOUS-CATÉGORIES — même structure visuelle que la Home */}
+      {subcategories.length > 0 ? (
+        <section
+          className="relative overflow-hidden bg-white py-8 sm:py-9 lg:py-11"
+          aria-labelledby="category-subcategories-heading"
+        >
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent"
+            aria-hidden="true"
+          />
 
-              {category.description && (
-                <p className="mt-4 max-w-[560px] text-[12px] leading-6 text-[#2A1B16]/52 sm:text-[13px]">
-                  {category.description}
-                </p>
-              )}
-            </div>
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent"
+            aria-hidden="true"
+          />
 
-            <div className="relative min-h-[230px] overflow-hidden rounded-[18px] border border-[#2A1B16]/[0.06] bg-[#EEE5DA] shadow-[0_14px_36px_rgba(42,27,22,0.10)] sm:min-h-[320px] lg:min-h-[390px]">
-              {category.imageUrl ? (
-                <Image
-                  src={category.imageUrl}
-                  alt={category.name}
-                  fill
-                  priority
-                  className="object-cover"
-                  sizes="(max-width: 1023px) 100vw, 54vw"
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 bg-gradient-to-br from-[#E8DCCF] via-[#F4ECE3] to-[#D8C7B6]"
+          <div className="mx-auto w-full max-w-[1320px] px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto mb-5 max-w-2xl text-center sm:mb-6 lg:mb-7">
+              <div className="mb-2 flex items-center justify-center gap-2.5">
+                <span
+                  className="h-px w-6 bg-[#ECAB1C]"
                   aria-hidden="true"
                 />
-              )}
 
-              <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/12 via-transparent to-white/5"
-                aria-hidden="true"
-              />
+                <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8A6A20] sm:text-[10px]">
+                  {category.name}
+                </span>
+
+                <span
+                  className="h-px w-6 bg-[#ECAB1C]"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <h1
+                id="category-subcategories-heading"
+                className="font-body text-[26px] font-semibold leading-tight tracking-[-0.035em] text-[#111111] sm:text-[31px] lg:text-[36px]"
+              >
+                {category.pageTitle?.trim() || "Nos sous-catégories"}
+              </h1>
+
+              {category.description ? (
+                <p className="mx-auto mt-2 max-w-xl text-[12px] leading-5 text-black/48 sm:text-[13px]">
+                  {category.description}
+                </p>
+              ) : null}
             </div>
+
+            <CategoryMosaic
+              categories={subcategories}
+              basePath={`/${category.slug}`}
+            />
           </div>
-
-          {subcategories.length > 0 ? (
-            <div className="mt-7 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-center">
-                {subcategories.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/${category.slug}/${child.slug}`}
-                    className="group w-[166px] flex-none snap-start sm:w-[205px] lg:w-[220px]"
-                  >
-                    <article className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]">
-                      <div className="relative aspect-[5/4] overflow-hidden">
-                        {child.imageUrl ? (
-                          <Image
-                            src={child.imageUrl}
-                            alt={child.name}
-                            fill
-                            className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                            sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
-                          />
-                        ) : (
-                          <div
-                            className="absolute inset-0 bg-gradient-to-br from-[#4A342B] to-[#21130F]"
-                            aria-hidden="true"
-                          />
-                        )}
-
-                        <div
-                          className="absolute inset-0 bg-gradient-to-t from-[#21130F]/80 via-[#21130F]/18 to-transparent"
-                          aria-hidden="true"
-                        />
-
-                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
-                          <span className="line-clamp-2 text-[10px] font-semibold leading-4 text-white sm:text-[11px]">
-                            {child.name}
-                          </span>
-
-                          <span
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/14 text-white backdrop-blur-sm transition-all group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
-                            aria-hidden="true"
-                          >
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.9}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 12h14M13 6l6 6-6 6"
-                              />
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-                    </article>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : products.length > 0 ? (
-            <div className="mt-7 -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-2 lg:px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full snap-x snap-mandatory justify-start gap-3 sm:gap-4 lg:justify-center">
-                {products.slice(0, 8).map((product) => (
-                  <Link
-                    key={product.id}
-                    href={`/produits/${product.slug}`}
-                    className="group w-[166px] flex-none snap-start sm:w-[205px] lg:w-[220px]"
-                  >
-                    <article className="relative overflow-hidden rounded-[12px] border border-white/10 bg-[#2A1B16] shadow-[0_8px_22px_rgba(42,27,22,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/40 hover:shadow-[0_14px_30px_rgba(42,27,22,0.13)]">
-                      <div className="relative aspect-[5/4] overflow-hidden">
-                        {product.images[0] && (
-                          <Image
-                            src={product.images[0].src}
-                            alt={product.images[0].alt}
-                            fill
-                            className="object-cover transition-transform duration-500 group-hover:scale-[1.045]"
-                            sizes="(max-width: 639px) 166px, (max-width: 1023px) 205px, 220px"
-                          />
-                        )}
-
-                        <div
-                          className="absolute inset-0 bg-gradient-to-t from-[#21130F]/80 via-[#21130F]/18 to-transparent"
-                          aria-hidden="true"
-                        />
-
-                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
-                          <span className="line-clamp-2 text-[10px] font-semibold leading-4 text-white sm:text-[11px]">
-                            {product.title}
-                          </span>
-
-                          <span
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/14 text-white backdrop-blur-sm transition-all group-hover:bg-[#ECAB1C] group-hover:text-[#2A1B16]"
-                            aria-hidden="true"
-                          >
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.9}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 12h14M13 6l6 6-6 6"
-                              />
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-                    </article>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* CATALOGUE */}
       <section

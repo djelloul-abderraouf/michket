@@ -20,6 +20,8 @@ type HeroImage = {
   categoryId: string;
   url: string;
   storagePath: string;
+  mobileUrl: string | null;
+  mobileStoragePath: string | null;
   altText: string | null;
   sortOrder: number;
   createdAt: string;
@@ -29,8 +31,11 @@ type PendingHeroUpload = {
   tempId: string;
   url: string;
   storagePath: string;
+  mobileUrl: string;
+  mobileStoragePath: string;
   altText: string;
-  fileName: string;
+  desktopFileName: string;
+  mobileFileName: string;
 };
 
 type Category = {
@@ -172,8 +177,11 @@ export default function AdminCategoriesPage() {
   const [pendingProfileUrl, setPendingProfileUrl] = useState<string | null>(null);
   const [pendingProfileStoragePath, setPendingProfileStoragePath] = useState<string | null>(null);
 
-  // Hero images state
-  const heroFileInputRef = useRef<HTMLInputElement>(null);
+  // Hero carousel state
+  const heroDesktopFileInputRef = useRef<HTMLInputElement>(null);
+  const heroMobileFileInputRef = useRef<HTMLInputElement>(null);
+  const [heroDesktopFile, setHeroDesktopFile] = useState<File | null>(null);
+  const [heroMobileFile, setHeroMobileFile] = useState<File | null>(null);
   const [heroImages, setHeroImages] = useState<HeroImage[]>([]);
   const [pendingHeroUploads, setPendingHeroUploads] =
     useState<PendingHeroUpload[]>([]);
@@ -181,6 +189,7 @@ export default function AdminCategoriesPage() {
   const [heroUploadError, setHeroUploadError] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [reorderingImageId, setReorderingImageId] = useState<string | null>(null);
+  const [updatingImageId, setUpdatingImageId] = useState<string | null>(null);
 
   const [actionId, setActionId] =
     useState<string | null>(null);
@@ -438,6 +447,8 @@ export default function AdminCategoriesPage() {
     setPendingProfileStoragePath(null);
     setHeroImages([]);
     setPendingHeroUploads([]);
+    setHeroDesktopFile(null);
+    setHeroMobileFile(null);
     setHeroUploadError(null);
     setIsFormOpen(true);
   }
@@ -453,6 +464,8 @@ export default function AdminCategoriesPage() {
     setPendingProfileUrl(null);
     setPendingProfileStoragePath(null);
     setPendingHeroUploads([]);
+    setHeroDesktopFile(null);
+    setHeroMobileFile(null);
     setHeroUploadError(null);
     setForm({
       name: category.name,
@@ -478,12 +491,8 @@ export default function AdminCategoriesPage() {
         category.metaDescription ?? "",
     });
 
-    // Load hero images for nested category levels (2 and 3)
-    if (category.parentId) {
-      await loadHeroImages(category.id);
-    } else {
-      setHeroImages([]);
-    }
+    // Hero carousel is available for every category level.
+    await loadHeroImages(category.id);
 
     setIsFormOpen(true);
   }
@@ -535,6 +544,8 @@ export default function AdminCategoriesPage() {
     setPendingProfileStoragePath(null);
     setHeroImages([]);
     setPendingHeroUploads([]);
+    setHeroDesktopFile(null);
+    setHeroMobileFile(null);
     setHeroUploadError(null);
   }
 
@@ -548,6 +559,7 @@ export default function AdminCategoriesPage() {
 
     for (const pendingHero of pendingHeroUploads) {
       void deleteTempStorage(pendingHero.storagePath);
+      void deleteTempStorage(pendingHero.mobileStoragePath);
     }
 
     closeForm();
@@ -702,40 +714,117 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  // Hero image operations
-  async function handleHeroImageUpload(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setHeroUploadError(null);
-
+  // Hero carousel operations
+  function validateHeroFile(file: File): string | null {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setHeroUploadError(
-        "Format non supporté. Utilisez JPEG, PNG, WebP ou AVIF.",
-      );
-      return;
+      return "Format non supporté. Utilisez JPEG, PNG, WebP ou AVIF.";
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
+      return `Fichier trop volumineux (${formatFileSize(file.size)}). Maximum : 10 Mo.`;
+    }
+
+    return null;
+  }
+
+  function handleHeroDraftFileSelect(
+    kind: "desktop" | "mobile",
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const validationError = validateHeroFile(file);
+
+    if (validationError) {
+      setHeroUploadError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setHeroUploadError(null);
+
+    if (kind === "desktop") {
+      setHeroDesktopFile(file);
+    } else {
+      setHeroMobileFile(file);
+    }
+
+    event.target.value = "";
+  }
+
+  async function uploadHeroFile(
+    file: File,
+    accessToken: string,
+  ): Promise<{ url: string; path: string }> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_API_URL n'est pas configurée.",
+      );
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+      `${apiUrl}/media/category-images`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      const payload = (
+        await response.json().catch(() => null)
+      ) as ApiErrorPayload | null;
+
+      throw new Error(
+        apiMessage(
+          payload,
+          "Erreur lors de l'upload de l'image.",
+        ),
+      );
+    }
+
+    return (await response.json()) as {
+      url: string;
+      path: string;
+    };
+  }
+
+  async function handleAddHeroSlide() {
+    setHeroUploadError(null);
+
+    if (!heroDesktopFile || !heroMobileFile) {
       setHeroUploadError(
-        `Fichier trop volumineux (${formatFileSize(file.size)}). Maximum : 10 Mo.`,
+        "Choisissez une image PC et une image téléphone pour ce slide.",
       );
       return;
     }
 
-    const totalHeroImages =
+    const totalHeroSlides =
       heroImages.length + pendingHeroUploads.length;
 
-    if (totalHeroImages >= 10) {
+    if (totalHeroSlides >= 10) {
       setHeroUploadError(
-        "Le carrousel Hero est limité à 10 images.",
+        "Le carrousel Hero est limité à 10 slides.",
       );
       return;
     }
 
     setIsUploadingHero(true);
+
+    let desktopUpload: { url: string; path: string } | null = null;
+    let mobileUpload: { url: string; path: string } | null = null;
 
     try {
       const {
@@ -747,63 +836,60 @@ export default function AdminCategoriesPage() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) return;
-
-      // Upload the image to Storage first. This does not require a category id.
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const uploadResponse = await fetch(
-        `${apiUrl}/media/category-images`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: formData,
-        },
+      desktopUpload = await uploadHeroFile(
+        heroDesktopFile,
+        session.access_token,
       );
 
-      if (!uploadResponse.ok) {
-        const payload = (
-          await uploadResponse.json().catch(() => null)
-        ) as ApiErrorPayload;
+      mobileUpload = await uploadHeroFile(
+        heroMobileFile,
+        session.access_token,
+      );
 
-        setHeroUploadError(
-          apiMessage(
-            payload,
-            "Erreur lors de l'upload de l'image.",
-          ),
-        );
-        return;
-      }
-
-      const { url, path } = (await uploadResponse.json()) as {
-        url: string;
-        path: string;
-      };
-
-      const altText = file.name.replace(/\.[^/.]+$/, "");
+      const altText = heroDesktopFile.name.replace(
+        /\.[^/.]+$/,
+        "",
+      );
 
       if (!editingCategory) {
-        // During creation there is no category UUID yet. Keep the Storage
-        // upload temporarily and create the hero-image DB row immediately
-        // after the category itself has been created.
         setPendingHeroUploads((current) => [
           ...current,
           {
             tempId: crypto.randomUUID(),
-            url,
-            storagePath: path,
+            url: desktopUpload!.url,
+            storagePath: desktopUpload!.path,
+            mobileUrl: mobileUpload!.url,
+            mobileStoragePath: mobileUpload!.path,
             altText,
-            fileName: file.name,
+            desktopFileName: heroDesktopFile.name,
+            mobileFileName: heroMobileFile.name,
           },
         ]);
+
+        // These Storage files are now owned by pendingHeroUploads.
+        desktopUpload = null;
+        mobileUpload = null;
+        setHeroDesktopFile(null);
+        setHeroMobileFile(null);
         return;
       }
 
-      const sortOrder = heroImages.length;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        throw new Error(
+          "NEXT_PUBLIC_API_URL n'est pas configurée.",
+        );
+      }
+
+      const nextSortOrder =
+        heroImages.length === 0
+          ? 0
+          : Math.max(
+              ...heroImages.map(
+                (image) => image.sortOrder,
+              ),
+            ) + 1;
 
       const createResponse = await fetch(
         `${apiUrl}/admin/categories/${editingCategory.id}/hero-images`,
@@ -814,10 +900,12 @@ export default function AdminCategoriesPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            url,
-            storagePath: path,
+            url: desktopUpload.url,
+            storagePath: desktopUpload.path,
+            mobileUrl: mobileUpload.url,
+            mobileStoragePath: mobileUpload.path,
             altText,
-            sortOrder,
+            sortOrder: nextSortOrder,
           }),
         },
       );
@@ -825,17 +913,14 @@ export default function AdminCategoriesPage() {
       if (!createResponse.ok) {
         const payload = (
           await createResponse.json().catch(() => null)
-        ) as ApiErrorPayload;
+        ) as ApiErrorPayload | null;
 
-        await deleteTempStorage(path);
-
-        setHeroUploadError(
+        throw new Error(
           apiMessage(
             payload,
-            "Erreur lors de l'enregistrement de l'image.",
+            "Erreur lors de l'enregistrement du slide Hero.",
           ),
         );
-        return;
       }
 
       const newImage =
@@ -845,16 +930,28 @@ export default function AdminCategoriesPage() {
         ...current,
         newImage,
       ]);
-    } catch {
+
+      // The DB row now owns both Storage files.
+      desktopUpload = null;
+      mobileUpload = null;
+      setHeroDesktopFile(null);
+      setHeroMobileFile(null);
+    } catch (error) {
+      if (desktopUpload) {
+        await deleteTempStorage(desktopUpload.path);
+      }
+
+      if (mobileUpload) {
+        await deleteTempStorage(mobileUpload.path);
+      }
+
       setHeroUploadError(
-        "Erreur réseau lors de l'upload.",
+        error instanceof Error
+          ? error.message
+          : "Erreur lors de l'ajout du slide Hero.",
       );
     } finally {
       setIsUploadingHero(false);
-
-      if (heroFileInputRef.current) {
-        heroFileInputRef.current.value = "";
-      }
     }
   }
 
@@ -864,7 +961,11 @@ export default function AdminCategoriesPage() {
     setDeletingImageId(pending.tempId);
 
     try {
-      await deleteTempStorage(pending.storagePath);
+      await Promise.all([
+        deleteTempStorage(pending.storagePath),
+        deleteTempStorage(pending.mobileStoragePath),
+      ]);
+
       setPendingHeroUploads((current) =>
         current.filter(
           (item) => item.tempId !== pending.tempId,
@@ -875,11 +976,156 @@ export default function AdminCategoriesPage() {
     }
   }
 
+  function movePendingHero(
+    pending: PendingHeroUpload,
+    direction: "up" | "down",
+  ) {
+    setPendingHeroUploads((current) => {
+      const currentIndex = current.findIndex(
+        (item) => item.tempId === pending.tempId,
+      );
+
+      if (currentIndex < 0) {
+        return current;
+      }
+
+      const targetIndex =
+        direction === "up"
+          ? currentIndex - 1
+          : currentIndex + 1;
+
+      if (
+        targetIndex < 0 ||
+        targetIndex >= current.length
+      ) {
+        return current;
+      }
+
+      const next = [...current];
+      const temp = next[targetIndex];
+      next[targetIndex] = next[currentIndex];
+      next[currentIndex] = temp;
+
+      return next;
+    });
+  }
+
+  async function handleHeroImageReplacement(
+    image: HeroImage,
+    kind: "desktop" | "mobile",
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !editingCategory) {
+      return;
+    }
+
+    const validationError = validateHeroFile(file);
+
+    if (validationError) {
+      setHeroUploadError(validationError);
+      return;
+    }
+
+    setHeroUploadError(null);
+    setUpdatingImageId(image.id);
+
+    let uploaded: { url: string; path: string } | null = null;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        router.replace("/admin/login");
+        return;
+      }
+
+      uploaded = await uploadHeroFile(
+        file,
+        session.access_token,
+      );
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        throw new Error(
+          "NEXT_PUBLIC_API_URL n'est pas configurée.",
+        );
+      }
+
+      const payload =
+        kind === "desktop"
+          ? {
+              url: uploaded.url,
+              storagePath: uploaded.path,
+            }
+          : {
+              mobileUrl: uploaded.url,
+              mobileStoragePath: uploaded.path,
+            };
+
+      const response = await fetch(
+        `${apiUrl}/admin/categories/${editingCategory.id}/hero-images/${image.id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorPayload = (
+          await response.json().catch(() => null)
+        ) as ApiErrorPayload | null;
+
+        throw new Error(
+          apiMessage(
+            errorPayload,
+            kind === "desktop"
+              ? "Impossible de remplacer l'image PC."
+              : "Impossible de remplacer l'image téléphone.",
+          ),
+        );
+      }
+
+      const updated =
+        (await response.json()) as HeroImage;
+
+      setHeroImages((current) =>
+        current.map((item) =>
+          item.id === updated.id ? updated : item,
+        ),
+      );
+
+      // The DB row now owns the new Storage file.
+      uploaded = null;
+    } catch (error) {
+      if (uploaded) {
+        await deleteTempStorage(uploaded.path);
+      }
+
+      setHeroUploadError(
+        error instanceof Error
+          ? error.message
+          : "Erreur lors du remplacement de l'image Hero.",
+      );
+    } finally {
+      setUpdatingImageId(null);
+    }
+  }
+
   async function handleHeroImageDelete(image: HeroImage) {
     if (!editingCategory) return;
 
     const confirmed = window.confirm(
-      `Supprimer cette image hero ?`,
+      "Supprimer ce slide Hero ?",
     );
 
     if (!confirmed) return;
@@ -910,9 +1156,15 @@ export default function AdminCategoriesPage() {
       );
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as ApiErrorPayload;
+        const payload = (
+          await response.json().catch(() => null)
+        ) as ApiErrorPayload | null;
+
         window.alert(
-          apiMessage(payload, "Impossible de supprimer l'image."),
+          apiMessage(
+            payload,
+            "Impossible de supprimer le slide.",
+          ),
         );
         return;
       }
@@ -969,7 +1221,7 @@ export default function AdminCategoriesPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!apiUrl) return;
 
-      await fetch(
+      const response = await fetch(
         `${apiUrl}/admin/categories/${editingCategory.id}/hero-images/reorder`,
         {
           method: "PUT",
@@ -985,18 +1237,15 @@ export default function AdminCategoriesPage() {
           }),
         },
       );
+
+      if (!response.ok) {
+        throw new Error("Reorder failed");
+      }
     } catch {
-      // Revert on error
-      setHeroImages((prev) => {
-        const reverted = [...prev];
-        const tempReverted = reverted[currentIndex - 1];
-        reverted[currentIndex - 1] = reverted[currentIndex];
-        reverted[currentIndex] = tempReverted;
-        return reverted.map((img, index) => ({
-          ...img,
-          sortOrder: index,
-        }));
-      });
+      await loadHeroImages(editingCategory.id);
+      setHeroUploadError(
+        "Impossible de modifier l'ordre des slides.",
+      );
     } finally {
       setReorderingImageId(null);
     }
@@ -1009,7 +1258,12 @@ export default function AdminCategoriesPage() {
       (img) => img.id === image.id,
     );
 
-    if (currentIndex < 0 || currentIndex >= heroImages.length - 1) return;
+    if (
+      currentIndex < 0 ||
+      currentIndex >= heroImages.length - 1
+    ) {
+      return;
+    }
 
     const newImages = [...heroImages];
     const temp = newImages[currentIndex + 1];
@@ -1037,7 +1291,7 @@ export default function AdminCategoriesPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!apiUrl) return;
 
-      await fetch(
+      const response = await fetch(
         `${apiUrl}/admin/categories/${editingCategory.id}/hero-images/reorder`,
         {
           method: "PUT",
@@ -1053,18 +1307,15 @@ export default function AdminCategoriesPage() {
           }),
         },
       );
+
+      if (!response.ok) {
+        throw new Error("Reorder failed");
+      }
     } catch {
-      // Revert on error
-      setHeroImages((prev) => {
-        const reverted = [...prev];
-        const tempReverted = reverted[currentIndex + 1];
-        reverted[currentIndex + 1] = reverted[currentIndex];
-        reverted[currentIndex] = tempReverted;
-        return reverted.map((img, index) => ({
-          ...img,
-          sortOrder: index,
-        }));
-      });
+      await loadHeroImages(editingCategory.id);
+      setHeroUploadError(
+        "Impossible de modifier l'ordre des slides.",
+      );
     } finally {
       setReorderingImageId(null);
     }
@@ -1110,6 +1361,13 @@ export default function AdminCategoriesPage() {
     ) {
       setFormError(
         "L'ordre doit être un nombre entier positif ou nul.",
+      );
+      return;
+    }
+
+    if (heroDesktopFile || heroMobileFile) {
+      setFormError(
+        "Ajoutez ou annulez le slide Hero en préparation avant d'enregistrer la catégorie.",
       );
       return;
     }
@@ -1234,15 +1492,14 @@ export default function AdminCategoriesPage() {
 
       const savedCategory = (await response.json()) as Category;
 
-      // If a nested category is being created, hero images may already have
-      // been uploaded to Storage before the category UUID existed. Attach
-      // those pending images now, immediately after creation.
+      // During creation the category UUID does not exist yet, so pending
+      // desktop/mobile slide pairs are attached immediately after creation.
+      const wasCreatingCategory = !editingCategory;
       let committedHeroImages: HeroImage[] = [];
       let failedHeroUploads = 0;
 
       if (
-        !editingCategory &&
-        form.kind !== "CATEGORY" &&
+        wasCreatingCategory &&
         pendingHeroUploads.length > 0
       ) {
         for (
@@ -1250,7 +1507,8 @@ export default function AdminCategoriesPage() {
           index < pendingHeroUploads.length;
           index += 1
         ) {
-          const pendingHero = pendingHeroUploads[index];
+          const pendingHero =
+            pendingHeroUploads[index];
 
           try {
             const createHeroResponse = await fetch(
@@ -1263,8 +1521,14 @@ export default function AdminCategoriesPage() {
                 },
                 body: JSON.stringify({
                   url: pendingHero.url,
-                  storagePath: pendingHero.storagePath,
-                  altText: pendingHero.altText,
+                  storagePath:
+                    pendingHero.storagePath,
+                  mobileUrl:
+                    pendingHero.mobileUrl,
+                  mobileStoragePath:
+                    pendingHero.mobileStoragePath,
+                  altText:
+                    pendingHero.altText,
                   sortOrder: index,
                 }),
               },
@@ -1272,9 +1536,16 @@ export default function AdminCategoriesPage() {
 
             if (!createHeroResponse.ok) {
               failedHeroUploads += 1;
-              await deleteTempStorage(
-                pendingHero.storagePath,
-              );
+
+              await Promise.all([
+                deleteTempStorage(
+                  pendingHero.storagePath,
+                ),
+                deleteTempStorage(
+                  pendingHero.mobileStoragePath,
+                ),
+              ]);
+
               continue;
             }
 
@@ -1283,9 +1554,15 @@ export default function AdminCategoriesPage() {
             );
           } catch {
             failedHeroUploads += 1;
-            await deleteTempStorage(
-              pendingHero.storagePath,
-            );
+
+            await Promise.all([
+              deleteTempStorage(
+                pendingHero.storagePath,
+              ),
+              deleteTempStorage(
+                pendingHero.mobileStoragePath,
+              ),
+            ]);
           }
         }
       }
@@ -1294,15 +1571,19 @@ export default function AdminCategoriesPage() {
       setPendingProfileUrl(null);
       setPendingProfileStoragePath(null);
       setPendingHeroUploads([]);
+      setHeroDesktopFile(null);
+      setHeroMobileFile(null);
 
-      const wasCreatingNestedCategory =
-        !editingCategory &&
-        form.kind !== "CATEGORY";
+      const keepCreatedCategoryOpen =
+        wasCreatingCategory &&
+        (
+          form.kind !== "CATEGORY" ||
+          failedHeroUploads > 0
+        );
 
-      if (wasCreatingNestedCategory) {
-        // A hero image needs a real category id. Keep the modal open after
-        // the first save and switch immediately into edit mode so the admin
-        // can upload the carousel images without closing/reopening the form.
+      if (keepCreatedCategoryOpen) {
+        // Keep the modal open after the first save so Hero slides can still
+        // be managed immediately without closing and reopening the category.
         setEditingCategory(savedCategory);
         setSlugTouched(true);
         setProfileFile(null);
@@ -1316,36 +1597,50 @@ export default function AdminCategoriesPage() {
           name: savedCategory.name,
           slug: savedCategory.slug,
           kind: form.kind,
-          parentId: savedCategory.parentId ?? form.parentId,
-          description: savedCategory.description ?? "",
-          pageTitle: savedCategory.pageTitle ?? "",
-          productsTitle: savedCategory.productsTitle ?? "",
-          filterLabel: savedCategory.filterLabel ?? "",
-          imageUrl: savedCategory.imageUrl ?? "",
+          parentId:
+            savedCategory.parentId ?? form.parentId,
+          description:
+            savedCategory.description ?? "",
+          pageTitle:
+            savedCategory.pageTitle ?? "",
+          productsTitle:
+            savedCategory.productsTitle ?? "",
+          filterLabel:
+            savedCategory.filterLabel ?? "",
+          imageUrl:
+            savedCategory.imageUrl ?? "",
           imageStoragePath:
             savedCategory.imageStoragePath ?? "",
           href: savedCategory.href ?? "",
-          sortOrder: String(savedCategory.sortOrder),
-          isActive: savedCategory.isActive,
-          metaTitle: savedCategory.metaTitle ?? "",
+          sortOrder:
+            String(savedCategory.sortOrder),
+          isActive:
+            savedCategory.isActive,
+          metaTitle:
+            savedCategory.metaTitle ?? "",
           metaDescription:
             savedCategory.metaDescription ?? "",
         });
-        const heroSuccessCount = committedHeroImages.length;
+
+        const heroSuccessCount =
+          committedHeroImages.length;
+
+        const createdLabel =
+          form.kind === "SUBSUBCATEGORY"
+            ? "Sous-sous-catégorie créée"
+            : form.kind === "SUBCATEGORY"
+              ? "Sous-catégorie créée"
+              : "Catégorie créée";
 
         setFormSuccess(
-          form.kind === "SUBSUBCATEGORY"
-            ? heroSuccessCount > 0
-              ? `Sous-sous-catégorie créée avec ${heroSuccessCount} image(s) Hero.`
-              : "Sous-sous-catégorie créée."
-            : heroSuccessCount > 0
-              ? `Sous-catégorie créée avec ${heroSuccessCount} image(s) Hero.`
-              : "Sous-catégorie créée.",
+          heroSuccessCount > 0
+            ? `${createdLabel} avec ${heroSuccessCount} slide(s) Hero.`
+            : `${createdLabel}.`,
         );
 
         if (failedHeroUploads > 0) {
           setHeroUploadError(
-            `${failedHeroUploads} image(s) Hero n'ont pas pu être enregistrées. Vous pouvez les ajouter à nouveau ci-dessous.`,
+            `${failedHeroUploads} slide(s) Hero n'ont pas pu être enregistrés. Vous pouvez les ajouter à nouveau ci-dessous.`,
           );
         }
       } else {
@@ -1634,8 +1929,6 @@ export default function AdminCategoriesPage() {
   const isSubcategory = form.kind === "SUBCATEGORY";
   const isSubSubcategory =
     form.kind === "SUBSUBCATEGORY";
-  const isNestedCategory =
-    form.kind !== "CATEGORY";
 
   return (
     <div>
@@ -1912,6 +2205,8 @@ export default function AdminCategoriesPage() {
                             setProfileUploadError(null);
                             setHeroImages([]);
                             setPendingHeroUploads([]);
+                            setHeroDesktopFile(null);
+                            setHeroMobileFile(null);
                             setHeroUploadError(null);
                             setIsFormOpen(true);
                           }}
@@ -2031,6 +2326,8 @@ export default function AdminCategoriesPage() {
                                     setProfileUploadError(null);
                                     setHeroImages([]);
                                     setPendingHeroUploads([]);
+                                    setHeroDesktopFile(null);
+                                    setHeroMobileFile(null);
                                     setHeroUploadError(null);
                                     setIsFormOpen(true);
                                   }}
@@ -2811,241 +3108,432 @@ export default function AdminCategoriesPage() {
                   </div>
                 </section>
 
-              {/* Hero Images - disponibles dès la création pour les niveaux 2 et 3 */}
-              {isNestedCategory && (
-                <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-neutral-950">
-                        Carrousel Hero de cette page
-                      </h3>
-                      <p className="mt-1 text-xs leading-5 text-neutral-400">
-                        Ces images défilent automatiquement en haut de la page publique correspondante.
-                        Vous pouvez les choisir avant de cliquer sur Créer ; elles seront liées automatiquement après la création.
-                        Maximum 10 images. JPEG, PNG, WebP ou AVIF. Max 10 Mo.
-                      </p>
-                    </div>
-
-                    <span className="text-xs font-medium text-neutral-400">
-                      {heroImages.length + pendingHeroUploads.length}/10
-                    </span>
+              {/* Carrousel Hero - disponible pour tous les niveaux */}
+              <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-950">
+                      Carrousel Hero de cette page
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-neutral-400">
+                      Chaque slide contient une image PC horizontale et une image téléphone verticale.
+                      Maximum 10 slides. JPEG, PNG, WebP ou AVIF. Max 10 Mo par image.
+                    </p>
                   </div>
 
-                  <input
-                    ref={heroFileInputRef}
-                    type="file"
-                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                    onChange={handleHeroImageUpload}
-                    className="hidden"
-                  />
+                  <span className="shrink-0 text-xs font-medium text-neutral-400">
+                    {heroImages.length + pendingHeroUploads.length}/10
+                  </span>
+                </div>
 
-                  {heroUploadError ? (
-                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                      {heroUploadError}
-                    </div>
-                  ) : null}
+                <input
+                  ref={heroDesktopFileInputRef}
+                  type="file"
+                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                  onChange={(event) =>
+                    handleHeroDraftFileSelect(
+                      "desktop",
+                      event,
+                    )
+                  }
+                  className="hidden"
+                />
 
-                  {pendingHeroUploads.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      {pendingHeroUploads.map((pending, index) => (
-                        <div
-                          key={pending.tempId}
-                          className={[
-                            "flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-2",
-                            deletingImageId === pending.tempId
-                              ? "opacity-50"
-                              : "",
-                          ].join(" ")}
-                        >
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-                            <img
-                              src={pending.url}
-                              alt={pending.altText}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
+                <input
+                  ref={heroMobileFileInputRef}
+                  type="file"
+                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                  onChange={(event) =>
+                    handleHeroDraftFileSelect(
+                      "mobile",
+                      event,
+                    )
+                  }
+                  className="hidden"
+                />
 
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs text-neutral-700">
-                              {pending.fileName}
-                            </p>
-                            <p className="mt-0.5 text-[10px] font-medium text-amber-700">
-                              Position {heroImages.length + index + 1} · sera enregistrée avec la catégorie
-                            </p>
-                          </div>
+                {heroUploadError ? (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {heroUploadError}
+                  </div>
+                ) : null}
 
-                          <button
-                            type="button"
-                            disabled={deletingImageId !== null}
-                            onClick={() =>
-                              void handlePendingHeroDelete(pending)
-                            }
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
-                            title="Retirer"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 16 16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
-                              <path d="M3 4h10M6 4V3h4v1M5 4v9h6V4" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                <div className="mt-4 rounded-xl border border-black/[0.07] bg-[#faf9f6] p-3 sm:p-4">
+                  <p className="text-xs font-semibold text-neutral-700">
+                    Nouveau slide
+                  </p>
 
-                  {heroImages.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      {heroImages.map((image, index) => (
-                        <div
-                          key={image.id}
-                          className={[
-                            "flex items-center gap-3 rounded-xl border border-black/[0.06] bg-[#faf9f6] p-2",
-                            deletingImageId === image.id ||
-                            reorderingImageId === image.id
-                              ? "opacity-50"
-                              : "",
-                          ].join(" ")}
-                        >
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-                            <img
-                              src={image.url}
-                              alt={image.altText ?? ""}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs text-neutral-600">
-                              {image.altText ?? "Image hero"}
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-neutral-400">
-                              Position {index + 1}
-                            </p>
-                          </div>
-
-                          <div className="flex shrink-0 gap-1">
-                            <button
-                              type="button"
-                              disabled={index === 0 || deletingImageId !== null}
-                              onClick={() =>
-                                void handleHeroImageMoveUp(image)
-                              }
-                              className="grid h-7 w-7 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                              title="Monter"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M8 3v10M4 7l4-4 4 4" />
-                              </svg>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={index === heroImages.length - 1 || deletingImageId !== null}
-                              onClick={() =>
-                                void handleHeroImageMoveDown(image)
-                              }
-                              className="grid h-7 w-7 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                              title="Descendre"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M8 13V3M4 9l4 4 4-4" />
-                              </svg>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={deletingImageId !== null}
-                              onClick={() =>
-                                void handleHeroImageDelete(image)
-                              }
-                              className="grid h-7 w-7 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
-                              title="Supprimer"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M3 4h10M6 4V3h4v1M5 4v9h6V4" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : pendingHeroUploads.length === 0 ? (
-                    <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
-                      <p className="text-xs text-neutral-400">
-                        Aucune image Hero. Vous pouvez les ajouter maintenant, avant même de créer la catégorie.
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-black/[0.06] bg-white p-3">
+                      <p className="text-xs font-semibold text-neutral-800">
+                        Image PC
                       </p>
+                      <p className="mt-1 text-[11px] text-neutral-400">
+                        Format horizontal
+                      </p>
+
+                      {heroDesktopFile ? (
+                        <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
+                          <p className="truncate text-xs font-medium text-neutral-700">
+                            {heroDesktopFile.name}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-neutral-400">
+                            {formatFileSize(heroDesktopFile.size)}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        disabled={isUploadingHero}
+                        onClick={() =>
+                          heroDesktopFileInputRef.current?.click()
+                        }
+                        className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                      >
+                        {heroDesktopFile
+                          ? "Changer l'image PC"
+                          : "Choisir l'image PC"}
+                      </button>
                     </div>
-                  ) : null}
+
+                    <div className="rounded-xl border border-black/[0.06] bg-white p-3">
+                      <p className="text-xs font-semibold text-neutral-800">
+                        Image téléphone
+                      </p>
+                      <p className="mt-1 text-[11px] text-neutral-400">
+                        Format vertical
+                      </p>
+
+                      {heroMobileFile ? (
+                        <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
+                          <p className="truncate text-xs font-medium text-neutral-700">
+                            {heroMobileFile.name}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-neutral-400">
+                            {formatFileSize(heroMobileFile.size)}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        disabled={isUploadingHero}
+                        onClick={() =>
+                          heroMobileFileInputRef.current?.click()
+                        }
+                        className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
+                      >
+                        {heroMobileFile
+                          ? "Changer l'image téléphone"
+                          : "Choisir l'image téléphone"}
+                      </button>
+                    </div>
+                  </div>
 
                   <button
                     type="button"
                     disabled={
                       isUploadingHero ||
+                      !heroDesktopFile ||
+                      !heroMobileFile ||
                       heroImages.length + pendingHeroUploads.length >= 10
                     }
                     onClick={() =>
-                      heroFileInputRef.current?.click()
+                      void handleAddHeroSlide()
                     }
-                    className={[
-                      "mt-4 flex h-11 items-center gap-2 rounded-xl border border-dashed border-black/[0.15] bg-[#faf9f6] px-4 text-sm font-semibold transition",
-                      isUploadingHero ||
-                      heroImages.length + pendingHeroUploads.length >= 10
-                        ? "cursor-not-allowed text-neutral-400"
-                        : "text-neutral-600 hover:border-neutral-300 hover:bg-white",
-                    ].join(" ")}
+                    className="mt-3 min-h-11 w-full rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {isUploadingHero ? (
-                      <>
-                        <svg
-                          className="animate-spin"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                        >
-                          <circle
-                            cx="8"
-                            cy="8"
-                            r="6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            className="opacity-25"
-                          />
-                          <path
-                            d="M14 8a6 6 0 01-6 6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            className="opacity-75"
-                          />
-                        </svg>
-                        Upload en cours…
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          aria-hidden="true"
-                        >
-                          <path d="M8 3v10M3 8h10" />
-                        </svg>
-                        Ajouter une image hero
-                      </>
-                    )}
+                    {isUploadingHero
+                      ? "Upload du slide…"
+                      : "Ajouter ce slide"}
                   </button>
-                </section>
-              )}
+                </div>
+
+                {pendingHeroUploads.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {pendingHeroUploads.map(
+                      (pending, index) => (
+                        <div
+                          key={pending.tempId}
+                          className={[
+                            "rounded-xl border border-amber-200 bg-amber-50/60 p-3",
+                            deletingImageId === pending.tempId
+                              ? "opacity-50"
+                              : "",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold text-neutral-800">
+                                Slide {heroImages.length + index + 1}
+                              </p>
+                              <p className="mt-0.5 text-[10px] font-medium text-amber-700">
+                                Sera enregistré avec la catégorie
+                              </p>
+                            </div>
+
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                disabled={
+                                  index === 0 ||
+                                  deletingImageId !== null
+                                }
+                                onClick={() =>
+                                  movePendingHero(
+                                    pending,
+                                    "up",
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
+                                title="Monter"
+                              >
+                                ↑
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  index ===
+                                    pendingHeroUploads.length - 1 ||
+                                  deletingImageId !== null
+                                }
+                                onClick={() =>
+                                  movePendingHero(
+                                    pending,
+                                    "down",
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
+                                title="Descendre"
+                              >
+                                ↓
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingImageId !== null
+                                }
+                                onClick={() =>
+                                  void handlePendingHeroDelete(
+                                    pending,
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
+                                title="Retirer"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                PC
+                              </p>
+                              <div className="aspect-[16/7] overflow-hidden rounded-lg border border-black/[0.06] bg-white">
+                                <img
+                                  src={pending.url}
+                                  alt={pending.altText}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <p className="mt-1 truncate text-[10px] text-neutral-500">
+                                {pending.desktopFileName}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                Téléphone
+                              </p>
+                              <div className="mx-auto aspect-[3/4] max-h-40 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
+                                <img
+                                  src={pending.mobileUrl}
+                                  alt={pending.altText}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <p className="mt-1 truncate text-[10px] text-neutral-500">
+                                {pending.mobileFileName}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+
+                {heroImages.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {heroImages.map((image, index) => {
+                      const imageBusy =
+                        deletingImageId === image.id ||
+                        reorderingImageId === image.id ||
+                        updatingImageId === image.id;
+
+                      return (
+                        <div
+                          key={image.id}
+                          className={[
+                            "rounded-xl border border-black/[0.06] bg-[#faf9f6] p-3",
+                            imageBusy ? "opacity-50" : "",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold text-neutral-800">
+                                Slide {index + 1}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-neutral-400">
+                                {image.altText ?? "Image Hero"}
+                              </p>
+                            </div>
+
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                disabled={
+                                  index === 0 ||
+                                  deletingImageId !== null ||
+                                  reorderingImageId !== null ||
+                                  updatingImageId !== null
+                                }
+                                onClick={() =>
+                                  void handleHeroImageMoveUp(
+                                    image,
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                                title="Monter"
+                              >
+                                ↑
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  index === heroImages.length - 1 ||
+                                  deletingImageId !== null ||
+                                  reorderingImageId !== null ||
+                                  updatingImageId !== null
+                                }
+                                onClick={() =>
+                                  void handleHeroImageMoveDown(
+                                    image,
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                                title="Descendre"
+                              >
+                                ↓
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingImageId !== null ||
+                                  updatingImageId !== null
+                                }
+                                onClick={() =>
+                                  void handleHeroImageDelete(
+                                    image,
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
+                                title="Supprimer le slide"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-lg border border-black/[0.06] bg-white p-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                PC · horizontal
+                              </p>
+                              <div className="mt-2 aspect-[16/7] overflow-hidden rounded-md bg-[#f3f1ec]">
+                                <img
+                                  src={image.url}
+                                  alt={image.altText ?? ""}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+
+                              <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
+                                Remplacer l'image PC
+                                <input
+                                  type="file"
+                                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                                  disabled={imageBusy}
+                                  onChange={(event) =>
+                                    void handleHeroImageReplacement(
+                                      image,
+                                      "desktop",
+                                      event,
+                                    )
+                                  }
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            <div className="rounded-lg border border-black/[0.06] bg-white p-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                Téléphone · vertical
+                              </p>
+
+                              {image.mobileUrl ? (
+                                <div className="mx-auto mt-2 aspect-[3/4] max-h-48 overflow-hidden rounded-md bg-[#f3f1ec]">
+                                  <img
+                                    src={image.mobileUrl}
+                                    alt={image.altText ?? ""}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="mt-2 grid min-h-28 place-items-center rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 text-center text-[11px] text-amber-700">
+                                  Ancien slide : ajoutez maintenant son image téléphone.
+                                </div>
+                              )}
+
+                              <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
+                                {image.mobileUrl
+                                  ? "Remplacer l'image téléphone"
+                                  : "Ajouter l'image téléphone"}
+                                <input
+                                  type="file"
+                                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                                  disabled={imageBusy}
+                                  onChange={(event) =>
+                                    void handleHeroImageReplacement(
+                                      image,
+                                      "mobile",
+                                      event,
+                                    )
+                                  }
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : pendingHeroUploads.length === 0 ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
+                    <p className="text-xs text-neutral-400">
+                      Aucun slide Hero pour cette page.
+                    </p>
+                  </div>
+                ) : null}
+              </section>
 
               <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-neutral-950">
