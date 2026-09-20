@@ -491,8 +491,12 @@ export default function AdminCategoriesPage() {
         category.metaDescription ?? "",
     });
 
-    // Hero carousel is available for every category level.
-    await loadHeroImages(category.id);
+    // Hero carousel is available only for top-level categories.
+    if (!category.parentId) {
+      await loadHeroImages(category.id);
+    } else {
+      setHeroImages([]);
+    }
 
     setIsFormOpen(true);
   }
@@ -1500,6 +1504,7 @@ export default function AdminCategoriesPage() {
 
       if (
         wasCreatingCategory &&
+        form.kind === "CATEGORY" &&
         pendingHeroUploads.length > 0
       ) {
         for (
@@ -1576,10 +1581,8 @@ export default function AdminCategoriesPage() {
 
       const keepCreatedCategoryOpen =
         wasCreatingCategory &&
-        (
-          form.kind !== "CATEGORY" ||
-          failedHeroUploads > 0
-        );
+        form.kind === "CATEGORY" &&
+        failedHeroUploads > 0;
 
       if (keepCreatedCategoryOpen) {
         // Keep the modal open after the first save so Hero slides can still
@@ -3108,433 +3111,436 @@ export default function AdminCategoriesPage() {
                   </div>
                 </section>
 
-              {/* Carrousel Hero - disponible pour tous les niveaux */}
-              <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-neutral-950">
-                      Carrousel Hero de cette page
-                    </h3>
-                    <p className="mt-1 text-xs leading-5 text-neutral-400">
-                      Chaque slide contient une image PC horizontale et une image téléphone verticale.
-                      Maximum 10 slides. JPEG, PNG, WebP ou AVIF. Max 10 Mo par image.
+              {/* Carrousel Hero - catégories principales uniquement */}
+              {form.kind === "CATEGORY" ? (
+  
+                <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">
+                        Carrousel Hero de cette page
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-neutral-400">
+                        Chaque slide contient une image PC horizontale et une image téléphone verticale.
+                        Maximum 10 slides. JPEG, PNG, WebP ou AVIF. Max 10 Mo par image.
+                      </p>
+                    </div>
+  
+                    <span className="shrink-0 text-xs font-medium text-neutral-400">
+                      {heroImages.length + pendingHeroUploads.length}/10
+                    </span>
+                  </div>
+  
+                  <input
+                    ref={heroDesktopFileInputRef}
+                    type="file"
+                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                    onChange={(event) =>
+                      handleHeroDraftFileSelect(
+                        "desktop",
+                        event,
+                      )
+                    }
+                    className="hidden"
+                  />
+  
+                  <input
+                    ref={heroMobileFileInputRef}
+                    type="file"
+                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                    onChange={(event) =>
+                      handleHeroDraftFileSelect(
+                        "mobile",
+                        event,
+                      )
+                    }
+                    className="hidden"
+                  />
+  
+                  {heroUploadError ? (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {heroUploadError}
+                    </div>
+                  ) : null}
+  
+                  <div className="mt-4 rounded-xl border border-black/[0.07] bg-[#faf9f6] p-3 sm:p-4">
+                    <p className="text-xs font-semibold text-neutral-700">
+                      Nouveau slide
                     </p>
-                  </div>
-
-                  <span className="shrink-0 text-xs font-medium text-neutral-400">
-                    {heroImages.length + pendingHeroUploads.length}/10
-                  </span>
-                </div>
-
-                <input
-                  ref={heroDesktopFileInputRef}
-                  type="file"
-                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                  onChange={(event) =>
-                    handleHeroDraftFileSelect(
-                      "desktop",
-                      event,
-                    )
-                  }
-                  className="hidden"
-                />
-
-                <input
-                  ref={heroMobileFileInputRef}
-                  type="file"
-                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                  onChange={(event) =>
-                    handleHeroDraftFileSelect(
-                      "mobile",
-                      event,
-                    )
-                  }
-                  className="hidden"
-                />
-
-                {heroUploadError ? (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    {heroUploadError}
-                  </div>
-                ) : null}
-
-                <div className="mt-4 rounded-xl border border-black/[0.07] bg-[#faf9f6] p-3 sm:p-4">
-                  <p className="text-xs font-semibold text-neutral-700">
-                    Nouveau slide
-                  </p>
-
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-black/[0.06] bg-white p-3">
-                      <p className="text-xs font-semibold text-neutral-800">
-                        Image PC
-                      </p>
-                      <p className="mt-1 text-[11px] text-neutral-400">
-                        Format horizontal
-                      </p>
-
-                      {heroDesktopFile ? (
-                        <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
-                          <p className="truncate text-xs font-medium text-neutral-700">
-                            {heroDesktopFile.name}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-neutral-400">
-                            {formatFileSize(heroDesktopFile.size)}
-                          </p>
-                        </div>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        disabled={isUploadingHero}
-                        onClick={() =>
-                          heroDesktopFileInputRef.current?.click()
-                        }
-                        className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
-                      >
-                        {heroDesktopFile
-                          ? "Changer l'image PC"
-                          : "Choisir l'image PC"}
-                      </button>
-                    </div>
-
-                    <div className="rounded-xl border border-black/[0.06] bg-white p-3">
-                      <p className="text-xs font-semibold text-neutral-800">
-                        Image téléphone
-                      </p>
-                      <p className="mt-1 text-[11px] text-neutral-400">
-                        Format vertical
-                      </p>
-
-                      {heroMobileFile ? (
-                        <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
-                          <p className="truncate text-xs font-medium text-neutral-700">
-                            {heroMobileFile.name}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-neutral-400">
-                            {formatFileSize(heroMobileFile.size)}
-                          </p>
-                        </div>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        disabled={isUploadingHero}
-                        onClick={() =>
-                          heroMobileFileInputRef.current?.click()
-                        }
-                        className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
-                      >
-                        {heroMobileFile
-                          ? "Changer l'image téléphone"
-                          : "Choisir l'image téléphone"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={
-                      isUploadingHero ||
-                      !heroDesktopFile ||
-                      !heroMobileFile ||
-                      heroImages.length + pendingHeroUploads.length >= 10
-                    }
-                    onClick={() =>
-                      void handleAddHeroSlide()
-                    }
-                    className="mt-3 min-h-11 w-full rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isUploadingHero
-                      ? "Upload du slide…"
-                      : "Ajouter ce slide"}
-                  </button>
-                </div>
-
-                {pendingHeroUploads.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {pendingHeroUploads.map(
-                      (pending, index) => (
-                        <div
-                          key={pending.tempId}
-                          className={[
-                            "rounded-xl border border-amber-200 bg-amber-50/60 p-3",
-                            deletingImageId === pending.tempId
-                              ? "opacity-50"
-                              : "",
-                          ].join(" ")}
+  
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-black/[0.06] bg-white p-3">
+                        <p className="text-xs font-semibold text-neutral-800">
+                          Image PC
+                        </p>
+                        <p className="mt-1 text-[11px] text-neutral-400">
+                          Format horizontal
+                        </p>
+  
+                        {heroDesktopFile ? (
+                          <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
+                            <p className="truncate text-xs font-medium text-neutral-700">
+                              {heroDesktopFile.name}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-neutral-400">
+                              {formatFileSize(heroDesktopFile.size)}
+                            </p>
+                          </div>
+                        ) : null}
+  
+                        <button
+                          type="button"
+                          disabled={isUploadingHero}
+                          onClick={() =>
+                            heroDesktopFileInputRef.current?.click()
+                          }
+                          className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-semibold text-neutral-800">
-                                Slide {heroImages.length + index + 1}
-                              </p>
-                              <p className="mt-0.5 text-[10px] font-medium text-amber-700">
-                                Sera enregistré avec la catégorie
-                              </p>
-                            </div>
-
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                disabled={
-                                  index === 0 ||
-                                  deletingImageId !== null
-                                }
-                                onClick={() =>
-                                  movePendingHero(
-                                    pending,
-                                    "up",
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
-                                title="Monter"
-                              >
-                                ↑
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  index ===
-                                    pendingHeroUploads.length - 1 ||
-                                  deletingImageId !== null
-                                }
-                                onClick={() =>
-                                  movePendingHero(
-                                    pending,
-                                    "down",
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
-                                title="Descendre"
-                              >
-                                ↓
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  deletingImageId !== null
-                                }
-                                onClick={() =>
-                                  void handlePendingHeroDelete(
-                                    pending,
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
-                                title="Retirer"
-                              >
-                                ×
-                              </button>
-                            </div>
+                          {heroDesktopFile
+                            ? "Changer l'image PC"
+                            : "Choisir l'image PC"}
+                        </button>
+                      </div>
+  
+                      <div className="rounded-xl border border-black/[0.06] bg-white p-3">
+                        <p className="text-xs font-semibold text-neutral-800">
+                          Image téléphone
+                        </p>
+                        <p className="mt-1 text-[11px] text-neutral-400">
+                          Format vertical
+                        </p>
+  
+                        {heroMobileFile ? (
+                          <div className="mt-3 rounded-lg bg-[#f5f3ee] px-3 py-2">
+                            <p className="truncate text-xs font-medium text-neutral-700">
+                              {heroMobileFile.name}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-neutral-400">
+                              {formatFileSize(heroMobileFile.size)}
+                            </p>
                           </div>
-
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                PC
-                              </p>
-                              <div className="aspect-[16/7] overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-                                <img
-                                  src={pending.url}
-                                  alt={pending.altText}
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
-                              <p className="mt-1 truncate text-[10px] text-neutral-500">
-                                {pending.desktopFileName}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                Téléphone
-                              </p>
-                              <div className="mx-auto aspect-[3/4] max-h-40 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-                                <img
-                                  src={pending.mobileUrl}
-                                  alt={pending.altText}
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
-                              <p className="mt-1 truncate text-[10px] text-neutral-500">
-                                {pending.mobileFileName}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                ) : null}
-
-                {heroImages.length > 0 ? (
-                  <div className="mt-4 space-y-3">
-                    {heroImages.map((image, index) => {
-                      const imageBusy =
-                        deletingImageId === image.id ||
-                        reorderingImageId === image.id ||
-                        updatingImageId === image.id;
-
-                      return (
-                        <div
-                          key={image.id}
-                          className={[
-                            "rounded-xl border border-black/[0.06] bg-[#faf9f6] p-3",
-                            imageBusy ? "opacity-50" : "",
-                          ].join(" ")}
+                        ) : null}
+  
+                        <button
+                          type="button"
+                          disabled={isUploadingHero}
+                          onClick={() =>
+                            heroMobileFileInputRef.current?.click()
+                          }
+                          className="mt-3 min-h-10 w-full rounded-lg border border-dashed border-black/[0.14] px-3 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-50"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-semibold text-neutral-800">
-                                Slide {index + 1}
-                              </p>
-                              <p className="mt-0.5 text-[10px] text-neutral-400">
-                                {image.altText ?? "Image Hero"}
-                              </p>
-                            </div>
-
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                disabled={
-                                  index === 0 ||
-                                  deletingImageId !== null ||
-                                  reorderingImageId !== null ||
-                                  updatingImageId !== null
-                                }
-                                onClick={() =>
-                                  void handleHeroImageMoveUp(
-                                    image,
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                                title="Monter"
-                              >
-                                ↑
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  index === heroImages.length - 1 ||
-                                  deletingImageId !== null ||
-                                  reorderingImageId !== null ||
-                                  updatingImageId !== null
-                                }
-                                onClick={() =>
-                                  void handleHeroImageMoveDown(
-                                    image,
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                                title="Descendre"
-                              >
-                                ↓
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  deletingImageId !== null ||
-                                  updatingImageId !== null
-                                }
-                                onClick={() =>
-                                  void handleHeroImageDelete(
-                                    image,
-                                  )
-                                }
-                                className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
-                                title="Supprimer le slide"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-lg border border-black/[0.06] bg-white p-2">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                PC · horizontal
-                              </p>
-                              <div className="mt-2 aspect-[16/7] overflow-hidden rounded-md bg-[#f3f1ec]">
-                                <img
-                                  src={image.url}
-                                  alt={image.altText ?? ""}
-                                  className="h-full w-full object-cover"
-                                />
+                          {heroMobileFile
+                            ? "Changer l'image téléphone"
+                            : "Choisir l'image téléphone"}
+                        </button>
+                      </div>
+                    </div>
+  
+                    <button
+                      type="button"
+                      disabled={
+                        isUploadingHero ||
+                        !heroDesktopFile ||
+                        !heroMobileFile ||
+                        heroImages.length + pendingHeroUploads.length >= 10
+                      }
+                      onClick={() =>
+                        void handleAddHeroSlide()
+                      }
+                      className="mt-3 min-h-11 w-full rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isUploadingHero
+                        ? "Upload du slide…"
+                        : "Ajouter ce slide"}
+                    </button>
+                  </div>
+  
+                  {pendingHeroUploads.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {pendingHeroUploads.map(
+                        (pending, index) => (
+                          <div
+                            key={pending.tempId}
+                            className={[
+                              "rounded-xl border border-amber-200 bg-amber-50/60 p-3",
+                              deletingImageId === pending.tempId
+                                ? "opacity-50"
+                                : "",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-800">
+                                  Slide {heroImages.length + index + 1}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-medium text-amber-700">
+                                  Sera enregistré avec la catégorie
+                                </p>
                               </div>
-
-                              <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
-                                Remplacer l'image PC
-                                <input
-                                  type="file"
-                                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                                  disabled={imageBusy}
-                                  onChange={(event) =>
-                                    void handleHeroImageReplacement(
-                                      image,
-                                      "desktop",
-                                      event,
+  
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    index === 0 ||
+                                    deletingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    movePendingHero(
+                                      pending,
+                                      "up",
                                     )
                                   }
-                                  className="hidden"
-                                />
-                              </label>
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
+                                  title="Monter"
+                                >
+                                  ↑
+                                </button>
+  
+                                <button
+                                  type="button"
+                                  disabled={
+                                    index ===
+                                      pendingHeroUploads.length - 1 ||
+                                    deletingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    movePendingHero(
+                                      pending,
+                                      "down",
+                                    )
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-white disabled:opacity-30"
+                                  title="Descendre"
+                                >
+                                  ↓
+                                </button>
+  
+                                <button
+                                  type="button"
+                                  disabled={
+                                    deletingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    void handlePendingHeroDelete(
+                                      pending,
+                                    )
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
+                                  title="Retirer"
+                                >
+                                  ×
+                                </button>
+                              </div>
                             </div>
-
-                            <div className="rounded-lg border border-black/[0.06] bg-white p-2">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                                Téléphone · vertical
-                              </p>
-
-                              {image.mobileUrl ? (
-                                <div className="mx-auto mt-2 aspect-[3/4] max-h-48 overflow-hidden rounded-md bg-[#f3f1ec]">
+  
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                  PC
+                                </p>
+                                <div className="aspect-[16/7] overflow-hidden rounded-lg border border-black/[0.06] bg-white">
                                   <img
-                                    src={image.mobileUrl}
+                                    src={pending.url}
+                                    alt={pending.altText}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                                <p className="mt-1 truncate text-[10px] text-neutral-500">
+                                  {pending.desktopFileName}
+                                </p>
+                              </div>
+  
+                              <div>
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                  Téléphone
+                                </p>
+                                <div className="mx-auto aspect-[3/4] max-h-40 overflow-hidden rounded-lg border border-black/[0.06] bg-white">
+                                  <img
+                                    src={pending.mobileUrl}
+                                    alt={pending.altText}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                                <p className="mt-1 truncate text-[10px] text-neutral-500">
+                                  {pending.mobileFileName}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+  
+                  {heroImages.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {heroImages.map((image, index) => {
+                        const imageBusy =
+                          deletingImageId === image.id ||
+                          reorderingImageId === image.id ||
+                          updatingImageId === image.id;
+  
+                        return (
+                          <div
+                            key={image.id}
+                            className={[
+                              "rounded-xl border border-black/[0.06] bg-[#faf9f6] p-3",
+                              imageBusy ? "opacity-50" : "",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-800">
+                                  Slide {index + 1}
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-neutral-400">
+                                  {image.altText ?? "Image Hero"}
+                                </p>
+                              </div>
+  
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    index === 0 ||
+                                    deletingImageId !== null ||
+                                    reorderingImageId !== null ||
+                                    updatingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    void handleHeroImageMoveUp(
+                                      image,
+                                    )
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                                  title="Monter"
+                                >
+                                  ↑
+                                </button>
+  
+                                <button
+                                  type="button"
+                                  disabled={
+                                    index === heroImages.length - 1 ||
+                                    deletingImageId !== null ||
+                                    reorderingImageId !== null ||
+                                    updatingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    void handleHeroImageMoveDown(
+                                      image,
+                                    )
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                                  title="Descendre"
+                                >
+                                  ↓
+                                </button>
+  
+                                <button
+                                  type="button"
+                                  disabled={
+                                    deletingImageId !== null ||
+                                    updatingImageId !== null
+                                  }
+                                  onClick={() =>
+                                    void handleHeroImageDelete(
+                                      image,
+                                    )
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30"
+                                  title="Supprimer le slide"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+  
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-lg border border-black/[0.06] bg-white p-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                  PC · horizontal
+                                </p>
+                                <div className="mt-2 aspect-[16/7] overflow-hidden rounded-md bg-[#f3f1ec]">
+                                  <img
+                                    src={image.url}
                                     alt={image.altText ?? ""}
                                     className="h-full w-full object-cover"
                                   />
                                 </div>
-                              ) : (
-                                <div className="mt-2 grid min-h-28 place-items-center rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 text-center text-[11px] text-amber-700">
-                                  Ancien slide : ajoutez maintenant son image téléphone.
-                                </div>
-                              )}
-
-                              <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
-                                {image.mobileUrl
-                                  ? "Remplacer l'image téléphone"
-                                  : "Ajouter l'image téléphone"}
-                                <input
-                                  type="file"
-                                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                                  disabled={imageBusy}
-                                  onChange={(event) =>
-                                    void handleHeroImageReplacement(
-                                      image,
-                                      "mobile",
-                                      event,
-                                    )
-                                  }
-                                  className="hidden"
-                                />
-                              </label>
+  
+                                <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
+                                  Remplacer l'image PC
+                                  <input
+                                    type="file"
+                                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                                    disabled={imageBusy}
+                                    onChange={(event) =>
+                                      void handleHeroImageReplacement(
+                                        image,
+                                        "desktop",
+                                        event,
+                                      )
+                                    }
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+  
+                              <div className="rounded-lg border border-black/[0.06] bg-white p-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                                  Téléphone · vertical
+                                </p>
+  
+                                {image.mobileUrl ? (
+                                  <div className="mx-auto mt-2 aspect-[3/4] max-h-48 overflow-hidden rounded-md bg-[#f3f1ec]">
+                                    <img
+                                      src={image.mobileUrl}
+                                      alt={image.altText ?? ""}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="mt-2 grid min-h-28 place-items-center rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 text-center text-[11px] text-amber-700">
+                                    Ancien slide : ajoutez maintenant son image téléphone.
+                                  </div>
+                                )}
+  
+                                <label className="mt-2 flex min-h-9 cursor-pointer items-center justify-center rounded-lg border border-black/[0.08] px-3 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50">
+                                  {image.mobileUrl
+                                    ? "Remplacer l'image téléphone"
+                                    : "Ajouter l'image téléphone"}
+                                  <input
+                                    type="file"
+                                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                                    disabled={imageBusy}
+                                    onChange={(event) =>
+                                      void handleHeroImageReplacement(
+                                        image,
+                                        "mobile",
+                                        event,
+                                      )
+                                    }
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : pendingHeroUploads.length === 0 ? (
-                  <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
-                    <p className="text-xs text-neutral-400">
-                      Aucun slide Hero pour cette page.
-                    </p>
-                  </div>
-                ) : null}
-              </section>
-
+                        );
+                      })}
+                    </div>
+                  ) : pendingHeroUploads.length === 0 ? (
+                    <div className="mt-4 rounded-xl border border-dashed border-black/[0.1] bg-[#faf9f6] p-6 text-center">
+                      <p className="text-xs text-neutral-400">
+                        Aucun slide Hero pour cette page.
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+  
+              ) : null}
               <section className="rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
                 <h3 className="text-sm font-semibold text-neutral-950">
                   Réglages
