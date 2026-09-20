@@ -92,7 +92,6 @@ export function FeaturedCategories({
             <CategoryCard
               key={category.id}
               category={category}
-              priority={index === 0}
               className={
                 featured.length === 3 && index === 0
                   ? "sm:row-span-2 sm:min-h-[360px]"
@@ -109,7 +108,6 @@ export function FeaturedCategories({
             <div className="mx-auto max-w-[760px]">
               <CategoryCard
                 category={first}
-                priority
                 className="min-h-[330px] xl:min-h-[360px]"
                 large
               />
@@ -120,7 +118,6 @@ export function FeaturedCategories({
             <div className="grid grid-cols-2 gap-4 xl:gap-5">
               <CategoryCard
                 category={first}
-                priority
                 className="min-h-[300px] xl:min-h-[330px]"
               />
 
@@ -135,7 +132,6 @@ export function FeaturedCategories({
             <div className="grid grid-cols-[1.05fr_0.95fr] gap-4 xl:gap-5">
               <CategoryCard
                 category={first}
-                priority
                 className="min-h-[420px] xl:min-h-[450px]"
                 large
               />
@@ -164,7 +160,6 @@ export function FeaturedCategories({
             <div className="grid grid-cols-2 gap-4 xl:gap-5">
               <CategoryCard
                 category={first}
-                priority
                 className="min-h-[210px] xl:min-h-[225px]"
                 compact
               />
@@ -199,13 +194,11 @@ function CategoryCard({
   className = "",
   compact = false,
   large = false,
-  priority = false,
 }: {
   category: CategoryCardData;
   className?: string;
   compact?: boolean;
   large?: boolean;
-  priority?: boolean;
 }) {
   return (
     <Link
@@ -218,13 +211,12 @@ function CategoryCard({
           src={category.image}
           alt={category.title}
           fill
-          priority={priority}
           className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035]"
           style={{ objectPosition: category.imagePosition }}
           sizes={
             large
-              ? "(min-width: 1024px) 52vw, 100vw"
-              : "(min-width: 1024px) 50vw, 100vw"
+              ? "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 52vw"
+              : "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 50vw"
           }
         />
       ) : (
