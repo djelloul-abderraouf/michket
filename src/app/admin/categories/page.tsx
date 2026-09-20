@@ -491,14 +491,14 @@ export default function AdminCategoriesPage() {
         category.metaDescription ?? "",
     });
 
-    // Hero carousel is available only for top-level categories.
-    if (!category.parentId) {
-      await loadHeroImages(category.id);
-    } else {
-      setHeroImages([]);
-    }
-
+    // Open the modal immediately. Hero images are loaded in the background
+    // only for top-level categories so the Modify button never feels blocked.
+    setHeroImages([]);
     setIsFormOpen(true);
+
+    if (!category.parentId) {
+      void loadHeroImages(category.id);
+    }
   }
 
   async function loadHeroImages(categoryId: string) {
