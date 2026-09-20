@@ -133,6 +133,30 @@ body {
   overflow-x: clip;
 }
 
+/* ── Interactive cursor ──
+ * Tailwind CSS v4/preflight does not force a pointer cursor on every
+ * interactive element. Keep one global rule so public + admin UI behave
+ * consistently.
+ */
+a[href],
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* ── Reduced Motion ── */
 @media (prefers-reduced-motion: reduce) {
   *,
