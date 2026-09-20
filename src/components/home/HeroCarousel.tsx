@@ -120,20 +120,6 @@ export function HeroCarousel() {
 
   /* ───────────────────────────── Autoplay ───────────────────────────── */
 
-  /*
-   * IMPORTANT:
-   * We intentionally DO NOT pause autoplay on mouse hover.
-   *
-   * The previous version had:
-   *   onMouseEnter={() => setPaused(true)}
-   *
-   * On desktop, if the visitor's cursor was already over the hero, the
-   * carousel stayed paused and looked broken.
-   *
-   * A fresh 3-second timeout is started after every slide change.
-   * This also means a manual pagination click or mobile swipe naturally
-   * restarts the 3-second countdown before autoplay continues.
-   */
   useEffect(() => {
     if (total <= 1) return;
 
@@ -218,10 +204,7 @@ export function HeroCarousel() {
       >
         {heroSlides.map((slide, index) => {
           const active = index === current;
-          const source =
-            isMobile && slide.mobileSrc
-              ? slide.mobileSrc
-              : slide.desktopSrc;
+          const isFirstSlide = index === 0;
 
           return (
             <Link
@@ -236,25 +219,48 @@ export function HeroCarousel() {
               aria-hidden={!active}
               tabIndex={active ? 0 : -1}
             >
-              <Image
-                src={source}
-                alt={slide.alt}
-                fill
-                className="object-cover"
-                style={
-                  isMobile
-                    ? {
-                        objectPosition:
-                          slide.mobileObjectPosition ?? "center top",
-                      }
-                    : {
-                        objectPosition: "center center",
-                      }
-                }
-                sizes="100vw"
-                priority={index === 0}
-                loading={index === 0 ? "eager" : "lazy"}
-              />
+              {slide.mobileSrc ? (
+                <>
+                  <Image
+                    src={slide.mobileSrc}
+                    alt={slide.alt}
+                    fill
+                    className="object-cover md:hidden"
+                    style={{
+                      objectPosition:
+                        slide.mobileObjectPosition ?? "center top",
+                    }}
+                    sizes="100vw"
+                    fetchPriority={isFirstSlide ? "high" : "auto"}
+                  />
+
+                  <Image
+                    src={slide.desktopSrc}
+                    alt={slide.alt}
+                    fill
+                    className="hidden object-cover md:block"
+                    style={{
+                      objectPosition: "center center",
+                    }}
+                    sizes="100vw"
+                    fetchPriority={isFirstSlide ? "high" : "auto"}
+                  />
+                </>
+              ) : (
+                <Image
+                  src={slide.desktopSrc}
+                  alt={slide.alt}
+                  fill
+                  className="object-cover"
+                  style={{
+                    objectPosition: isMobile
+                      ? slide.mobileObjectPosition ?? "center top"
+                      : "center center",
+                  }}
+                  sizes="100vw"
+                  fetchPriority={isFirstSlide ? "high" : "auto"}
+                />
+              )}
             </Link>
           );
         })}
