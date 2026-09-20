@@ -119,7 +119,7 @@ export default async function Lampes3DPage({
 
       {subcategories.length > 0 ? (
         <section
-          className="relative overflow-hidden bg-white py-8 sm:py-9 lg:py-11"
+          className="relative overflow-hidden bg-white py-6 sm:py-7 lg:py-8"
           aria-labelledby="lampes-subcategories-heading"
         >
           <div
@@ -133,37 +133,6 @@ export default async function Lampes3DPage({
           />
 
           <div className="mx-auto w-full max-w-[1320px] px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto mb-5 max-w-2xl text-center sm:mb-6 lg:mb-7">
-              <div className="mb-2 flex items-center justify-center gap-2.5">
-                <span
-                  className="h-px w-6 bg-[#ECAB1C]"
-                  aria-hidden="true"
-                />
-
-                <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8A6A20] sm:text-[10px]">
-                  {category.name}
-                </span>
-
-                <span
-                  className="h-px w-6 bg-[#ECAB1C]"
-                  aria-hidden="true"
-                />
-              </div>
-
-              <h1
-                id="lampes-subcategories-heading"
-                className="font-body text-[26px] font-semibold leading-tight tracking-[-0.035em] text-[#111111] sm:text-[31px] lg:text-[36px]"
-              >
-                Nos sous-catégories
-              </h1>
-
-              {category.description ? (
-                <p className="mx-auto mt-2 max-w-xl text-[12px] leading-5 text-black/48 sm:text-[13px]">
-                  {category.description}
-                </p>
-              ) : null}
-            </div>
-
             <CategoryMosaic
               categories={subcategories}
               basePath={basePath}

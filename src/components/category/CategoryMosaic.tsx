@@ -126,7 +126,7 @@ export function CategoryMosaic({
             key={category.id}
             href={href}
             data-category-card
-            className="group relative aspect-square w-[78vw] max-w-[315px] flex-none snap-start overflow-hidden rounded-[12px] border border-black/[0.06] bg-[#151515] shadow-[0_8px_22px_rgba(17,17,17,0.06)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/35 hover:shadow-[0_12px_28px_rgba(17,17,17,0.10)] sm:w-[280px] lg:w-[315px]"
+            className="group relative aspect-square w-[64vw] max-w-[220px] flex-none snap-start overflow-hidden rounded-[12px] border border-black/[0.06] bg-[#151515] shadow-[0_8px_22px_rgba(17,17,17,0.06)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ECAB1C]/35 hover:shadow-[0_12px_28px_rgba(17,17,17,0.10)] sm:w-[210px] lg:w-[230px]"
             aria-label={`Découvrir ${category.name}`}
           >
             {category.imageUrl ? (
@@ -136,7 +136,7 @@ export function CategoryMosaic({
                 fill
                 priority={index === 0}
                 className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035]"
-                sizes="(max-width: 639px) 78vw, (max-width: 1023px) 280px, 315px"
+                sizes="(max-width: 639px) 64vw, (max-width: 1023px) 210px, 230px"
               />
             ) : (
               <div
@@ -155,16 +155,16 @@ export function CategoryMosaic({
               aria-hidden="true"
             />
 
-            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+            <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4">
               <div className="mb-2 h-[2px] w-5 bg-[#ECAB1C] transition-all duration-300 group-hover:w-8" />
 
               <div className="flex items-end justify-between gap-3">
-                <h3 className="min-w-0 font-body text-[18px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[20px]">
+                <h3 className="min-w-0 font-body text-[15px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[17px]">
                   {category.name}
                 </h3>
 
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/35 bg-black/20 text-white backdrop-blur-sm transition-all duration-300 group-hover:border-[#ECAB1C] group-hover:bg-[#ECAB1C] group-hover:text-[#0A0A0A]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/35 bg-black/20 text-white backdrop-blur-sm transition-all duration-300 group-hover:border-[#ECAB1C] group-hover:bg-[#ECAB1C] group-hover:text-[#0A0A0A]"
                   aria-hidden="true"
                 >
                   <svg
