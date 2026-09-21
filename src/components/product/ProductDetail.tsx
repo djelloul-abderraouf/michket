@@ -7,15 +7,17 @@
  * Droite : formulaire de commande uniquement.
  */
 
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Cairo } from "next/font/google";
 import {
   type FormEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -95,6 +97,8 @@ function formatPriceDA(price: number): string {
   }).format(price)} دج`;
 }
 
+const MAIN_IMAGE_SIZES = "(max-width: 1023px) 100vw, 52vw";
+
 export function ProductDetail({ product, relatedProducts = [] }: ProductDetailProps) {
   const router = useRouter();
   const { addItem } = useCart();
@@ -111,6 +115,84 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
 
   const [cartMessage, setCartMessage] = useState<string | null>(null);
 
+  /**
+   * The thumbnails are intentionally small, so the browser may only have a
+   * 58–72 px optimized copy cached. When a color is selected, the main image
+   * needs a much larger Next.js image candidate. Preload the exact responsive
+   * candidates used by the main image so color changes feel immediate.
+   */
+  const preloadedVariantSources = useRef<Set<string>>(new Set());
+  const preloadImagesRef = useRef<HTMLImageElement[]>([]);
+
+  const variantImageSources = useMemo(() => {
+    const sources = new Set<string>();
+
+    for (const variant of product.variants ?? []) {
+      const image = product.images.find(
+        (candidate) => candidate.variantId === variant.id,
+      );
+
+      if (image?.src) {
+        sources.add(image.src);
+      }
+    }
+
+    return Array.from(sources);
+  }, [product.images, product.variants]);
+
+  const preloadVariantImage = useCallback((src: string) => {
+    if (
+      typeof window === "undefined" ||
+      preloadedVariantSources.current.has(src)
+    ) {
+      return;
+    }
+
+    preloadedVariantSources.current.add(src);
+
+    const { props } = getImageProps({
+      src,
+      alt: "",
+      fill: true,
+      sizes: MAIN_IMAGE_SIZES,
+    });
+
+    const preloadImage = new window.Image();
+
+    if (typeof props.sizes === "string") {
+      preloadImage.sizes = props.sizes;
+    }
+
+    if (typeof props.srcSet === "string") {
+      preloadImage.srcset = props.srcSet;
+    }
+
+    if (typeof props.src === "string") {
+      preloadImage.src = props.src;
+    }
+
+    // Keep references while requests are in flight.
+    preloadImagesRef.current.push(preloadImage);
+  }, []);
+
+  const preloadAllVariantImages = useCallback(() => {
+    for (const src of variantImageSources) {
+      preloadVariantImage(src);
+    }
+  }, [preloadVariantImage, variantImageSources]);
+
+  useEffect(() => {
+    if (variantImageSources.length === 0) return;
+
+    // Avoid competing with the first visible image. Warm variant images shortly
+    // after the page is interactive, and sooner if the customer opens colors.
+    const timer = window.setTimeout(() => {
+      preloadAllVariantImages();
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [preloadAllVariantImages, variantImageSources.length]);
+
   function handleVariantSelect(variant: ProductVariant) {
     setSelectedVariant(variant);
 
@@ -119,6 +201,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     );
 
     if (variantImageIndex >= 0) {
+      const variantImage = product.images[variantImageIndex];
+      preloadVariantImage(variantImage.src);
       setSelectedImage(variantImageIndex);
     }
 
@@ -599,7 +683,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     fill
                     priority
                     className="object-cover transition-transform duration-500 group-hover:scale-[1.015]"
-                    sizes="(max-width: 1023px) 100vw, 52vw"
+                    sizes={MAIN_IMAGE_SIZES}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-[#251713]/25">
@@ -665,7 +749,15 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
               <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/95 p-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:p-3">
                 <button
                   type="button"
-                  onClick={() => setColorPickerOpen((value) => !value)}
+                  onPointerEnter={preloadAllVariantImages}
+                  onFocus={preloadAllVariantImages}
+                  onClick={() => {
+                    if (!colorPickerOpen) {
+                      preloadAllVariantImages();
+                    }
+
+                    setColorPickerOpen((value) => !value);
+                  }}
                   aria-expanded={colorPickerOpen}
                   aria-controls="michket-color-options"
                   className={[
@@ -757,6 +849,26 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                         <button
                           key={variant.id}
                           type="button"
+                          onPointerEnter={() => {
+                            const image = product.images.find(
+                              (candidate) =>
+                                candidate.variantId === variant.id,
+                            );
+
+                            if (image?.src) {
+                              preloadVariantImage(image.src);
+                            }
+                          }}
+                          onFocus={() => {
+                            const image = product.images.find(
+                              (candidate) =>
+                                candidate.variantId === variant.id,
+                            );
+
+                            if (image?.src) {
+                              preloadVariantImage(image.src);
+                            }
+                          }}
                           onClick={() =>
                             handleVariantSelect(variant)
                           }
