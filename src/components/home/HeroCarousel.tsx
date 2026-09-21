@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import Link from "next/link";
 import {
   useCallback,
@@ -16,93 +16,18 @@ const SWIPE_THRESHOLD = 50;
 
 export function HeroCarousel() {
   const [current, setCurrent] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [initialChromeHeight, setInitialChromeHeight] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   const autoplayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const measureRafRef = useRef<number | null>(null);
 
   const total = heroSlides.length;
-
-  /* ─────────────────────── Mobile viewport detection ─────────────────────── */
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT);
-
-    const sync = () => {
-      setIsMobile(mediaQuery.matches);
-    };
-
-    sync();
-    mediaQuery.addEventListener("change", sync);
-
-    return () => {
-      mediaQuery.removeEventListener("change", sync);
-    };
-  }, []);
-
-  /* ───────────────────── First-screen chrome measurement ─────────────────── */
-
-  useEffect(() => {
-    if (!isMobile) {
-      setInitialChromeHeight(0);
-      return;
-    }
-
-    const header = document.querySelector("header") as HTMLElement | null;
-    const promoWrapper = header?.previousElementSibling as HTMLElement | null;
-
-    if (!header || !promoWrapper) {
-      return;
-    }
-
-    const measure = () => {
-      if (window.scrollY > 5) return;
-
-      const promoHeight = promoWrapper.getBoundingClientRect().height;
-      const navbarHeight = header.getBoundingClientRect().height;
-      const nextHeight = Math.round(promoHeight + navbarHeight);
-
-      if (nextHeight > 0) {
-        setInitialChromeHeight(nextHeight);
-      }
-    };
-
-    const scheduleMeasure = () => {
-      if (measureRafRef.current !== null) {
-        cancelAnimationFrame(measureRafRef.current);
-      }
-
-      measureRafRef.current = requestAnimationFrame(() => {
-        measure();
-        measureRafRef.current = null;
-      });
-    };
-
-    scheduleMeasure();
-
-    const resizeObserver = new ResizeObserver(scheduleMeasure);
-    resizeObserver.observe(header);
-    resizeObserver.observe(promoWrapper);
-
-    window.addEventListener("resize", scheduleMeasure);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", scheduleMeasure);
-
-      if (measureRafRef.current !== null) {
-        cancelAnimationFrame(measureRafRef.current);
-      }
-    };
-  }, [isMobile]);
 
   /* ───────────────────────── Carousel navigation ───────────────────────── */
 
   const goTo = useCallback(
     (index: number) => {
       if (total === 0) return;
+
       setCurrent(((index % total) + total) % total);
     },
     [total],
@@ -110,11 +35,13 @@ export function HeroCarousel() {
 
   const next = useCallback(() => {
     if (total <= 1) return;
+
     setCurrent((previous) => (previous + 1) % total);
   }, [total]);
 
   const prev = useCallback(() => {
     if (total <= 1) return;
+
     setCurrent((previous) => (previous - 1 + total) % total);
   }, [total]);
 
@@ -171,40 +98,61 @@ export function HeroCarousel() {
     [next, prev, touchStart],
   );
 
-  /* ─────────────────────────── Mobile hero sizing ─────────────────────── */
-
-  const mobileHeroStyle =
-    isMobile && initialChromeHeight > 0
-      ? {
-          height: `calc(100dvh - ${initialChromeHeight}px)`,
-          minHeight: "0px",
-        }
-      : undefined;
-
   if (total === 0) {
     return null;
   }
 
   return (
     <section
-      className="relative isolate w-full bg-michket-black"
-      style={mobileHeroStyle}
+      className="
+        relative isolate h-[calc(100dvh-163px)] w-full
+        overflow-hidden bg-michket-black
+        md:aspect-[21/9] md:h-auto
+      "
       data-hero-carousel
       aria-label="Carrousel promotionnel"
       role="region"
     >
-      {/* ── Slides viewport ── */}
       <div
-        className={`relative w-full overflow-hidden ${
-          isMobile ? "h-full" : "aspect-[21/9]"
-        }`}
-        onTouchStart={isMobile ? handleTouchStart : undefined}
-        onTouchEnd={isMobile ? handleTouchEnd : undefined}
-        style={isMobile ? { touchAction: "pan-y pinch-zoom" } : undefined}
+        className="relative h-full w-full overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{ touchAction: "pan-y pinch-zoom" }}
       >
         {heroSlides.map((slide, index) => {
           const active = index === current;
           const isFirstSlide = index === 0;
+
+          const sharedImageOptions = {
+            alt: slide.alt,
+            fill: true,
+            sizes: "100vw",
+            loading: isFirstSlide
+              ? ("eager" as const)
+              : ("lazy" as const),
+            fetchPriority: isFirstSlide
+              ? ("high" as const)
+              : ("auto" as const),
+          };
+
+          const { props: desktopImageProps } = getImageProps({
+            ...sharedImageOptions,
+            src: slide.desktopSrc,
+          });
+
+          const mobileImageProps = slide.mobileSrc
+            ? getImageProps({
+                ...sharedImageOptions,
+                src: slide.mobileSrc,
+              }).props
+            : null;
+
+          const imageStyle = {
+            ...desktopImageProps.style,
+            objectFit: "cover" as const,
+            "--hero-mobile-object-position":
+              slide.mobileObjectPosition ?? "center top",
+          } as React.CSSProperties;
 
           return (
             <Link
@@ -219,48 +167,25 @@ export function HeroCarousel() {
               aria-hidden={!active}
               tabIndex={active ? 0 : -1}
             >
-              {slide.mobileSrc ? (
-                <>
-                  <Image
-                    src={slide.mobileSrc}
-                    alt={slide.alt}
-                    fill
-                    className="object-cover md:hidden"
-                    style={{
-                      objectPosition:
-                        slide.mobileObjectPosition ?? "center top",
-                    }}
+              <picture>
+                {mobileImageProps?.srcSet && (
+                  <source
+                    media={MOBILE_BREAKPOINT}
+                    srcSet={mobileImageProps.srcSet}
                     sizes="100vw"
-                    fetchPriority={isFirstSlide ? "high" : "auto"}
                   />
+                )}
 
-                  <Image
-                    src={slide.desktopSrc}
-                    alt={slide.alt}
-                    fill
-                    className="hidden object-cover md:block"
-                    style={{
-                      objectPosition: "center center",
-                    }}
-                    sizes="100vw"
-                    fetchPriority={isFirstSlide ? "high" : "auto"}
-                  />
-                </>
-              ) : (
-                <Image
-                  src={slide.desktopSrc}
+                <img
+                  {...desktopImageProps}
                   alt={slide.alt}
-                  fill
-                  className="object-cover"
-                  style={{
-                    objectPosition: isMobile
-                      ? slide.mobileObjectPosition ?? "center top"
-                      : "center center",
-                  }}
-                  sizes="100vw"
-                  fetchPriority={isFirstSlide ? "high" : "auto"}
+                  className="
+                    [object-position:var(--hero-mobile-object-position)]
+                    md:object-center
+                  "
+                  style={imageStyle}
                 />
-              )}
+              </picture>
             </Link>
           );
         })}
@@ -293,10 +218,6 @@ export function HeroCarousel() {
           </div>
         )}
       </div>
-
-      {/* No left/right arrows:
-          desktop = autoplay every 3s
-          mobile = autoplay every 3s + finger swipe */}
     </section>
   );
 }
