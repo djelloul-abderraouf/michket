@@ -681,6 +681,30 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     fill
                     loading="eager"
                     fetchPriority="high"
+                    onLoad={() => {
+                      if (galleryImages.length <= 1) return;
+
+                      const nextImage =
+                        galleryImages[
+                          (selectedImage + 1) % galleryImages.length
+                        ];
+                      const previousImage =
+                        galleryImages[
+                          (selectedImage - 1 + galleryImages.length) %
+                            galleryImages.length
+                        ];
+
+                      if (nextImage?.src) {
+                        preloadVariantImage(nextImage.src);
+                      }
+
+                      if (
+                        previousImage?.src &&
+                        previousImage.src !== nextImage?.src
+                      ) {
+                        preloadVariantImage(previousImage.src);
+                      }
+                    }}
                     className="object-cover transition-transform duration-500 group-hover:scale-[1.015]"
                     sizes={MAIN_IMAGE_SIZES}
                   />
@@ -723,6 +747,9 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                   <button
                     key={`${image.src}-${index}`}
                     type="button"
+                    onPointerEnter={() => preloadVariantImage(image.src)}
+                    onPointerDown={() => preloadVariantImage(image.src)}
+                    onFocus={() => preloadVariantImage(image.src)}
                     onClick={() => setSelectedImage(index)}
                     aria-label={`عرض الصورة ${index + 1}`}
                     className={`relative h-[72px] w-[72px] shrink-0 snap-start overflow-hidden rounded-[10px] border-2 bg-[#EDE3D7] transition sm:h-[68px] sm:w-[68px] lg:h-[58px] lg:w-[58px] xl:h-[62px] xl:w-[62px] ${
