@@ -1,6 +1,5 @@
 "use client";
 
-import { getImageProps } from "next/image";
 import Link from "next/link";
 import {
   useCallback,
@@ -12,7 +11,15 @@ import { heroSlides } from "@/data/hero-slides";
 
 const AUTOPLAY_MS = 3000;
 const MOBILE_BREAKPOINT = "(max-width: 767px)";
+const DESKTOP_BREAKPOINT = "(min-width: 768px)";
 const SWIPE_THRESHOLD = 50;
+
+function changeImageFormat(
+  src: string,
+  format: "avif" | "webp",
+): string {
+  return src.replace(/\.[^.]+$/, `.${format}`);
+}
 
 export function HeroCarousel() {
   const [current, setCurrent] = useState(0);
@@ -102,122 +109,187 @@ export function HeroCarousel() {
     return null;
   }
 
+  const firstSlide = heroSlides[0];
+
+  const firstMobileSource =
+    firstSlide.mobileSrc ?? firstSlide.desktopSrc;
+
+  const firstMobileAvif = changeImageFormat(
+    firstMobileSource,
+    "avif",
+  );
+
+  const firstDesktopAvif = changeImageFormat(
+    firstSlide.desktopSrc,
+    "avif",
+  );
+
   return (
-    <section
-      className="
-        relative isolate h-[calc(100dvh-163px)] w-full
-        overflow-hidden bg-michket-black
-        md:aspect-[21/9] md:h-auto
-      "
-      data-hero-carousel
-      aria-label="Carrousel promotionnel"
-      role="region"
-    >
-      <div
-        className="relative h-full w-full overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: "pan-y pinch-zoom" }}
+    <>
+      {/* Critical LCP image preload */}
+      <link
+        rel="preload"
+        as="image"
+        href={firstMobileAvif}
+        type="image/avif"
+        media={MOBILE_BREAKPOINT}
+        fetchPriority="high"
+      />
+
+      <link
+        rel="preload"
+        as="image"
+        href={firstDesktopAvif}
+        type="image/avif"
+        media={DESKTOP_BREAKPOINT}
+        fetchPriority="high"
+      />
+
+      <section
+        className="
+          relative isolate h-[calc(100dvh-163px)] w-full
+          overflow-hidden bg-michket-black
+          md:aspect-[21/9] md:h-auto
+        "
+        data-hero-carousel
+        aria-label="Carrousel promotionnel"
+        role="region"
       >
-        {heroSlides.map((slide, index) => {
-          const active = index === current;
-          const isFirstSlide = index === 0;
+        <div
+          className="relative h-full w-full overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            touchAction: "pan-y pinch-zoom",
+          }}
+        >
+          {heroSlides.map((slide, index) => {
+            const active = index === current;
+            const isFirstSlide = index === 0;
 
-          const sharedImageOptions = {
-            alt: slide.alt,
-            fill: true,
-            sizes: "100vw",
-            loading: isFirstSlide
-              ? ("eager" as const)
-              : ("lazy" as const),
-            fetchPriority: isFirstSlide
-              ? ("high" as const)
-              : ("auto" as const),
-          };
+            const mobileSource =
+              slide.mobileSrc ?? slide.desktopSrc;
 
-          const { props: desktopImageProps } = getImageProps({
-            ...sharedImageOptions,
-            src: slide.desktopSrc,
-          });
+            const mobileAvif = changeImageFormat(
+              mobileSource,
+              "avif",
+            );
 
-          const mobileImageProps = slide.mobileSrc
-            ? getImageProps({
-                ...sharedImageOptions,
-                src: slide.mobileSrc,
-              }).props
-            : null;
+            const mobileWebp = changeImageFormat(
+              mobileSource,
+              "webp",
+            );
 
-          const imageStyle = {
-            ...desktopImageProps.style,
-            objectFit: "cover" as const,
-            "--hero-mobile-object-position":
-              slide.mobileObjectPosition ?? "center top",
-          } as React.CSSProperties;
+            const desktopAvif = changeImageFormat(
+              slide.desktopSrc,
+              "avif",
+            );
 
-          return (
-            <Link
-              key={slide.id}
-              href={slide.href}
-              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                active
-                  ? "z-10 opacity-100"
-                  : "pointer-events-none z-0 opacity-0"
-              }`}
-              aria-label={slide.ariaLabel}
-              aria-hidden={!active}
-              tabIndex={active ? 0 : -1}
-            >
-              <picture>
-                {mobileImageProps?.srcSet && (
+            const desktopWebp = changeImageFormat(
+              slide.desktopSrc,
+              "webp",
+            );
+
+            return (
+              <Link
+                key={slide.id}
+                href={slide.href}
+                className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                  active
+                    ? "z-10 opacity-100"
+                    : "pointer-events-none z-0 opacity-0"
+                }`}
+                aria-label={slide.ariaLabel}
+                aria-hidden={!active}
+                tabIndex={active ? 0 : -1}
+              >
+                <picture className="block h-full w-full">
                   <source
                     media={MOBILE_BREAKPOINT}
-                    srcSet={mobileImageProps.srcSet}
-                    sizes="100vw"
+                    type="image/avif"
+                    srcSet={mobileAvif}
                   />
-                )}
 
-                <img
-                  {...desktopImageProps}
-                  alt={slide.alt}
-                  className="
-                    [object-position:var(--hero-mobile-object-position)]
-                    md:object-center
-                  "
-                  style={imageStyle}
-                />
-              </picture>
-            </Link>
-          );
-        })}
+                  <source
+                    media={MOBILE_BREAKPOINT}
+                    type="image/webp"
+                    srcSet={mobileWebp}
+                  />
 
-        {/* Pagination dots */}
-        {total > 1 && (
-          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
-            {heroSlides.map((slide, index) => {
-              const active = index === current;
+                  <source
+                    media={DESKTOP_BREAKPOINT}
+                    type="image/avif"
+                    srcSet={desktopAvif}
+                  />
 
-              return (
-                <button
-                  key={slide.id}
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    goTo(index);
-                  }}
-                  className={`h-2.5 rounded-full transition-all ${
-                    active
-                      ? "w-7 bg-michket-gold"
-                      : "w-2.5 bg-white/55 hover:bg-white/85"
-                  }`}
-                  aria-label={`Aller à la diapositive ${index + 1}: ${slide.alt}`}
-                  aria-current={active ? "true" : undefined}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </section>
+                  <source
+                    media={DESKTOP_BREAKPOINT}
+                    type="image/webp"
+                    srcSet={desktopWebp}
+                  />
+
+                  <img
+                    src={slide.desktopSrc}
+                    alt={slide.alt}
+                    width={1916}
+                    height={821}
+                    loading={isFirstSlide ? "eager" : "lazy"}
+                    fetchPriority={
+                      isFirstSlide ? "high" : "low"
+                    }
+                    decoding="async"
+                    draggable={false}
+                    className="
+                      h-full w-full object-cover
+                      [object-position:var(--hero-mobile-object-position)]
+                      md:object-center
+                    "
+                    style={
+                      {
+                        "--hero-mobile-object-position":
+                          slide.mobileObjectPosition ??
+                          "center top",
+                      } as React.CSSProperties
+                    }
+                  />
+                </picture>
+              </Link>
+            );
+          })}
+
+          {/* Pagination dots */}
+          {total > 1 && (
+            <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+              {heroSlides.map((slide, index) => {
+                const active = index === current;
+
+                return (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      goTo(index);
+                    }}
+                    className={`h-2.5 rounded-full transition-all ${
+                      active
+                        ? "w-7 bg-michket-gold"
+                        : "w-2.5 bg-white/55 hover:bg-white/85"
+                    }`}
+                    aria-label={`Aller à la diapositive ${
+                      index + 1
+                    }: ${slide.alt}`}
+                    aria-current={
+                      active ? "true" : undefined
+                    }
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
