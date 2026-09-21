@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { heroSlides } from "@/data/hero-slides";
+import { heroPlaceholders } from "@/data/hero-placeholders";
 
 const AUTOPLAY_MS = 3000;
 const MOBILE_BREAKPOINT = "(max-width: 767px)";
@@ -19,6 +20,21 @@ function changeImageFormat(
   format: "avif" | "webp",
 ): string {
   return src.replace(/\.[^.]+$/, `.${format}`);
+}
+
+function getHeroPlaceholder(src: string): string | undefined {
+  const fileName = src.split("/").pop();
+
+  if (!fileName) {
+    return undefined;
+  }
+
+  const key = fileName.replace(
+    /\.[^.]+$/,
+    "",
+  ) as keyof typeof heroPlaceholders;
+
+  return heroPlaceholders[key];
 }
 
 export function HeroCarousel() {
@@ -49,7 +65,9 @@ export function HeroCarousel() {
   const prev = useCallback(() => {
     if (total <= 1) return;
 
-    setCurrent((previous) => (previous - 1 + total) % total);
+    setCurrent(
+      (previous) => (previous - 1 + total) % total,
+    );
   }, [total]);
 
   /* ───────────────────────────── Autoplay ───────────────────────────── */
@@ -75,9 +93,12 @@ export function HeroCarousel() {
 
   /* ───────────────────────────── Touch swipe ─────────────────────────── */
 
-  const handleTouchStart = useCallback((event: React.TouchEvent) => {
-    setTouchStart(event.touches[0]?.clientX ?? null);
-  }, []);
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent) => {
+      setTouchStart(event.touches[0]?.clientX ?? null);
+    },
+    [],
+  );
 
   const handleTouchEnd = useCallback(
     (event: React.TouchEvent) => {
@@ -109,7 +130,7 @@ export function HeroCarousel() {
     return null;
   }
 
-  const firstSlide = heroSlides[0];
+  const firstSlide = heroSlides[0]!;
 
   const firstMobileSource =
     firstSlide.mobileSrc ?? firstSlide.desktopSrc;
@@ -126,7 +147,7 @@ export function HeroCarousel() {
 
   return (
     <>
-      {/* Critical LCP image preload */}
+      {/* Priorité maximale à l'image LCP réellement visible */}
       <link
         rel="preload"
         as="image"
@@ -190,6 +211,12 @@ export function HeroCarousel() {
               "webp",
             );
 
+            const mobilePlaceholder =
+              getHeroPlaceholder(mobileSource);
+
+            const desktopPlaceholder =
+              getHeroPlaceholder(slide.desktopSrc);
+
             return (
               <Link
                 key={slide.id}
@@ -203,7 +230,42 @@ export function HeroCarousel() {
                 aria-hidden={!active}
                 tabIndex={active ? 0 : -1}
               >
-                <picture className="block h-full w-full">
+                {/* Placeholder mobile :
+                    visible immédiatement avant l'image finale */}
+                <div
+                  aria-hidden="true"
+                  className="
+                    absolute -inset-3
+                    scale-105 bg-cover bg-no-repeat
+                    blur-xl md:hidden
+                  "
+                  style={{
+                    backgroundImage: mobilePlaceholder
+                      ? `url("${mobilePlaceholder}")`
+                      : undefined,
+                    backgroundPosition:
+                      slide.mobileObjectPosition ??
+                      "center top",
+                  }}
+                />
+
+                {/* Placeholder desktop */}
+                <div
+                  aria-hidden="true"
+                  className="
+                    absolute -inset-3 hidden
+                    scale-105 bg-cover bg-center bg-no-repeat
+                    blur-xl md:block
+                  "
+                  style={{
+                    backgroundImage: desktopPlaceholder
+                      ? `url("${desktopPlaceholder}")`
+                      : undefined,
+                  }}
+                />
+
+                {/* Image finale */}
+                <picture className="relative block h-full w-full">
                   <source
                     media={MOBILE_BREAKPOINT}
                     type="image/avif"
@@ -229,18 +291,20 @@ export function HeroCarousel() {
                   />
 
                   <img
-                    src={slide.desktopSrc}
+                    src={desktopWebp}
                     alt={slide.alt}
                     width={1916}
                     height={821}
-                    loading={isFirstSlide ? "eager" : "lazy"}
+                    loading={
+                      isFirstSlide ? "eager" : "lazy"
+                    }
                     fetchPriority={
                       isFirstSlide ? "high" : "low"
                     }
                     decoding="async"
                     draggable={false}
                     className="
-                      h-full w-full object-cover
+                      relative h-full w-full object-cover
                       [object-position:var(--hero-mobile-object-position)]
                       md:object-center
                     "
@@ -257,7 +321,7 @@ export function HeroCarousel() {
             );
           })}
 
-          {/* Pagination dots */}
+          {/* Pagination */}
           {total > 1 && (
             <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
               {heroSlides.map((slide, index) => {
