@@ -13,7 +13,7 @@ export const heroSlides: HeroSlide[] = [
   {
     id: "carte-du-monde",
     desktopSrc: "/images/hero/hero-carte-du-monde.png",
-    mobileSrc: "/images/hero/hero-carte-du-monde-tel.png",
+    mobileSrc: "/images/hero/hero-carte-du-monde-tel-720.avif",
     alt: "Carte du monde en bois — Michket",
     href: "/cartes-du-monde",
     ariaLabel: "Découvrir la collection cartes du monde en bois",
@@ -22,7 +22,7 @@ export const heroSlides: HeroSlide[] = [
   {
     id: "trophee-bac",
     desktopSrc: "/images/hero/hero-trophee-bac.png",
-    mobileSrc: "/images/hero/hero-trophee-bac-tel.png",
+    mobileSrc: "/images/hero/hero-trophee-bac-tel-720.avif",
     alt: "Trophée BAC personnalisé — Michket",
     href: "/trophees?occasion=bac",
     ariaLabel: "Voir les trophées BAC personnalisés",
@@ -31,7 +31,7 @@ export const heroSlides: HeroSlide[] = [
   {
     id: "naissance",
     desktopSrc: "/images/hero/hero-naissance.png",
-    mobileSrc: "/images/hero/hero-naissance-tel.png",
+    mobileSrc: "/images/hero/hero-naissance-tel-720.avif",
     alt: "Lampe LED naissance personnalisée — Michket",
     href: "/lampes-3d?occasion=naissance",
     ariaLabel: "Découvrir les lampes de naissance personnalisées",
@@ -40,7 +40,7 @@ export const heroSlides: HeroSlide[] = [
   {
     id: "mariage",
     desktopSrc: "/images/hero/hero-mariage.png",
-    mobileSrc: "/images/hero/hero-mariage-tel.png",
+    mobileSrc: "/images/hero/hero-mariage-tel-720.avif",
     alt: "Lampe LED mariage personnalisée — Michket",
     href: "/lampes-3d?occasion=mariage",
     ariaLabel: "Découvrir les lampes de mariage personnalisées",
