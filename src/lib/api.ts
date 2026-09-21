@@ -544,6 +544,34 @@ export async function fetchProductsForCategory(
   return all.map((item) => mapProductListItem(item));
 }
 
+/**
+ * Fetch one paginated category page, mapped to frontend Product items.
+ *
+ * Use this on storefront category pages so the frontend only requests the
+ * products it actually renders instead of downloading every category page
+ * and slicing the result locally.
+ */
+export async function fetchProductsForCategoryPage(
+  categorySlug: string,
+  opts?: {
+    page?: number;
+    limit?: number;
+    personalizable?: boolean;
+  },
+): Promise<PaginatedResponse<Product>> {
+  const res = await fetchProducts({
+    category: categorySlug,
+    page: opts?.page ?? 1,
+    limit: opts?.limit ?? 8,
+    personalizable: opts?.personalizable,
+  });
+
+  return {
+    data: res.data.map((item) => mapProductListItem(item)),
+    meta: res.meta,
+  };
+}
+
 /** Fetch products by badge, mapped to frontend Product[] */
 export async function fetchProductsByBadge(
   badge: string,
