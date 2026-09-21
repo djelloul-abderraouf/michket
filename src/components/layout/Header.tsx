@@ -1,15 +1,27 @@
 "use client";
 
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { NavItemWithMega } from "@/data/navigation";
-import { MobileNav } from "@/components/navigation/MobileNav";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
+import { MobileNav } from "@/components/navigation/MobileNav";
 import { MegaMenuPanel } from "@/components/navigation/MegaMenuPanel";
 import { useCart } from "@/contexts/CartContext";
+import type { NavItemWithMega } from "@/data/navigation";
+
+const SearchOverlay = dynamic(
+  () =>
+    import("@/components/search/SearchOverlay").then(
+      (module) => module.SearchOverlay,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+);
 
 /* ──────────────────────────── Desktop Nav ──────────────────────────── */
 
@@ -558,9 +570,23 @@ export function Header({ navItems = [] }: { navItems?: NavItemWithMega[] }) {
       )}
 
       {/* ── Overlays ── */}
-      <MobileNav items={navItems} open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <MobileNav
+        items={navItems}
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+      />
+
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+      />
+
+      {searchOpen && (
+        <SearchOverlay
+          open
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </>
   );
 }
