@@ -181,17 +181,15 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
     }
   }, [preloadVariantImage, variantImageSources]);
 
-  useEffect(() => {
-    if (variantImageSources.length === 0) return;
-
-    // Avoid competing with the first visible image. Warm variant images shortly
-    // after the page is interactive, and sooner if the customer opens colors.
-    const timer = window.setTimeout(() => {
-      preloadAllVariantImages();
-    }, 1200);
-
-    return () => window.clearTimeout(timer);
-  }, [preloadAllVariantImages, variantImageSources.length]);
+  /*
+   * Do not automatically preload every full-size variant image during the
+   * initial page load. On a throttled mobile connection those requests can
+   * compete with the main LCP image.
+   *
+   * Variant images are still preloaded immediately when the customer opens,
+   * focuses or interacts with the color picker, and the selected variant is
+   * explicitly warmed before switching the main image.
+   */
 
   function handleVariantSelect(variant: ProductVariant) {
     setSelectedVariant(variant);
