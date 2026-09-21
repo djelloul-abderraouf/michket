@@ -147,7 +147,7 @@ export function HeroCarousel() {
 
   return (
     <>
-      {/* Priorité maximale à l'image LCP réellement visible */}
+      {/* Priori maximale à l'image LCP réellement visible */}
       <link
         rel="preload"
         as="image"
