@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Inter, Playfair_Display } from "next/font/google";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Providers } from "@/components/Providers";
@@ -6,6 +7,18 @@ import { NavigationProvider } from "@/contexts/NavigationContext";
 import { buildNavigation } from "@/lib/build-navigation";
 
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-playfair-display",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -43,23 +56,13 @@ export default async function RootLayout({
   const navigation = await buildNavigation();
 
   return (
-    <html lang="fr" className="h-full antialiased">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-
+    <html
+      lang="fr"
+      className={`${inter.variable} ${playfairDisplay.variable} h-full antialiased`}
+    >
       <body
         suppressHydrationWarning
-        className="min-h-full flex flex-col"
+        className={`${inter.className} min-h-full flex flex-col`}
       >
         <Providers>
           <NavigationProvider value={navigation}>
