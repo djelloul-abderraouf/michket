@@ -681,7 +681,8 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
                     src={activeImage.src}
                     alt={activeImage.alt}
                     fill
-                    priority
+                    loading="eager"
+                    fetchPriority="high"
                     className="object-cover transition-transform duration-500 group-hover:scale-[1.015]"
                     sizes={MAIN_IMAGE_SIZES}
                   />
