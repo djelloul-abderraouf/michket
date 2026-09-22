@@ -21,6 +21,34 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+const TOKEN_REFRESH_SKEW_MS = 30_000;
+
+export async function getFreshSession() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const expiresAtMs = (session?.expires_at ?? 0) * 1000;
+  if (session?.access_token && expiresAtMs > Date.now() + TOKEN_REFRESH_SKEW_MS) {
+    return session;
+  }
+
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) {
+    console.error("Failed to refresh Supabase session", error);
+    return session;
+  }
+
+  return data.session;
+}
+
+export async function ensureRealtimeAuth() {
+  const session = await getFreshSession();
+  if (session?.access_token) {
+    await supabase.realtime.setAuth(session.access_token);
+  }
+  return session;
+}
+
 export type UserRole =
   | 'customer'
   | 'admin'

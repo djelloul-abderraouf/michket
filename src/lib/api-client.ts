@@ -1,4 +1,4 @@
-import { supabase } from './supabase-client';
+import { getFreshSession, supabase } from './supabase-client';
 import type {
   Activity,
   Company,
@@ -53,10 +53,7 @@ function toQuery(params?: ApiRequestOptions['params']): string {
 
 class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
+    const session = await getFreshSession();
     const headers: Record<string, string> = {};
 
     if (session?.access_token) {
@@ -121,7 +118,7 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  async downloadBlob(endpoint: string, filename: string) {
+  async fetchBlob(endpoint: string) {
     const apiBase = resolveApiBase();
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${apiBase}${endpoint}`, { headers });
@@ -133,10 +130,21 @@ class ApiClient {
       throw new Error(message);
     }
     const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    return {
+      blob,
+      filename: match?.[1] || 'bordereau-yalidine',
+      contentType: response.headers.get('content-type') || blob.type,
+    };
+  }
+
+  async downloadBlob(endpoint: string, filename: string) {
+    const { blob, filename: serverName } = await this.fetchBlob(endpoint);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = serverName || filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -393,10 +401,12 @@ export const crmDeliveryApi = {
   health: () => apiClient.get<{ ok: boolean; provider: string; wilayas: number }>('/crm/delivery/yalidine/health'),
   getLabel: (orderId: string) =>
     apiClient.get<{ url: string; tracking: string | null }>(`/crm/delivery/yalidine/${orderId}/label`),
+  fetchBordereau: (orderId: string) =>
+    apiClient.fetchBlob(`/crm/delivery/bordereau/${orderId}`),
   downloadBordereau: (orderId: string, reference: string) =>
     apiClient.downloadBlob(
       `/crm/delivery/bordereau/${orderId}`,
-      `bordereau-${reference}.pdf`,
+      `bordereau-yalidine-${reference}.html`,
     ),
 };
 

@@ -28,6 +28,7 @@ export const orderStatuses = [
   "en_livraison",
   "livre",
   "retour_echec",
+  "annulee",
 ] as const;
 
 export type OrderStatus = (typeof orderStatuses)[number];
@@ -40,6 +41,7 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   en_livraison: "En livraison",
   livre: "Livre",
   retour_echec: "Retour / echec",
+  annulee: "Annulee",
 };
 
 export const dealStages = [

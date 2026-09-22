@@ -24,22 +24,28 @@ export const crmPages: Array<{
 ];
 
 export const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
-  pas_confirme: ["confirme"],
-  confirme: ["en_fabrication"],
-  en_fabrication: ["en_preparation"],
-  en_preparation: ["en_livraison"],
-  en_livraison: ["livre", "retour_echec"],
+  pas_confirme: ["confirme", "annulee"],
+  confirme: ["en_fabrication", "annulee"],
+  en_fabrication: ["en_preparation", "annulee"],
+  en_preparation: ["en_livraison", "annulee"],
+  en_livraison: ["livre", "retour_echec", "annulee"],
   livre: [],
   retour_echec: [],
+  annulee: [],
 };
 
 const transitionRoles: Record<string, CrmRole[]> = {
   "pas_confirme:confirme": ["admin", "confirmation"],
+  "pas_confirme:annulee": ["admin", "confirmation", "commercial"],
   "confirme:en_fabrication": ["admin", "fabrication"],
+  "confirme:annulee": ["admin", "confirmation", "commercial"],
   "en_fabrication:en_preparation": ["admin", "fabrication"],
+  "en_fabrication:annulee": ["admin", "fabrication"],
   "en_preparation:en_livraison": ["admin", "preparation"],
+  "en_preparation:annulee": ["admin", "preparation"],
   "en_livraison:livre": ["admin", "livraison"],
   "en_livraison:retour_echec": ["admin", "livraison"],
+  "en_livraison:annulee": ["admin", "livraison"],
 };
 
 export function hasAnyRole(userRoles: CrmRole[], allowed: CrmRole[]) {

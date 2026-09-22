@@ -50,12 +50,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+
+      if (session?.access_token && (event === "TOKEN_REFRESHED" || event === "SIGNED_IN")) {
+        void supabase.realtime.setAuth(session.access_token);
+      }
       
       if (session?.user) {
         await loadUserProfile(session.user);
@@ -65,7 +68,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      void supabase.auth.startAutoRefresh();
+      void supabase.auth.refreshSession().then(({ data }) => {
+        if (data.session?.access_token) {
+          void supabase.realtime.setAuth(data.session.access_token);
+        }
+      });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadUserProfile = async (authUser: { id: string; email?: string }) => {

@@ -21,7 +21,9 @@ export function CrmDashboard({
   const inProduction = orders.filter((order) => order.status === "en_fabrication");
   const inPreparation = orders.filter((order) => order.status === "en_preparation");
   const inDelivery = orders.filter((order) => order.status === "en_livraison");
-  const returns = orders.filter((order) => order.status === "retour_echec");
+  const returns = orders.filter((order) =>
+    order.status === "retour_echec" || order.status === "annulee",
+  );
 
   // Calculate top wilayas
   const wilayaStats = orders.reduce((acc, order) => {
@@ -89,7 +91,7 @@ export function CrmDashboard({
           accent="bg-blue-500"
         />
         <Metric
-          label="Retours"
+          label="Retours / annulées"
           value={returns.length.toString()}
           accent="bg-rose-500"
         />
@@ -106,7 +108,7 @@ export function CrmDashboard({
               return (
                 <div
                   key={status}
-                  className="grid grid-cols-[140px_1fr_50px] items-center gap-3 text-sm"
+                  className="grid grid-cols-[160px_1fr_50px] items-center gap-3 text-sm"
                 >
                   <span className="font-semibold text-black/70">
                     {orderStatusLabels[status]}

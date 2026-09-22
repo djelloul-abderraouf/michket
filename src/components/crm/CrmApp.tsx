@@ -353,6 +353,15 @@ export function CrmApp() {
     });
   }, [orders, query, statusFilter, wilayaFilter]);
 
+  function loadOrderDetails(id: string) {
+    crmOrdersApi
+      .getById(id)
+      .then((order) => {
+        setOrders((current) => upsertOrder(current, normalizeOrder(order)));
+      })
+      .catch(() => undefined);
+  }
+
   function moveOrder(order: Order, to: OrderStatus, note?: string) {
     if (!canChangeOrderStatus(userRoles, order.status, to)) {
       setToast(
@@ -1020,15 +1029,7 @@ export function CrmApp() {
               onWilayaFilter={setWilayaFilter}
               onSelect={(id) => {
                 setSelectedOrderId(id);
-                crmOrdersApi
-                  .getById(id)
-                  .then((order) => {
-                    const mapped = normalizeOrder(order);
-                    setOrders((current) =>
-                      current.map((item) => (item.id === id ? mapped : item)),
-                    );
-                  })
-                  .catch(() => undefined);
+                loadOrderDetails(id);
               }}
               onMove={moveOrder}
               onCreateOrder={addOrder}
@@ -1052,13 +1053,15 @@ export function CrmApp() {
           {canSeeActivePage && activePage === "confirmation" && (
             <CrmConfirmation
               orders={orders.filter((order) => order.status === "pas_confirme")}
+              onLoadOrder={loadOrderDetails}
+              onToast={setToast}
               onConfirm={(order) =>
                 moveOrder(order, "confirme", "Client confirme par telephone.")
               }
               onReason={(order, reason) => {
                 const note = `Motif confirmation: ${reason}`;
                 if (reason === "refus") {
-                  moveOrder(order, "retour_echec", note);
+                  moveOrder(order, "annulee", note);
                   return;
                 }
                 crmOrdersApi
@@ -1136,9 +1139,12 @@ export function CrmApp() {
           {canSeeActivePage && activePage === "production" && (
             <CrmProduction
               jobs={productionJobs}
+              orders={orders}
               canEdit={canChangeOrderStatus(userRoles, "confirme", "en_fabrication")}
               onStart={startProduction}
               onFinish={finishProduction}
+              onLoadOrder={loadOrderDetails}
+              onToast={setToast}
             />
           )}
 
@@ -1149,6 +1155,8 @@ export function CrmApp() {
               setQualityChecked={setQualityChecked}
               onValidate={validatePreparation}
               canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison")}
+              onLoadOrder={loadOrderDetails}
+              onToast={setToast}
             />
           )}
 

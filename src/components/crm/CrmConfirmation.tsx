@@ -1,18 +1,30 @@
 import { useState } from "react";
 import type { Order } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmPopup } from "./CrmUi";
+import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
 export function CrmConfirmation({
   orders,
   onConfirm,
   onReason,
+  onLoadOrder,
+  onToast,
 }: {
   orders: Order[];
   onConfirm: (order: Order) => void;
   onReason: (order: Order, reason: NonNullable<Order["confirmationReason"]>) => void;
+  onLoadOrder?: (id: string) => void;
+  onToast?: (message: string) => void;
 }) {
   const [pendingOrder, setPendingOrder] = useState<Order | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>();
   const pendingValue = orders.reduce((sum, order) => sum + order.total, 0);
+  const selectedOrder = orders.find((order) => order.id === selectedId);
+
+  function openDetails(order: Order) {
+    setSelectedId(order.id);
+    onLoadOrder?.(order.id);
+  }
 
   return (
     <div className="space-y-6">
@@ -30,7 +42,7 @@ export function CrmConfirmation({
         <CrmPanel className="!p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-black/50">Après confirmation</p>
           <p className="mt-2 text-sm font-medium text-black/70">
-            La commande rejoint automatiquement la liste livraison pour création du colis Yalidine.
+            La commande est envoyee automatiquement a Yalidine. Le bordereau officiel devient disponible a l&apos;impression.
           </p>
         </CrmPanel>
       </div>
@@ -43,7 +55,11 @@ export function CrmConfirmation({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {orders.map((order) => (
-              <CrmCard key={order.id} className="p-5 overflow-hidden">
+              <CrmCard
+                key={order.id}
+                onClick={() => openDetails(order)}
+                className="p-5 overflow-hidden cursor-pointer hover:shadow-md transition"
+              >
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -66,12 +82,27 @@ export function CrmConfirmation({
                     <p className="text-sm font-semibold break-words">{productSummary(order)}</p>
                   </div>
                 </div>
-                <CrmButton onClick={() => setPendingOrder(order)} variant="success">
+                <CrmButton
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPendingOrder(order);
+                  }}
+                  variant="success"
+                >
                   Confirmer la commande
                 </CrmButton>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {(["injoignable", "refus", "a_rappeler"] as const).map((reason) => (
-                    <CrmButton key={reason} variant="ghost" size="sm" onClick={() => onReason(order, reason)}>
+                    <CrmButton
+                      key={reason}
+                      variant="ghost"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onReason(order, reason);
+                        if (reason === "refus") setSelectedId(undefined);
+                      }}
+                    >
                       {reason.replace("_", " ")}
                     </CrmButton>
                   ))}
@@ -81,6 +112,36 @@ export function CrmConfirmation({
           </div>
         )}
       </CrmPanel>
+
+      <CrmOrderDetailsDrawer
+        order={selectedOrder}
+        isOpen={Boolean(selectedId)}
+        onClose={() => setSelectedId(undefined)}
+        onToast={onToast}
+      >
+        {selectedOrder && (
+          <div className="space-y-2">
+            <CrmButton variant="success" className="w-full" onClick={() => setPendingOrder(selectedOrder)}>
+              Confirmer la commande
+            </CrmButton>
+            <div className="grid grid-cols-3 gap-2">
+              {(["injoignable", "refus", "a_rappeler"] as const).map((reason) => (
+                <CrmButton
+                  key={reason}
+                  variant={reason === "refus" ? "danger" : "ghost"}
+                  size="sm"
+                      onClick={() => {
+                        onReason(selectedOrder, reason);
+                        if (reason === "refus") setSelectedId(undefined);
+                      }}
+                >
+                  {reason.replace("_", " ")}
+                </CrmButton>
+              ))}
+            </div>
+          </div>
+        )}
+      </CrmOrderDetailsDrawer>
 
       <CrmPopup
         isOpen={Boolean(pendingOrder)}
@@ -108,6 +169,7 @@ export function CrmConfirmation({
                 onClick={() => {
                   onConfirm(pendingOrder);
                   setPendingOrder(undefined);
+                  setSelectedId(undefined);
                 }}
               >
                 Oui, confirmer

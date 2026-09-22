@@ -1,14 +1,10 @@
 import { FormEvent, useState } from "react";
-import { Search, Phone, MapPin, User, Mail, Truck, Printer, FileDown } from "lucide-react";
-import {
-  canChangeOrderStatus,
-  canCreateOrder,
-} from "@/lib/crm/permissions";
+import { Search, Printer, FileDown } from "lucide-react";
+import { canCreateOrder } from "@/lib/crm/permissions";
 import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
 import type { Contact, CrmRole, Order, OrderStatus, Product } from "@/lib/crm/types";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
-import { printBordereau } from "@/lib/crm/bordereau";
-import { crmDeliveryApi } from "@/lib/api-client";
+import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 import {
   CrmButton,
   CrmPanel,
@@ -22,8 +18,8 @@ import {
   CrmAddButton,
   CrmPopup,
   ViewToggle,
-  CrmSideDrawer,
 } from "./CrmUi";
+import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
 const statusTone: Record<OrderStatus, { border: string; bg: string; badge: string }> = {
   pas_confirme: { border: "border-l-stone-400", bg: "bg-stone-50", badge: "default" },
@@ -33,6 +29,7 @@ const statusTone: Record<OrderStatus, { border: string; bg: string; badge: strin
   en_livraison: { border: "border-l-indigo-500", bg: "bg-indigo-50", badge: "info" },
   livre: { border: "border-l-green-600", bg: "bg-green-50", badge: "success" },
   retour_echec: { border: "border-l-rose-500", bg: "bg-rose-50", badge: "danger" },
+  annulee: { border: "border-l-zinc-500", bg: "bg-zinc-100", badge: "default" },
 };
 
 function deliveryLabel(order: Order) {
@@ -75,15 +72,15 @@ export function CrmOrders(props: {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const selectedOrder = props.selectedOrder;
   const canExportBordereau = (order?: Order) =>
-    Boolean(order && order.status !== "pas_confirme");
+    Boolean(order && order.status !== "pas_confirme" && order.status !== "annulee");
 
   async function handleDownloadBordereau(order: Order) {
     try {
       setBusyAction(`pdf:${order.id}`);
-      await crmDeliveryApi.downloadBordereau(order.id, orderRef(order));
-      props.onToast?.("Bordereau PDF telecharge");
+      await downloadYalidineBordereau(order.id, orderRef(order));
+      props.onToast?.("Bordereau Yalidine telecharge");
     } catch (error) {
-      props.onToast?.(error instanceof Error ? error.message : "Erreur PDF");
+      props.onToast?.(error instanceof Error ? error.message : "Erreur bordereau Yalidine");
     } finally {
       setBusyAction(null);
     }
@@ -115,14 +112,14 @@ export function CrmOrders(props: {
           }}
         >
           <FileDown className="h-4 w-4 mr-1 inline" />
-          {downloading ? "PDF..." : compact ? "PDF" : "Telecharger PDF"}
+          {downloading ? "..." : compact ? "PDF" : "Telecharger"}
         </CrmButton>
         <CrmButton
           size="sm"
           variant="ghost"
           onClick={(event) => {
             event.stopPropagation();
-            handlePrintBordereau(order);
+            void handlePrintBordereau(order);
           }}
         >
           <Printer className="h-4 w-4 mr-1 inline" />
@@ -132,21 +129,12 @@ export function CrmOrders(props: {
     );
   }
 
-  function handlePrintBordereau(order: Order) {
+  async function handlePrintBordereau(order: Order) {
     try {
-      printBordereau(order);
+      setBusyAction(`print:${order.id}`);
+      await printYalidineBordereau(order.id);
     } catch (error) {
-      props.onToast?.(error instanceof Error ? error.message : "Impression impossible");
-    }
-  }
-
-  async function handleYalidineLabel(order: Order) {
-    try {
-      setBusyAction("label");
-      const result = await crmDeliveryApi.getLabel(order.id);
-      window.open(result.url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      props.onToast?.(error instanceof Error ? error.message : "Etiquette Yalidine indisponible");
+      props.onToast?.(error instanceof Error ? error.message : "Impression Yalidine impossible");
     } finally {
       setBusyAction(null);
     }
@@ -329,142 +317,16 @@ export function CrmOrders(props: {
         )}
       </section>
 
-      {selectedOrder && (
-        <CrmSideDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          title={`Commande ${orderRef(selectedOrder)}`}
-          width="640px"
-        >
-          <div className="space-y-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-xl font-bold">{selectedOrder.clientName}</h3>
-                <p className="mt-1 text-sm text-black/60"><Phone className="inline h-4 w-4 mr-1" />{selectedOrder.phone}</p>
-                {selectedOrder.email && <p className="text-sm text-black/60"><Mail className="inline h-4 w-4 mr-1" />{selectedOrder.email}</p>}
-                <p className="text-sm text-black/60"><MapPin className="inline h-4 w-4 mr-1" />{selectedOrder.wilaya}{selectedOrder.commune ? ` · ${selectedOrder.commune}` : ""}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-2xl font-bold">{dzd.format(selectedOrder.total)}</p>
-                <p className="text-sm text-black/50">{formatDate(selectedOrder.createdAt)}</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Statut</label>
-              <select
-                value={selectedOrder.status}
-                onChange={(event) => {
-                  const next = event.target.value as OrderStatus;
-                  if (next !== selectedOrder.status) {
-                    props.onMove(selectedOrder, next);
-                  }
-                }}
-                className="h-11 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
-              >
-                {orderStatuses.map((status) => (
-                  <option
-                    key={status}
-                    value={status}
-                    disabled={!canChangeOrderStatus(props.userRoles, selectedOrder.status, status) && status !== selectedOrder.status}
-                  >
-                    {orderStatusLabels[status]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {canExportBordereau(selectedOrder) && (
-              <div className="rounded-lg border border-michket-gold/40 bg-michket-gold/10 p-4 space-y-3">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-black/70">Bordereau d&apos;envoi</h4>
-                <p className="text-sm text-black/60">Imprimer ou telecharger le PDF de cette commande.</p>
-                <BordereauButtons order={selectedOrder} />
-              </div>
-            )}
-
-            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 space-y-2 text-sm">
-              <h4 className="text-sm font-bold uppercase tracking-wider text-black/60">Livraison</h4>
-              <p>{deliveryLabel(selectedOrder)}{selectedOrder.deliveryOfficeName ? ` · ${selectedOrder.deliveryOfficeName}` : ""}</p>
-              <p>{selectedOrder.addressLine1}</p>
-              {selectedOrder.addressLine2 && <p>{selectedOrder.addressLine2}</p>}
-              {selectedOrder.trackingNumber && (
-                <p className="font-semibold"><Truck className="inline h-4 w-4 mr-1" />{selectedOrder.trackingNumber} ({selectedOrder.carrierStatus || "Yalidine"})</p>
-              )}
-              <div className="pt-2 space-y-2">
-                {!selectedOrder.trackingNumber && props.onCreateParcel && canExportBordereau(selectedOrder) && (
-                  <CrmButton
-                    size="sm"
-                    className="w-full"
-                    onClick={() => props.onCreateParcel?.(selectedOrder)}
-                  >
-                    Creer colis Yalidine
-                  </CrmButton>
-                )}
-                {(selectedOrder.trackingNumber || selectedOrder.labelUrl) && (
-                  <CrmButton
-                    size="sm"
-                    className="w-full"
-                    variant="ghost"
-                    disabled={busyAction === "label"}
-                    onClick={() => handleYalidineLabel(selectedOrder)}
-                  >
-                    Etiquette Yalidine
-                  </CrmButton>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 space-y-2 text-sm">
-              <h4 className="text-sm font-bold uppercase tracking-wider text-black/60">Paiement</h4>
-              <p>Méthode: {(selectedOrder.paymentMethod || "cod").toUpperCase()}</p>
-              <p>Statut: {selectedOrder.paymentStatus || "-"}</p>
-              <p>Sous-total: {dzd.format(selectedOrder.subtotal || 0)}</p>
-              <p>Livraison: {dzd.format(selectedOrder.deliveryFee || 0)}</p>
-              <p>Remise: {dzd.format(selectedOrder.discount || 0)}</p>
-              {selectedOrder.promoCode && <p>Promo: {selectedOrder.promoCode}</p>}
-            </div>
-
-            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4">
-              <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-black/60">Produits</h4>
-              <div className="space-y-2">
-                {selectedOrder.items.map((item, index) => (
-                  <div key={index} className="flex justify-between gap-3 text-sm">
-                    <span className="min-w-0">
-                      <span className="font-medium">{item.quantity}x {item.productName}</span>
-                      {(item.variantName || item.colorName) && (
-                        <span className="block text-xs text-black/50">{[item.variantName, item.colorName].filter(Boolean).join(" · ")}</span>
-                      )}
-                    </span>
-                    <span className="font-bold shrink-0">{dzd.format(item.lineTotal ?? item.unitPrice * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {selectedOrder.notes && (
-              <div className="rounded-lg border border-black/10 p-4 text-sm whitespace-pre-wrap">{selectedOrder.notes}</div>
-            )}
-
-            <div>
-              <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-black/60">Historique</h4>
-              <div className="space-y-2 max-h-48 overflow-auto">
-                {selectedOrder.history.slice().reverse().map((event) => (
-                  <div key={event.id} className="rounded-lg border border-black/5 bg-black/[0.02] p-3 text-xs">
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold">{orderStatusLabels[event.to]}</p>
-                      <p className="text-black/40">{formatDate(event.createdAt)}</p>
-                    </div>
-                    <p className="mt-1 text-black/60">
-                      <User className="inline h-3 w-3 mr-1" />{event.authorName}
-                      {event.note && ` • ${event.note}`}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CrmSideDrawer>
-      )}
+      <CrmOrderDetailsDrawer
+        order={selectedOrder}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        userRoles={props.userRoles}
+        onMove={props.onMove}
+        onCreateParcel={props.onCreateParcel}
+        onToast={props.onToast}
+        showStatusSelect
+      />
 
       <CrmPopup isOpen={isPopupOpen} onClose={() => setIsPopupOpen(false)} title="Nouvelle commande">
         <form

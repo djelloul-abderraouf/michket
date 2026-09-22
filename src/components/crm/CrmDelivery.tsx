@@ -2,8 +2,7 @@ import { useState } from "react";
 import type { Order } from "@/lib/crm/types";
 import { orderStatusLabels } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle } from "./CrmUi";
-import { printBordereau } from "@/lib/crm/bordereau";
-import { crmDeliveryApi } from "@/lib/api-client";
+import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 
 function statusVariant(order: Order) {
   if (order.status === "livre") return "success" as const;
@@ -95,15 +94,23 @@ export function CrmDelivery({
                     <td className="px-3 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <CrmButton size="sm" variant="ghost" onClick={() => printBordereau(order)}>Imprimer</CrmButton>
                         <CrmButton
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            void crmDeliveryApi.downloadBordereau(order.id, orderRef(order));
+                            void printYalidineBordereau(order.id).catch(() => undefined);
                           }}
                         >
-                          PDF
+                          Imprimer
+                        </CrmButton>
+                        <CrmButton
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            void downloadYalidineBordereau(order.id, orderRef(order));
+                          }}
+                        >
+                          Telecharger
                         </CrmButton>
                         {!order.trackingNumber && (
                           <CrmButton size="sm" onClick={() => onCreateParcel(order)}>Yalidine</CrmButton>
@@ -143,15 +150,23 @@ export function CrmDelivery({
                 <p className="text-xs text-black/50 mt-1">Suivi: {order.trackingNumber || "non créé"} {order.carrierStatus ? `· ${order.carrierStatus}` : ""}</p>
                 <div className="mt-3 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <CrmButton size="sm" variant="ghost" onClick={() => printBordereau(order)}>Imprimer</CrmButton>
                     <CrmButton
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        void crmDeliveryApi.downloadBordereau(order.id, orderRef(order));
+                        void printYalidineBordereau(order.id).catch(() => undefined);
                       }}
                     >
-                      PDF
+                      Imprimer
+                    </CrmButton>
+                    <CrmButton
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        void downloadYalidineBordereau(order.id, orderRef(order));
+                      }}
+                    >
+                      Telecharger
                     </CrmButton>
                   </div>
                   {!order.trackingNumber && (

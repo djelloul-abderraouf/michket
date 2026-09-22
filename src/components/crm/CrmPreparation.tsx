@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Order } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
 export function CrmPreparation({
   orders,
@@ -8,18 +9,29 @@ export function CrmPreparation({
   setQualityChecked,
   onValidate,
   canEdit,
+  onLoadOrder,
+  onToast,
 }: {
   orders: Order[];
   qualityChecked: boolean;
   setQualityChecked: (value: boolean) => void;
   onValidate: (order: Order) => void;
   canEdit: boolean;
+  onLoadOrder?: (id: string) => void;
+  onToast?: (message: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const selectedOrder = orders.find((order) => order.id === selectedId);
+
+  function openDetails(order: Order) {
+    setSelectedId(order.id);
+    onLoadOrder?.(order.id);
+  }
+
   return (
     <div className="space-y-6">
-      {/* Quality Control Banner */}
       <CrmPanel className="!p-4 border-l-4 border-l-amber-500">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -44,7 +56,6 @@ export function CrmPreparation({
         </p>
       </CrmPanel>
 
-      {/* Statistics */}
       <div className="grid gap-4 sm:grid-cols-2">
         <CrmPanel className="!p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-black/50">
@@ -64,7 +75,6 @@ export function CrmPreparation({
         </CrmPanel>
       </div>
 
-      {/* Orders to Prepare */}
       <CrmPanel
         title={`Commandes en préparation (${orders.length})`}
         actions={
@@ -101,9 +111,10 @@ export function CrmPreparation({
                 {orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="border-b border-black/5 transition hover:bg-black/[0.02]"
+                    onClick={() => openDetails(order)}
+                    className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                   >
-                    <td className="px-4 py-3 text-sm font-bold">{order.id}</td>
+                    <td className="px-4 py-3 text-sm font-bold">{orderRef(order)}</td>
                     <td className="px-4 py-3 text-sm text-black/70">{order.clientName}</td>
                     <td className="px-4 py-3 text-sm text-black/70">{order.wilaya}</td>
                     <td className="px-4 py-3 text-sm text-black/70">{productSummary(order)}</td>
@@ -117,11 +128,15 @@ export function CrmPreparation({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {orders.map((order) => (
-              <CrmCard key={order.id} className="p-5">
+              <CrmCard
+                key={order.id}
+                onClick={() => openDetails(order)}
+                className="p-5 cursor-pointer hover:shadow-md transition"
+              >
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base">{order.id}</h3>
+                      <h3 className="font-bold text-base">{orderRef(order)}</h3>
                       <CrmBadge variant="info">En préparation</CrmBadge>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-black/70">{order.clientName}</p>
@@ -143,8 +158,11 @@ export function CrmPreparation({
                 </div>
 
                 <CrmButton
-                  onClick={() => onValidate(order)}
-                  disabled={!qualityChecked}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onValidate(order);
+                  }}
+                  disabled={!qualityChecked || !canEdit}
                   variant={qualityChecked ? "success" : "primary"}
                 >
                   {qualityChecked ? "Envoyer en livraison" : "Valider contrôle qualité d'abord"}
@@ -155,7 +173,27 @@ export function CrmPreparation({
         )}
       </CrmPanel>
 
-      {/* New Preparation Popup */}
+      <CrmOrderDetailsDrawer
+        order={selectedOrder}
+        isOpen={Boolean(selectedId)}
+        onClose={() => setSelectedId(undefined)}
+        onToast={onToast}
+      >
+        {selectedOrder && (
+          <CrmButton
+            className="w-full"
+            onClick={() => {
+              onValidate(selectedOrder);
+              setSelectedId(undefined);
+            }}
+            disabled={!qualityChecked || !canEdit}
+            variant={qualityChecked ? "success" : "primary"}
+          >
+            {qualityChecked ? "Envoyer en livraison" : "Valider contrôle qualité d'abord"}
+          </CrmButton>
+        )}
+      </CrmOrderDetailsDrawer>
+
       <CrmPopup
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}

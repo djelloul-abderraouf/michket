@@ -1,35 +1,49 @@
 import { useState } from "react";
-import { productionStatusLabels, type ProductionJob } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, CrmSideDrawer, ViewToggle } from "./CrmUi";
+import { productionStatusLabels, type Order, type ProductionJob } from "@/lib/crm/types";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
-const statusConfig: Record<ProductionJob["status"], { variant: any; color: string }> = {
-  en_attente: { variant: "warning" as const, color: "bg-amber-500" },
-  en_cours: { variant: "info" as const, color: "bg-cyan-500" },
-  termine: { variant: "success" as const, color: "bg-emerald-500" },
+const statusConfig: Record<ProductionJob["status"], { variant: "warning" | "info" | "success"; color: string }> = {
+  en_attente: { variant: "warning", color: "bg-amber-500" },
+  en_cours: { variant: "info", color: "bg-cyan-500" },
+  termine: { variant: "success", color: "bg-emerald-500" },
 };
 
 export function CrmProduction({
   jobs,
+  orders,
   canEdit,
   onStart,
   onFinish,
+  onLoadOrder,
+  onToast,
 }: {
   jobs: ProductionJob[];
+  orders: Order[];
   canEdit: boolean;
   onStart: (job: ProductionJob) => void;
   onFinish: (job: ProductionJob) => void;
+  onLoadOrder?: (id: string) => void;
+  onToast?: (message: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<ProductionJob | undefined>();
+  const [selectedJobId, setSelectedJobId] = useState<string | undefined>();
   const [view, setView] = useState<"list" | "grid">("list");
   const waitingJobs = jobs.filter((job) => job.status === "en_attente");
   const inProgressJobs = jobs.filter((job) => job.status === "en_cours");
   const completedJobs = jobs.filter((job) => job.status === "termine");
+  const selectedJob = jobs.find((job) => job.id === selectedJobId);
+  const selectedOrder = selectedJob
+    ? orders.find((order) => order.id === selectedJob.orderId)
+    : undefined;
+
+  function openJob(job: ProductionJob) {
+    setSelectedJobId(job.id);
+    onLoadOrder?.(job.orderId);
+  }
 
   return (
     <div className="space-y-6">
-      {/* Statistics */}
       <div className="grid gap-4 sm:grid-cols-3">
         <CrmPanel className="!p-4">
           <div className="flex items-center gap-3">
@@ -72,7 +86,6 @@ export function CrmProduction({
         </CrmPanel>
       </div>
 
-      {/* Production Queue */}
       <CrmPanel
         title="File de production"
         actions={
@@ -105,10 +118,7 @@ export function CrmProduction({
                 {jobs.map((job) => (
                   <tr
                     key={job.id}
-                    onClick={() => {
-                      setSelectedJob(job);
-                      setIsDrawerOpen(true);
-                    }}
+                    onClick={() => openJob(job)}
                     className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                   >
                     <td className="px-4 py-3 text-sm font-bold">{job.orderRef}</td>
@@ -130,12 +140,9 @@ export function CrmProduction({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {jobs.map((job) => (
-              <CrmCard 
-                key={job.id} 
-                onClick={() => {
-                  setSelectedJob(job);
-                  setIsDrawerOpen(true);
-                }}
+              <CrmCard
+                key={job.id}
+                onClick={() => openJob(job)}
                 className="p-5 cursor-pointer hover:shadow-md transition"
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -166,14 +173,20 @@ export function CrmProduction({
                     variant="ghost"
                     size="sm"
                     disabled={job.status !== "en_attente" || !canEdit}
-                    onClick={() => onStart(job)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onStart(job);
+                    }}
                   >
                     Démarrer
                   </CrmButton>
                   <CrmButton
                     size="sm"
                     disabled={job.status !== "en_cours" || !canEdit}
-                    onClick={() => onFinish(job)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFinish(job);
+                    }}
                   >
                     Terminer
                   </CrmButton>
@@ -184,7 +197,6 @@ export function CrmProduction({
         )}
       </CrmPanel>
 
-      {/* New Production Popup */}
       <CrmPopup
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}
@@ -234,61 +246,46 @@ export function CrmProduction({
         </form>
       </CrmPopup>
 
-      {/* Production Job Details Side Drawer */}
-      {selectedJob && (
-        <CrmSideDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          title={`Production: ${selectedJob.orderRef}`}
-        >
-          <div className="space-y-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold tracking-[0]">{selectedJob.orderRef}</h3>
-                  <CrmBadge variant={statusConfig[selectedJob.status].variant}>
-                    {productionStatusLabels[selectedJob.status]}
-                  </CrmBadge>
-                </div>
-                <p className="mt-2 text-sm font-semibold text-black/70">{selectedJob.clientName}</p>
+      <CrmOrderDetailsDrawer
+        order={selectedOrder}
+        isOpen={Boolean(selectedJobId)}
+        onClose={() => setSelectedJobId(undefined)}
+        onToast={onToast}
+      >
+        {selectedJob && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-black/60">Fabrication</p>
+              <div className="mt-2 flex items-center gap-2">
+                <CrmBadge variant={statusConfig[selectedJob.status].variant}>
+                  {productionStatusLabels[selectedJob.status]}
+                </CrmBadge>
+                {selectedJob.startedAt && (
+                  <span className="text-black/60">Démarré le {formatDate(selectedJob.startedAt)}</span>
+                )}
               </div>
             </div>
-
-            <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4">
-              <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-black/60">
-                Produits
-              </h4>
-              <p className="text-sm font-semibold">{selectedJob.productSummary}</p>
-            </div>
-
-            {selectedJob.startedAt && (
-              <div className="flex items-center gap-2 text-sm text-black/60">
-                <span>Démarré le {formatDate(selectedJob.startedAt)}</span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <CrmButton
-                variant="ghost"
-                size="sm"
-                disabled={selectedJob.status !== "en_attente"}
-                onClick={() => onStart(selectedJob)}
-                className="w-full"
-              >
-                Démarrer
-              </CrmButton>
-              <CrmButton
-                size="sm"
-                disabled={selectedJob.status !== "en_cours"}
-                onClick={() => onFinish(selectedJob)}
-                className="w-full"
-              >
-                Terminer
-              </CrmButton>
-            </div>
+            <CrmButton
+              variant="ghost"
+              className="w-full"
+              disabled={selectedJob.status !== "en_attente" || !canEdit}
+              onClick={() => onStart(selectedJob)}
+            >
+              Démarrer
+            </CrmButton>
+            <CrmButton
+              className="w-full"
+              disabled={selectedJob.status !== "en_cours" || !canEdit}
+              onClick={() => {
+                onFinish(selectedJob);
+                setSelectedJobId(undefined);
+              }}
+            >
+              Terminer
+            </CrmButton>
           </div>
-        </CrmSideDrawer>
-      )}
+        )}
+      </CrmOrderDetailsDrawer>
     </div>
   );
 }

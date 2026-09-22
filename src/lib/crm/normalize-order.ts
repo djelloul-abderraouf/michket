@@ -1,4 +1,22 @@
-import type { Order } from "@/lib/crm/types";
+import { orderStatuses, type Order, type OrderStatus } from "@/lib/crm/types";
+
+function normalizeStatus(status: unknown): OrderStatus {
+  if (typeof status === "string" && orderStatuses.includes(status as OrderStatus)) {
+    return status as OrderStatus;
+  }
+
+  const fromDb: Record<string, OrderStatus> = {
+    pending: "pas_confirme",
+    confirmed: "confirme",
+    processing: "en_fabrication",
+    shipped: "en_livraison",
+    delivered: "livre",
+    cancelled: "annulee",
+    refunded: "retour_echec",
+  };
+
+  return fromDb[String(status || "")] || "pas_confirme";
+}
 
 export function normalizeOrder(order: any): Order {
   return {
@@ -25,7 +43,7 @@ export function normalizeOrder(order: any): Order {
     discount: Number(order.discount ?? 0),
     currency: order.currency,
     dbStatus: order.dbStatus,
-    status: order.status,
+    status: normalizeStatus(order.status),
     items: Array.isArray(order.items)
       ? order.items.map((item: any) => ({
           productId: item.productId || "",
