@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Search, Phone, MapPin, User, Mail, Truck } from "lucide-react";
+import { Search, Phone, MapPin, User, Mail, Truck, Printer, FileDown } from "lucide-react";
 import {
   canChangeOrderStatus,
   canCreateOrder,
@@ -7,6 +7,8 @@ import {
 import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
 import type { Contact, CrmRole, Order, OrderStatus, Product } from "@/lib/crm/types";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
+import { printBordereau } from "@/lib/crm/bordereau";
+import { crmDeliveryApi } from "@/lib/api-client";
 import {
   CrmButton,
   CrmPanel,
@@ -58,6 +60,8 @@ export function CrmOrders(props: {
   onSelect: (id: string) => void;
   onMove: (order: Order, to: OrderStatus, note?: string) => void;
   onCreateOrder: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateParcel?: (order: Order) => void;
+  onToast?: (message: string) => void;
   setNewOrderName: (value: string) => void;
   setNewOrderPhone: (value: string) => void;
   setNewOrderWilaya: (value: string) => void;
@@ -68,7 +72,85 @@ export function CrmOrders(props: {
   const [view, setView] = useState<"list" | "kanban">("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const selectedOrder = props.selectedOrder;
+  const canExportBordereau = (order?: Order) =>
+    Boolean(order && order.status !== "pas_confirme");
+
+  async function handleDownloadBordereau(order: Order) {
+    try {
+      setBusyAction(`pdf:${order.id}`);
+      await crmDeliveryApi.downloadBordereau(order.id, orderRef(order));
+      props.onToast?.("Bordereau PDF telecharge");
+    } catch (error) {
+      props.onToast?.(error instanceof Error ? error.message : "Erreur PDF");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function BordereauButtons({
+    order,
+    compact = false,
+  }: {
+    order: Order;
+    compact?: boolean;
+  }) {
+    if (!canExportBordereau(order)) {
+      return null;
+    }
+    const downloading = busyAction === `pdf:${order.id}`;
+    return (
+      <div
+        className={compact ? "flex items-center justify-end gap-1" : "grid grid-cols-2 gap-2"}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <CrmButton
+          size="sm"
+          variant="ghost"
+          disabled={downloading}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleDownloadBordereau(order);
+          }}
+        >
+          <FileDown className="h-4 w-4 mr-1 inline" />
+          {downloading ? "PDF..." : compact ? "PDF" : "Telecharger PDF"}
+        </CrmButton>
+        <CrmButton
+          size="sm"
+          variant="ghost"
+          onClick={(event) => {
+            event.stopPropagation();
+            handlePrintBordereau(order);
+          }}
+        >
+          <Printer className="h-4 w-4 mr-1 inline" />
+          Imprimer
+        </CrmButton>
+      </div>
+    );
+  }
+
+  function handlePrintBordereau(order: Order) {
+    try {
+      printBordereau(order);
+    } catch (error) {
+      props.onToast?.(error instanceof Error ? error.message : "Impression impossible");
+    }
+  }
+
+  async function handleYalidineLabel(order: Order) {
+    try {
+      setBusyAction("label");
+      const result = await crmDeliveryApi.getLabel(order.id);
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      props.onToast?.(error instanceof Error ? error.message : "Etiquette Yalidine indisponible");
+    } finally {
+      setBusyAction(null);
+    }
+  }
   const matchedContacts = (props.contacts || []).filter((contact) => {
     const haystack = `${contact.firstName} ${contact.lastName} ${contact.phone} ${contact.email || ""}`.toLowerCase();
     return contactQuery.trim().length > 0 && haystack.includes(contactQuery.toLowerCase());
@@ -122,9 +204,16 @@ export function CrmOrders(props: {
         </CrmPanel>
 
         {view === "list" ? (
-          <CrmPanel title="Liste des commandes">
+          <CrmPanel
+            title="Liste des commandes"
+            actions={
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                Temps réel
+              </span>
+            }
+          >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1280px]">
                 <thead>
                   <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
                     <th className="px-3 py-3">Référence</th>
@@ -136,6 +225,7 @@ export function CrmOrders(props: {
                     <th className="px-3 py-3">Statut</th>
                     <th className="px-3 py-3">Total</th>
                     <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Bordereau</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,6 +260,9 @@ export function CrmOrders(props: {
                       </td>
                       <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{dzd.format(order.total)}</td>
                       <td className="px-3 py-3 text-sm text-black/60 whitespace-nowrap">{formatDate(order.createdAt)}</td>
+                      <td className="px-3 py-3">
+                        <BordereauButtons order={order} compact />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -222,6 +315,9 @@ export function CrmOrders(props: {
                           <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
                           <p className="text-xs text-black/60 truncate">{order.phone}</p>
                           <p className="mt-2 text-xs text-black/50 line-clamp-2 break-words">{productSummary(order)}</p>
+                          <div className="mt-2">
+                            <BordereauButtons order={order} compact />
+                          </div>
                         </CrmCard>
                       ))
                     )}
@@ -278,6 +374,14 @@ export function CrmOrders(props: {
               </select>
             </div>
 
+            {canExportBordereau(selectedOrder) && (
+              <div className="rounded-lg border border-michket-gold/40 bg-michket-gold/10 p-4 space-y-3">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-black/70">Bordereau d&apos;envoi</h4>
+                <p className="text-sm text-black/60">Imprimer ou telecharger le PDF de cette commande.</p>
+                <BordereauButtons order={selectedOrder} />
+              </div>
+            )}
+
             <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 space-y-2 text-sm">
               <h4 className="text-sm font-bold uppercase tracking-wider text-black/60">Livraison</h4>
               <p>{deliveryLabel(selectedOrder)}{selectedOrder.deliveryOfficeName ? ` · ${selectedOrder.deliveryOfficeName}` : ""}</p>
@@ -286,6 +390,28 @@ export function CrmOrders(props: {
               {selectedOrder.trackingNumber && (
                 <p className="font-semibold"><Truck className="inline h-4 w-4 mr-1" />{selectedOrder.trackingNumber} ({selectedOrder.carrierStatus || "Yalidine"})</p>
               )}
+              <div className="pt-2 space-y-2">
+                {!selectedOrder.trackingNumber && props.onCreateParcel && canExportBordereau(selectedOrder) && (
+                  <CrmButton
+                    size="sm"
+                    className="w-full"
+                    onClick={() => props.onCreateParcel?.(selectedOrder)}
+                  >
+                    Creer colis Yalidine
+                  </CrmButton>
+                )}
+                {(selectedOrder.trackingNumber || selectedOrder.labelUrl) && (
+                  <CrmButton
+                    size="sm"
+                    className="w-full"
+                    variant="ghost"
+                    disabled={busyAction === "label"}
+                    onClick={() => handleYalidineLabel(selectedOrder)}
+                  >
+                    Etiquette Yalidine
+                  </CrmButton>
+                )}
+              </div>
             </div>
 
             <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 space-y-2 text-sm">

@@ -120,6 +120,28 @@ class ApiClient {
   delete<T>(endpoint: string) {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
+
+  async downloadBlob(endpoint: string, filename: string) {
+    const apiBase = resolveApiBase();
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${apiBase}${endpoint}`, { headers });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ message: 'Telechargement impossible' }));
+      const message = Array.isArray(payload?.message)
+        ? payload.message.join(', ')
+        : payload?.message || `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 }
 
 export const apiClient = new ApiClient();
@@ -368,6 +390,14 @@ export const crmDeliveryApi = {
     apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}`),
   syncParcel: (orderId: string) =>
     apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}/sync`),
+  health: () => apiClient.get<{ ok: boolean; provider: string; wilayas: number }>('/crm/delivery/yalidine/health'),
+  getLabel: (orderId: string) =>
+    apiClient.get<{ url: string; tracking: string | null }>(`/crm/delivery/yalidine/${orderId}/label`),
+  downloadBordereau: (orderId: string, reference: string) =>
+    apiClient.downloadBlob(
+      `/crm/delivery/bordereau/${orderId}`,
+      `bordereau-${reference}.pdf`,
+    ),
 };
 
 export const crmUsersApi = {

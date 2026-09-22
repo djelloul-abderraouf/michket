@@ -50,7 +50,7 @@ export function CrmButton({
   className,
 }: {
   children: React.ReactNode;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   type?: "button" | "submit";
   variant?: "primary" | "default" | "ghost" | "success" | "danger";

@@ -228,6 +228,7 @@ export interface Order {
   trackingNumber?: string | null;
   carrier?: string | null;
   carrierStatus?: string | null;
+  labelUrl?: string | null;
   deliveredAt?: string;
   shippedAt?: string;
   cancelledAt?: string;

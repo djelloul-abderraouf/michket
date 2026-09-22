@@ -49,6 +49,8 @@ import { EnhancedDashboard } from "./EnhancedDashboard";
 import { CrmButton, cx } from "./CrmUi";
 import { crmPagePaths } from "@/lib/crm/routes";
 import { wilayaCodeFromName } from "@/lib/crm/wilayas";
+import { normalizeOrder } from "@/lib/crm/normalize-order";
+import { useCrmOrdersRealtime } from "@/lib/crm/use-crm-orders-realtime";
 import {
   crmActivitiesApi,
   crmCompaniesApi,
@@ -94,59 +96,12 @@ function toIsoDate(value: string): string {
   return new Date(`${value}T12:00:00`).toISOString();
 }
 
-function normalizeOrder(order: any): Order {
-  return {
-    id: order.id,
-    reference: order.reference,
-    source: order.source || "directe",
-    clientName: order.clientName || `${order.firstName || ""} ${order.lastName || ""}`.trim(),
-    firstName: order.firstName,
-    lastName: order.lastName,
-    phone: order.phone,
-    email: order.email,
-    wilaya: order.wilaya || order.wilayaName || "",
-    wilayaCode: order.wilayaCode,
-    commune: order.commune,
-    addressLine1: order.addressLine1,
-    addressLine2: order.addressLine2,
-    deliveryType: order.deliveryType,
-    deliveryOfficeName: order.deliveryOfficeName,
-    paymentMethod: order.paymentMethod,
-    paymentStatus: order.paymentStatus,
-    promoCode: order.promoCode,
-    subtotal: Number(order.subtotal ?? 0),
-    deliveryFee: Number(order.deliveryFee ?? 0),
-    discount: Number(order.discount ?? 0),
-    currency: order.currency,
-    dbStatus: order.dbStatus,
-    status: order.status,
-    items: Array.isArray(order.items)
-      ? order.items.map((item: any) => ({
-          productId: item.productId || "",
-          productName: item.productName,
-          productSlug: item.productSlug,
-          variantName: item.variantName,
-          colorName: item.colorName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice ?? 0,
-          lineTotal: item.lineTotal,
-          personalization: item.personalization,
-        }))
-      : [],
-    total: Number(order.total ?? 0),
-    notes: order.notes,
-    cancelReason: order.cancelReason,
-    trackingNumber: order.trackingNumber,
-    carrier: order.carrier,
-    carrierStatus: order.carrierStatus,
-    deliveredAt: order.deliveredAt,
-    shippedAt: order.shippedAt,
-    cancelledAt: order.cancelledAt,
-    paidAt: order.paidAt,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    history: Array.isArray(order.history) ? order.history : [],
-  };
+function upsertOrder(current: Order[], next: Order) {
+  const exists = current.some((order) => order.id === next.id);
+  if (exists) {
+    return current.map((order) => (order.id === next.id ? next : order));
+  }
+  return [next, ...current];
 }
 
 export function CrmApp() {
@@ -213,6 +168,33 @@ export function CrmApp() {
       void loadCrmData();
     }
   }, [user, profile]);
+
+  const ordersRef = useRef<Order[]>([]);
+  ordersRef.current = orders;
+
+  useCrmOrdersRealtime({
+    enabled: Boolean(user && profile?.is_active),
+    onUpsert: (order, event) => {
+      const previous = ordersRef.current.find((item) => item.id === order.id);
+      setOrders((current) => upsertOrder(current, order));
+      setSelectedOrderId((current) => current || order.id);
+      if (!previous && event === "INSERT") {
+        setToast(`Nouvelle commande: ${order.reference || order.clientName}`);
+      } else if (previous && previous.status !== order.status) {
+        setToast(
+          `Commande ${order.reference || order.clientName}: ${orderStatusLabels[order.status]}`,
+        );
+      }
+    },
+    onDelete: (orderId) => {
+      const remaining = ordersRef.current.filter((item) => item.id !== orderId);
+      setOrders(remaining);
+      setSelectedOrderId((selected) =>
+        selected === orderId ? remaining[0]?.id || "" : selected,
+      );
+      setToast("Commande supprimee");
+    },
+  });
 
   useEffect(() => {
     if (!newOrderProduct && products.length > 0) {
@@ -383,9 +365,7 @@ export function CrmApp() {
       .updateStatus(order.id, to, note)
       .then((updatedOrder) => {
         const mapped = normalizeOrder(updatedOrder);
-        setOrders((current) =>
-          current.map((item) => (item.id === order.id ? mapped : item)),
-        );
+        setOrders((current) => upsertOrder(current, mapped));
         setSelectedOrderId(order.id);
         setToast(`Commande ${mapped.clientName}: ${orderStatusLabels[mapped.status]}`);
         void crmProductionApi.getAll().then(setProductionJobs).catch(() => undefined);
@@ -487,7 +467,7 @@ export function CrmApp() {
       })
       .then((newOrder) => {
         const mappedOrder = normalizeOrder(newOrder);
-        setOrders((current) => [mappedOrder, ...current]);
+        setOrders((current) => upsertOrder(current, mappedOrder));
         setSelectedOrderId(mappedOrder.id);
         setNewOrderName("");
         setNewOrderPhone("");
@@ -1052,6 +1032,8 @@ export function CrmApp() {
               }}
               onMove={moveOrder}
               onCreateOrder={addOrder}
+              onCreateParcel={createParcel}
+              onToast={setToast}
               newOrderName={newOrderName}
               newOrderPhone={newOrderPhone}
               newOrderWilaya={newOrderWilaya}
