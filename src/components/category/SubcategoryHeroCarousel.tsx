@@ -91,7 +91,8 @@ export function SubcategoryHeroCarousel({
                 `${categoryName} - image ${index + 1}`
               }
               fill
-              priority={index === 0}
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" : "low"}
               className="object-cover"
               sizes="(max-width: 640px) 100vw, 1180px"
             />
