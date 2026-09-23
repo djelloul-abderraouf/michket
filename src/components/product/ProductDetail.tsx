@@ -8,9 +8,7 @@
  */
 
 import Image, { getImageProps } from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Cairo } from "next/font/google";
 import {
   type FormEvent,
   type ReactNode,
@@ -32,15 +30,8 @@ import {
 } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 
-const arabicFont = Cairo({
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
 interface ProductDetailProps {
   product: Product;
-  relatedProducts?: Product[];
   /**
    * Compatibilité temporaire avec la page produit actuelle.
    * Les données de cette prop ne sont plus utilisées : les wilayas et communes
@@ -99,7 +90,7 @@ function formatPriceDA(price: number): string {
 
 const MAIN_IMAGE_SIZES = "(max-width: 1023px) 100vw, 52vw";
 
-export function ProductDetail({ product, relatedProducts = [] }: ProductDetailProps) {
+export function ProductDetail({ product }: ProductDetailProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
@@ -635,11 +626,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
   )}`;
 
   return (
-    <main
-      lang="ar"
-      dir="rtl"
-      className={`${arabicFont.className} michket-arabic min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-8 text-[#251713]`}
-    >
+    <>
       <style>{`
         .michket-arabic {
           font-synthesis: none;
@@ -1503,69 +1490,6 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
         </div>
       </section>
 
-      {relatedProducts.length > 0 && (
-        <section className="mx-auto mt-2 max-w-[1240px] px-3 pb-6 sm:px-6 sm:pb-10 lg:px-8">
-          <div className="rounded-[20px] border border-[#251713]/[0.07] bg-white p-4 shadow-[0_14px_36px_rgba(37,23,19,0.05)] sm:p-6">
-            <div className="mb-4">
-              <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
-                قد يعجبك أيضًا
-              </p>
-              <h2 className="mt-1 text-[22px] font-semibold tracking-[-0.035em] sm:text-[27px]">
-                اكتشف منتجات أخرى
-              </h2>
-            </div>
-
-            <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
-              {relatedProducts.slice(0, 4).map((related) => {
-                const relatedImage =
-                  related.images.find((image) => image.variantId === null) ??
-                  related.images[0];
-
-                return (
-                  <Link
-                    key={related.id}
-                    href={`/produits/${related.slug}`}
-                    className="group w-[78vw] max-w-[290px] shrink-0 snap-start overflow-hidden rounded-[15px] border border-[#251713]/[0.08] bg-[#FFFCF8] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,23,19,0.08)] sm:w-auto sm:max-w-none"
-                  >
-                    <div className="relative aspect-square bg-[#EDE3D7]">
-                      {relatedImage ? (
-                        <Image
-                          src={relatedImage.src}
-                          alt={relatedImage.alt || related.title}
-                          fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                          sizes="(max-width: 639px) 72vw, (max-width: 1023px) 50vw, 25vw"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-xs text-[#251713]/30">
-                          الصورة غير متوفرة 
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-3.5">
-                      <h3 className="line-clamp-2 min-h-10 text-[13px] font-bold leading-5 text-[#251713]">
-                        {related.title}
-                      </h3>
-
-                      <div className="mt-2 flex items-end justify-between gap-2">
-                        <span className="text-[15px] font-extrabold text-[#251713]">
-                          {formatPriceDA(related.price)}
-                        </span>
-
-                        <span className="text-[10px] font-bold text-[#8A6A20]">
-                          عرض
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* WhatsApp flottant : reste visible pendant le scroll */}
       <a
         href={whatsappHref}
@@ -1654,7 +1578,7 @@ export function ProductDetail({ product, relatedProducts = [] }: ProductDetailPr
           </div>
         </div>
       )}
-    </main>
+    </>
   );
 }
 

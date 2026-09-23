@@ -1,9 +1,12 @@
+import { Suspense } from "react";
+import { Cairo } from "next/font/google";
 import { notFound } from "next/navigation";
+
 import { ProductDetail } from "@/components/product/ProductDetail";
+import { RelatedProductsSection } from "@/components/product/RelatedProductsSection";
 import { ProductJsonLd } from "@/components/seo/ProductJsonLd";
 import {
   fetchProductDetail,
-  fetchProductsForCategory,
   fetchProductBySlugSafe,
   type Product,
   ApiNotFoundError,
@@ -12,6 +15,12 @@ import {
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
   "http://localhost:3001";
+
+const arabicFont = Cairo({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -119,29 +128,6 @@ export default async function ProductPage({
     throw error;
   }
 
-  let relatedProducts: Product[] =
-    [];
-
-  if (product.category) {
-    try {
-      const allCategoryProducts =
-        await fetchProductsForCategory(
-          product.category,
-        );
-
-      relatedProducts =
-        allCategoryProducts
-          .filter(
-            (relatedProduct) =>
-              relatedProduct.id !==
-              product.id,
-          )
-          .slice(0, 4);
-    } catch {
-      relatedProducts = [];
-    }
-  }
-
   return (
     <>
       <ProductJsonLd
@@ -149,12 +135,22 @@ export default async function ProductPage({
         url={`${SITE_URL}/produits/${product.slug}`}
       />
 
-      <ProductDetail
-        product={product}
-        relatedProducts={
-          relatedProducts
-        }
-      />
+      <main
+        lang="ar"
+        dir="rtl"
+        className={`${arabicFont.className} michket-arabic min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-8 text-[#251713]`}
+      >
+        <ProductDetail product={product} />
+
+        {product.category ? (
+          <Suspense fallback={null}>
+            <RelatedProductsSection
+              categorySlug={product.category}
+              currentProductId={product.id}
+            />
+          </Suspense>
+        ) : null}
+      </main>
     </>
   );
 }
