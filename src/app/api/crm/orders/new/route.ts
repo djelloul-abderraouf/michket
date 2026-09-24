@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
   return crmResponse(
     await createCrmResource("orders", {
-      source: "directe",
+      source: "whatsapp",
       status: "pas_confirme",
       history: [],
       ...payload,

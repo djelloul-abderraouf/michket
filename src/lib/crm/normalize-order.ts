@@ -1,4 +1,12 @@
-import { orderStatuses, type Order, type OrderStatus } from "@/lib/crm/types";
+import { orderStatuses, type Order, type OrderSource, type OrderStatus } from "@/lib/crm/types";
+import { personalizationText } from "@/lib/crm/order-display";
+
+function normalizeSource(value: unknown): OrderSource {
+  if (value === "whatsapp" || value === "facebook" || value === "instagram" || value === "ecom") {
+    return value;
+  }
+  return "ecom";
+}
 
 function normalizeStatus(status: unknown): OrderStatus {
   if (typeof status === "string" && orderStatuses.includes(status as OrderStatus)) {
@@ -22,12 +30,18 @@ export function normalizeOrder(order: any): Order {
   return {
     id: order.id,
     reference: order.reference,
-    source: order.source || "directe",
+    source: normalizeSource(order.source),
     clientName: order.clientName || `${order.firstName || ""} ${order.lastName || ""}`.trim(),
     firstName: order.firstName,
     lastName: order.lastName,
     phone: order.phone,
     email: order.email,
+    clientType: order.clientType === "professionnel" || order.clientType === "particulier"
+      ? order.clientType
+      : null,
+    isExistingClient: Boolean(order.isExistingClient),
+    previousOrderCount: Number(order.previousOrderCount ?? 0),
+    contactId: order.contactId,
     wilaya: order.wilaya || order.wilayaName || "",
     wilayaCode: order.wilayaCode,
     commune: order.commune,
@@ -51,10 +65,12 @@ export function normalizeOrder(order: any): Order {
           productSlug: item.productSlug,
           variantName: item.variantName,
           colorName: item.colorName,
+          colorHex: item.colorHex,
           quantity: item.quantity,
           unitPrice: item.unitPrice ?? 0,
           lineTotal: item.lineTotal,
           personalization: item.personalization,
+          personalizationText: item.personalizationText || personalizationText(item.personalization),
         }))
       : [],
     total: Number(order.total ?? 0),
@@ -63,6 +79,8 @@ export function normalizeOrder(order: any): Order {
     trackingNumber: order.trackingNumber,
     carrier: order.carrier,
     carrierStatus: order.carrierStatus,
+    yalidineStatus: order.yalidineStatus || null,
+    yalidineSyncedAt: order.yalidineSyncedAt || null,
     labelUrl: order.labelUrl,
     deliveredAt: order.deliveredAt,
     shippedAt: order.shippedAt,

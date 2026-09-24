@@ -11,6 +11,8 @@ export function CrmPreparation({
   canEdit,
   onLoadOrder,
   onToast,
+  onCreateParcel,
+  onSyncParcel,
 }: {
   orders: Order[];
   qualityChecked: boolean;
@@ -19,6 +21,8 @@ export function CrmPreparation({
   canEdit: boolean;
   onLoadOrder?: (id: string) => void;
   onToast?: (message: string) => void;
+  onCreateParcel?: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
@@ -178,6 +182,8 @@ export function CrmPreparation({
         isOpen={Boolean(selectedId)}
         onClose={() => setSelectedId(undefined)}
         onToast={onToast}
+        onCreateParcel={onCreateParcel}
+        onSyncParcel={onSyncParcel}
       >
         {selectedOrder && (
           <CrmButton

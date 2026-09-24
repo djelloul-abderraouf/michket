@@ -1,4 +1,5 @@
 import type { Order } from "@/lib/crm/types";
+import { itemPersonalization } from "@/lib/crm/order-display";
 import { X, Plus, List, LayoutGrid, ChevronRight } from "lucide-react";
 
 export const dzd = new Intl.NumberFormat("fr-DZ", {
@@ -32,7 +33,12 @@ export function productSummary(order: Pick<Order, "items">) {
     return "Aucun article";
   }
   return order.items
-    .map((item) => `${item.quantity} x ${item.productName}`)
+    .map((item) => {
+      const extras = [item.colorName, itemPersonalization(item)].filter(Boolean);
+      return extras.length
+        ? `${item.quantity} x ${item.productName} (${extras.join(" · ")})`
+        : `${item.quantity} x ${item.productName}`;
+    })
     .join(", ");
 }
 

@@ -9,12 +9,16 @@ export function CrmConfirmation({
   onReason,
   onLoadOrder,
   onToast,
+  onCreateParcel,
+  onSyncParcel,
 }: {
   orders: Order[];
   onConfirm: (order: Order) => void;
   onReason: (order: Order, reason: NonNullable<Order["confirmationReason"]>) => void;
   onLoadOrder?: (id: string) => void;
   onToast?: (message: string) => void;
+  onCreateParcel?: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
 }) {
   const [pendingOrder, setPendingOrder] = useState<Order | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -118,6 +122,8 @@ export function CrmConfirmation({
         isOpen={Boolean(selectedId)}
         onClose={() => setSelectedId(undefined)}
         onToast={onToast}
+        onCreateParcel={onCreateParcel}
+        onSyncParcel={onSyncParcel}
       >
         {selectedOrder && (
           <div className="space-y-2">

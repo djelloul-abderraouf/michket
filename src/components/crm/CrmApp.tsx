@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -21,6 +21,7 @@ import {
   type CrmPage,
   type CrmTask,
   type CrmUser,
+  type CreateCrmOrderPayload,
   type Deal,
   type Order,
   type OrderStatus,
@@ -48,7 +49,6 @@ import { CrmUsers } from "./CrmUsers";
 import { EnhancedDashboard } from "./EnhancedDashboard";
 import { CrmButton, cx } from "./CrmUi";
 import { crmPagePaths } from "@/lib/crm/routes";
-import { wilayaCodeFromName } from "@/lib/crm/wilayas";
 import { normalizeOrder } from "@/lib/crm/normalize-order";
 import { useCrmOrdersRealtime } from "@/lib/crm/use-crm-orders-realtime";
 import {
@@ -128,11 +128,6 @@ export function CrmApp() {
   const [qualityChecked, setQualityChecked] = useState(false);
   const [toast, setToast] = useState("Systeme connecte avec Supabase");
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
-  const [newOrderName, setNewOrderName] = useState("");
-  const [newOrderPhone, setNewOrderPhone] = useState("");
-  const [newOrderWilaya, setNewOrderWilaya] = useState("Alger");
-  const [newOrderProduct, setNewOrderProduct] = useState("");
-  const [newOrderQuantity, setNewOrderQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -195,12 +190,6 @@ export function CrmApp() {
       setToast("Commande supprimee");
     },
   });
-
-  useEffect(() => {
-    if (!newOrderProduct && products.length > 0) {
-      setNewOrderProduct(products[0].id);
-    }
-  }, [products, newOrderProduct]);
 
   const loadCrmData = async () => {
     setIsLoading(true);
@@ -445,43 +434,39 @@ export function CrmApp() {
       });
   }
 
-  function addOrder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function syncParcel(order: Order) {
+    crmDeliveryApi
+      .syncParcel(order.id)
+      .then((updated) => {
+        const mapped = normalizeOrder(updated);
+        setOrders((current) =>
+          current.map((item) => (item.id === order.id ? mapped : item)),
+        );
+        setToast(
+          mapped.yalidineStatus
+            ? `Yalidine: ${mapped.yalidineStatus}`
+            : `Suivi Yalidine mis a jour: ${mapped.trackingNumber || mapped.reference || order.id}`,
+        );
+      })
+      .catch((error) => {
+        setToast(error instanceof Error ? error.message : "Erreur suivi Yalidine");
+      });
+  }
 
+  function addOrder(payload: CreateCrmOrderPayload) {
     if (!canCreateOrder(userRoles)) {
       setToast("Action refusee: role non autorise a creer une commande.");
       return;
     }
 
-    if (!newOrderName || !newOrderPhone) {
-      setToast("Complete le client et telephone.");
-      return;
-    }
-
-    const [firstName, ...rest] = newOrderName.trim().split(" ");
-    const matchedContact = contacts.find(
-      (contact) => contact.phone.replace(/\s+/g, "") === newOrderPhone.replace(/\s+/g, ""),
-    );
     crmOrdersApi
-      .create({
-        firstName,
-        lastName: rest.join(" "),
-        phone: newOrderPhone,
-        email: matchedContact?.email,
-        wilayaName: newOrderWilaya,
-        wilayaCode: wilayaCodeFromName(newOrderWilaya),
-        productId: newOrderProduct || undefined,
-        contactId: matchedContact?.id,
-        quantity: newOrderQuantity || 1,
-      })
+      .create(payload)
       .then((newOrder) => {
         const mappedOrder = normalizeOrder(newOrder);
         setOrders((current) => upsertOrder(current, mappedOrder));
         setSelectedOrderId(mappedOrder.id);
-        setNewOrderName("");
-        setNewOrderPhone("");
-        setNewOrderQuantity(1);
         setToast(`${mappedOrder.clientName} : commande creee.`);
+        void crmCustomersApi.getAll().then((rows) => setContacts(rows || [])).catch(() => undefined);
       })
       .catch((error) => {
         console.error("Error creating order:", error);
@@ -1034,19 +1019,10 @@ export function CrmApp() {
               onMove={moveOrder}
               onCreateOrder={addOrder}
               onCreateParcel={createParcel}
+              onSyncParcel={syncParcel}
               onToast={setToast}
-              newOrderName={newOrderName}
-              newOrderPhone={newOrderPhone}
-              newOrderWilaya={newOrderWilaya}
-              newOrderProduct={newOrderProduct}
-              newOrderQuantity={newOrderQuantity}
               products={products}
               contacts={contacts}
-              setNewOrderName={setNewOrderName}
-              setNewOrderPhone={setNewOrderPhone}
-              setNewOrderWilaya={setNewOrderWilaya}
-              setNewOrderProduct={setNewOrderProduct}
-              setNewOrderQuantity={setNewOrderQuantity}
             />
           )}
 
@@ -1058,6 +1034,8 @@ export function CrmApp() {
               onConfirm={(order) =>
                 moveOrder(order, "confirme", "Client confirme par telephone.")
               }
+              onCreateParcel={createParcel}
+              onSyncParcel={syncParcel}
               onReason={(order, reason) => {
                 const note = `Motif confirmation: ${reason}`;
                 if (reason === "refus") {
@@ -1145,6 +1123,8 @@ export function CrmApp() {
               onFinish={finishProduction}
               onLoadOrder={loadOrderDetails}
               onToast={setToast}
+              onCreateParcel={createParcel}
+              onSyncParcel={syncParcel}
             />
           )}
 
@@ -1157,6 +1137,8 @@ export function CrmApp() {
               canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison")}
               onLoadOrder={loadOrderDetails}
               onToast={setToast}
+              onCreateParcel={createParcel}
+              onSyncParcel={syncParcel}
             />
           )}
 
@@ -1166,20 +1148,7 @@ export function CrmApp() {
                 ["confirme", "en_livraison", "livre", "retour_echec"].includes(order.status),
               )}
               onCreateParcel={createParcel}
-              onSyncParcel={(order) => {
-                crmDeliveryApi
-                  .syncParcel(order.id)
-                  .then((updated) => {
-                    const mapped = normalizeOrder(updated);
-                    setOrders((current) =>
-                      current.map((item) => (item.id === order.id ? mapped : item)),
-                    );
-                    setToast(`Suivi Yalidine mis a jour: ${mapped.trackingNumber || mapped.reference || order.id}`);
-                  })
-                  .catch((error) => {
-                    setToast(error instanceof Error ? error.message : "Erreur suivi Yalidine");
-                  });
-              }}
+              onSyncParcel={syncParcel}
               onDelivered={(order) => moveOrder(order, "livre", "Livraison confirmee.")}
               onReturned={(order) =>
                 moveOrder(order, "retour_echec", "Echec livraison / retour.")

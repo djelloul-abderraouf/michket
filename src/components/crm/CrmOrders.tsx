@@ -1,8 +1,26 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Search, Printer, FileDown } from "lucide-react";
+import { crmDeliveryApi, crmOrdersApi } from "@/lib/api-client";
 import { canCreateOrder } from "@/lib/crm/permissions";
+import {
+  clientTypeLabel,
+  deliveryLabel,
+  itemPersonalization,
+  orderSourceLabels,
+  orderSources,
+} from "@/lib/crm/order-display";
 import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
-import type { Contact, CrmRole, Order, OrderStatus, Product } from "@/lib/crm/types";
+import type {
+  ClientType,
+  Contact,
+  CreateCrmOrderPayload,
+  CrmRole,
+  Order,
+  OrderSource,
+  OrderStatus,
+  Product,
+  YalidineCenter,
+} from "@/lib/crm/types";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 import {
@@ -32,10 +50,6 @@ const statusTone: Record<OrderStatus, { border: string; bg: string; badge: strin
   annulee: { border: "border-l-zinc-500", bg: "bg-zinc-100", badge: "default" },
 };
 
-function deliveryLabel(order: Order) {
-  return order.deliveryType === "office" ? "Stop desk" : "Domicile";
-}
-
 export function CrmOrders(props: {
   orders: Order[];
   selectedOrder?: Order;
@@ -44,11 +58,6 @@ export function CrmOrders(props: {
   wilayaFilter: string;
   wilayas: string[];
   userRoles: CrmRole[];
-  newOrderName: string;
-  newOrderPhone: string;
-  newOrderWilaya: string;
-  newOrderProduct: string;
-  newOrderQuantity?: number;
   products: Product[];
   contacts?: Contact[];
   onQuery: (value: string) => void;
@@ -56,20 +65,38 @@ export function CrmOrders(props: {
   onWilayaFilter: (value: string) => void;
   onSelect: (id: string) => void;
   onMove: (order: Order, to: OrderStatus, note?: string) => void;
-  onCreateOrder: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateOrder: (payload: CreateCrmOrderPayload) => void;
   onCreateParcel?: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
   onToast?: (message: string) => void;
-  setNewOrderName: (value: string) => void;
-  setNewOrderPhone: (value: string) => void;
-  setNewOrderWilaya: (value: string) => void;
-  setNewOrderProduct: (value: string) => void;
-  setNewOrderQuantity?: (value: number) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<OrderSource | "all">("all");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [newOrderName, setNewOrderName] = useState("");
+  const [newOrderPhone, setNewOrderPhone] = useState("");
+  const [newOrderWilaya, setNewOrderWilaya] = useState("Alger");
+  const [newOrderCommune, setNewOrderCommune] = useState("");
+  const [newOrderProduct, setNewOrderProduct] = useState("");
+  const [newOrderVariant, setNewOrderVariant] = useState("");
+  const [newOrderQuantity, setNewOrderQuantity] = useState(1);
+  const [newOrderSource, setNewOrderSource] = useState<OrderSource>("whatsapp");
+  const [newOrderDelivery, setNewOrderDelivery] = useState<"home" | "office">("home");
+  const [newOrderAddress, setNewOrderAddress] = useState("");
+  const [newOrderOffice, setNewOrderOffice] = useState("");
+  const [newOrderOfficeId, setNewOrderOfficeId] = useState("");
+  const [yalidineCenters, setYalidineCenters] = useState<YalidineCenter[]>([]);
+  const [newOrderText, setNewOrderText] = useState("");
+  const [newOrderClientType, setNewOrderClientType] = useState<ClientType>("particulier");
+  const [newOrderContactId, setNewOrderContactId] = useState("");
+  const [clientLookup, setClientLookup] = useState<{
+    exists: boolean;
+    previousOrderCount: number;
+    contact: Contact | null;
+  } | null>(null);
   const selectedOrder = props.selectedOrder;
   const canExportBordereau = (order?: Order) =>
     Boolean(order && order.status !== "pas_confirme" && order.status !== "annulee");
@@ -144,6 +171,148 @@ export function CrmOrders(props: {
     return contactQuery.trim().length > 0 && haystack.includes(contactQuery.toLowerCase());
   }).slice(0, 8);
 
+  const activeProducts = props.products.filter((product) => product.active);
+  const selectedProduct = activeProducts.find((product) => product.id === newOrderProduct);
+  const productVariants = selectedProduct?.variants || [];
+
+  const visibleOrders = useMemo(
+    () =>
+      sourceFilter === "all"
+        ? props.orders
+        : props.orders.filter((order) => order.source === sourceFilter),
+    [props.orders, sourceFilter],
+  );
+
+  useEffect(() => {
+    if (!newOrderProduct && activeProducts.length > 0) {
+      setNewOrderProduct(activeProducts[0].id);
+    }
+  }, [activeProducts, newOrderProduct]);
+
+  useEffect(() => {
+    const variants = props.products.find((product) => product.id === newOrderProduct)?.variants || [];
+    if (variants.length === 0) {
+      setNewOrderVariant("");
+      return;
+    }
+    if (!variants.some((variant) => variant.id === newOrderVariant)) {
+      setNewOrderVariant(variants[0].id);
+    }
+  }, [newOrderProduct, newOrderVariant, props.products]);
+
+  useEffect(() => {
+    if (!isPopupOpen || newOrderDelivery !== "office") {
+      return;
+    }
+    const wilaya = ALGERIA_WILAYAS.find((item) => item.name === newOrderWilaya);
+    if (!wilaya) {
+      return;
+    }
+    let cancelled = false;
+    crmDeliveryApi
+      .listCenters(wilaya.code)
+      .then((rows) => {
+        if (!cancelled) {
+          setYalidineCenters(rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setYalidineCenters([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPopupOpen, newOrderDelivery, newOrderWilaya]);
+
+  useEffect(() => {
+    const phone = newOrderPhone.trim();
+    if (phone.replace(/\D/g, "").length < 8) {
+      setClientLookup(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void crmOrdersApi
+        .lookupClient(phone)
+        .then((result) => {
+          setClientLookup(result);
+          if (result.contact) {
+            setNewOrderContactId(result.contact.id);
+            setNewOrderClientType(result.contact.type);
+            setNewOrderName((current) =>
+              current.trim()
+                ? current
+                : `${result.contact!.firstName} ${result.contact!.lastName}`.trim(),
+            );
+            if (result.contact.wilaya) {
+              setNewOrderWilaya(result.contact.wilaya);
+            }
+          } else {
+            setNewOrderContactId("");
+          }
+        })
+        .catch(() => setClientLookup(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [newOrderPhone]);
+
+  function resetCreateForm() {
+    setContactQuery("");
+    setNewOrderName("");
+    setNewOrderPhone("");
+    setNewOrderCommune("");
+    setNewOrderAddress("");
+    setNewOrderOffice("");
+    setNewOrderOfficeId("");
+    setYalidineCenters([]);
+    setNewOrderText("");
+    setNewOrderQuantity(1);
+    setNewOrderSource("whatsapp");
+    setNewOrderDelivery("home");
+    setNewOrderClientType("particulier");
+    setNewOrderContactId("");
+    setClientLookup(null);
+  }
+
+  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newOrderName.trim() || !newOrderPhone.trim()) {
+      props.onToast?.("Complete le client et le telephone.");
+      return;
+    }
+    if (newOrderDelivery === "home" && !newOrderAddress.trim()) {
+      props.onToast?.("Adresse exacte obligatoire pour une livraison a domicile.");
+      return;
+    }
+    const [firstName, ...rest] = newOrderName.trim().split(" ");
+    const wilaya = ALGERIA_WILAYAS.find((item) => item.name === newOrderWilaya);
+    const variant = productVariants.find((item) => item.id === newOrderVariant);
+    props.onCreateOrder({
+      firstName,
+      lastName: rest.join(" "),
+      phone: newOrderPhone,
+      email: clientLookup?.contact?.email || undefined,
+      wilayaName: newOrderWilaya,
+      wilayaCode: wilaya?.code,
+      commune: newOrderCommune || undefined,
+      addressLine1: newOrderDelivery === "home" ? newOrderAddress : newOrderOffice || undefined,
+      source: newOrderSource,
+      deliveryType: newOrderDelivery,
+      deliveryOfficeName: newOrderDelivery === "office" ? newOrderOffice || undefined : undefined,
+      deliveryOfficeId: newOrderDelivery === "office" ? newOrderOfficeId || undefined : undefined,
+      clientType: newOrderClientType,
+      contactId: newOrderContactId || undefined,
+      productId: newOrderProduct || undefined,
+      variantId: newOrderVariant || undefined,
+      colorName: variant?.colorName || variant?.name,
+      personalizationText: newOrderText || undefined,
+      quantity: newOrderQuantity || 1,
+    });
+    setIsPopupOpen(false);
+    resetCreateForm();
+  }
+
   return (
     <div className="space-y-6">
       <section className="min-w-0 space-y-4">
@@ -167,7 +336,7 @@ export function CrmOrders(props: {
               />
             </div>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <select
               value={props.statusFilter}
               onChange={(event) => props.onStatusFilter(event.target.value as OrderStatus | "all")}
@@ -188,6 +357,16 @@ export function CrmOrders(props: {
                 <option key={wilaya} value={wilaya}>{wilaya}</option>
               ))}
             </select>
+            <select
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value as OrderSource | "all")}
+              className="h-11 w-full rounded-lg border border-black/15 px-4 text-sm outline-none focus:border-michket-gold"
+            >
+              <option value="all">Toutes origines</option>
+              {orderSources.map((source) => (
+                <option key={source} value={source}>{orderSourceLabels[source]}</option>
+              ))}
+            </select>
           </div>
         </CrmPanel>
 
@@ -201,15 +380,18 @@ export function CrmOrders(props: {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1280px]">
+              <table className="w-full min-w-[1860px]">
                 <thead>
                   <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
                     <th className="px-3 py-3">Référence</th>
+                    <th className="px-3 py-3">Origine</th>
                     <th className="px-3 py-3">Client</th>
                     <th className="px-3 py-3">Téléphone</th>
+                    <th className="px-3 py-3">Type</th>
                     <th className="px-3 py-3">Wilaya / commune</th>
                     <th className="px-3 py-3">Livraison</th>
-                    <th className="px-3 py-3">Paiement</th>
+                    <th className="px-3 py-3">Produit</th>
+                    <th className="px-3 py-3">Suivi Yalidine</th>
                     <th className="px-3 py-3">Statut</th>
                     <th className="px-3 py-3">Total</th>
                     <th className="px-3 py-3">Date</th>
@@ -217,7 +399,7 @@ export function CrmOrders(props: {
                   </tr>
                 </thead>
                 <tbody>
-                  {props.orders.map((order) => (
+                  {visibleOrders.map((order) => (
                     <tr
                       key={order.id}
                       onClick={() => {
@@ -227,19 +409,45 @@ export function CrmOrders(props: {
                       className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                     >
                       <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{orderRef(order)}</td>
+                      <td className="px-3 py-3 text-sm whitespace-nowrap">
+                        {orderSourceLabels[order.source] || "Site e-com"}
+                      </td>
                       <td className="px-3 py-3 text-sm">
                         <p className="font-medium">{order.clientName}</p>
-                        {order.email && <p className="text-xs text-black/50 truncate max-w-[180px]">{order.email}</p>}
+                        <p className="text-xs text-black/50">
+                          {order.isExistingClient ? "Client existant" : "Nouveau client"}
+                        </p>
                       </td>
                       <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">{order.phone}</td>
+                      <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">
+                        {clientTypeLabel(order.clientType)}
+                      </td>
                       <td className="px-3 py-3 text-sm text-black/70">
                         {order.wilaya}
                         {order.commune ? ` · ${order.commune}` : ""}
                       </td>
-                      <td className="px-3 py-3 text-sm text-black/70">{deliveryLabel(order)}</td>
                       <td className="px-3 py-3 text-sm text-black/70">
-                        {(order.paymentMethod || "cod").toUpperCase()}
-                        {order.paymentStatus ? ` · ${order.paymentStatus}` : ""}
+                        <p>{deliveryLabel(order)}</p>
+                        {order.deliveryType !== "office" && order.addressLine1 && (
+                          <p className="text-xs text-black/50 truncate max-w-[180px]">{order.addressLine1}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-black/70">
+                        <p className="truncate max-w-[220px]">{productSummary(order)}</p>
+                        {order.items.some((item) => item.colorName || itemPersonalization(item)) && (
+                          <p className="text-xs text-black/50 truncate max-w-[220px]">
+                            {order.items
+                              .map((item) => [item.colorName, itemPersonalization(item)].filter(Boolean).join(" · "))
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-black/70">
+                        <p className="font-medium truncate max-w-[160px]">{order.trackingNumber || "—"}</p>
+                        {order.yalidineStatus && (
+                          <p className="text-xs text-black/50 truncate max-w-[160px]">{order.yalidineStatus}</p>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <CrmBadge variant={statusTone[order.status].badge as any}>
@@ -255,7 +463,7 @@ export function CrmOrders(props: {
                   ))}
                 </tbody>
               </table>
-              {props.orders.length === 0 && (
+              {visibleOrders.length === 0 && (
                 <div className="py-12 text-center">
                   <p className="text-lg font-semibold text-black/40">Aucune commande</p>
                 </div>
@@ -265,7 +473,7 @@ export function CrmOrders(props: {
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-4">
             {orderStatuses.map((status) => {
-              const columnOrders = props.orders.filter((order) => order.status === status);
+              const columnOrders = visibleOrders.filter((order) => order.status === status);
               const columnValue = columnOrders.reduce((sum, order) => sum + order.total, 0);
               return (
                 <div key={status} className="w-[260px] shrink-0 rounded-xl border border-black/10 bg-white shadow-sm flex flex-col">
@@ -300,9 +508,18 @@ export function CrmOrders(props: {
                             <p className="text-xs font-bold shrink-0">{dzd.format(order.total)}</p>
                           </div>
                           <p className="text-sm font-semibold truncate">{order.clientName}</p>
+                          <p className="text-xs text-black/55">
+                            {orderSourceLabels[order.source] || "Site e-com"} · {clientTypeLabel(order.clientType)}
+                          </p>
                           <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
                           <p className="text-xs text-black/60 truncate">{order.phone}</p>
                           <p className="mt-2 text-xs text-black/50 line-clamp-2 break-words">{productSummary(order)}</p>
+                          {order.trackingNumber && (
+                            <p className="mt-1 text-xs text-black/50 truncate">
+                              {order.trackingNumber}
+                              {order.yalidineStatus ? ` · ${order.yalidineStatus}` : ""}
+                            </p>
+                          )}
                           <div className="mt-2">
                             <BordereauButtons order={order} compact />
                           </div>
@@ -324,19 +541,26 @@ export function CrmOrders(props: {
         userRoles={props.userRoles}
         onMove={props.onMove}
         onCreateParcel={props.onCreateParcel}
+        onSyncParcel={props.onSyncParcel}
         onToast={props.onToast}
         showStatusSelect
       />
 
-      <CrmPopup isOpen={isPopupOpen} onClose={() => setIsPopupOpen(false)} title="Nouvelle commande">
-        <form
-          onSubmit={(event) => {
-            props.onCreateOrder(event);
-            setIsPopupOpen(false);
-            setContactQuery("");
-          }}
-          className="space-y-4"
-        >
+      <CrmPopup isOpen={isPopupOpen} onClose={() => { setIsPopupOpen(false); resetCreateForm(); }} title="Nouvelle commande" size="large">
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Origine</label>
+            <select
+              value={newOrderSource}
+              onChange={(event) => setNewOrderSource(event.target.value as OrderSource)}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            >
+              <option value="whatsapp">WhatsApp</option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="ecom">Site e-com</option>
+            </select>
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Rechercher un client</label>
             <input
@@ -353,34 +577,132 @@ export function CrmOrders(props: {
                     type="button"
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-black/[0.04]"
                     onClick={() => {
-                      props.setNewOrderName(`${contact.firstName} ${contact.lastName}`.trim());
-                      props.setNewOrderPhone(contact.phone);
-                      if (contact.wilaya) props.setNewOrderWilaya(contact.wilaya);
+                      setNewOrderName(`${contact.firstName} ${contact.lastName}`.trim());
+                      setNewOrderPhone(contact.phone);
+                      setNewOrderContactId(contact.id);
+                      setNewOrderClientType(contact.type);
+                      if (contact.wilaya) setNewOrderWilaya(contact.wilaya);
                       setContactQuery(`${contact.firstName} ${contact.lastName}`);
                     }}
                   >
                     <span className="font-semibold">{contact.firstName} {contact.lastName}</span>
-                    <span className="ml-2 text-black/50">{contact.phone} · {contact.wilaya}</span>
+                    <span className="ml-2 text-black/50">{contact.phone} · {contact.wilaya} · {clientTypeLabel(contact.type)}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <input value={props.newOrderName} onChange={(event) => props.setNewOrderName(event.target.value)} placeholder="Nom client" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
-          <input value={props.newOrderPhone} onChange={(event) => props.setNewOrderPhone(event.target.value)} placeholder="Téléphone" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
-          <select value={props.newOrderWilaya} onChange={(event) => props.setNewOrderWilaya(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
+          <input value={newOrderName} onChange={(event) => setNewOrderName(event.target.value)} placeholder="Nom client" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          <input value={newOrderPhone} onChange={(event) => setNewOrderPhone(event.target.value)} placeholder="Téléphone" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          {clientLookup && (
+            <p className={`rounded-lg px-3 py-2 text-sm ${clientLookup.exists ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+              {clientLookup.exists
+                ? `Client existant${clientLookup.contact ? ` · ${clientTypeLabel(clientLookup.contact.type)}` : ""} · ${clientLookup.previousOrderCount} commande(s)`
+                : "Nouveau client — ce numero n'a pas encore commande"}
+            </p>
+          )}
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Type client</label>
+            <select
+              value={newOrderClientType}
+              onChange={(event) => setNewOrderClientType(event.target.value as ClientType)}
+              disabled={Boolean(clientLookup?.contact)}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            >
+              <option value="particulier">Particulier</option>
+              <option value="professionnel">Professionnel</option>
+            </select>
+          </div>
+          <select value={newOrderWilaya} onChange={(event) => setNewOrderWilaya(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
             {ALGERIA_WILAYAS.map((wilaya) => (
               <option key={wilaya.code} value={wilaya.name}>{wilaya.code} - {wilaya.name}</option>
             ))}
           </select>
-          <select value={props.newOrderProduct} onChange={(event) => props.setNewOrderProduct(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
-            {props.products.filter((product) => product.active).map((product) => (
+          <input value={newOrderCommune} onChange={(event) => setNewOrderCommune(event.target.value)} placeholder="Commune" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Livraison</label>
+            <select
+              value={newOrderDelivery}
+              onChange={(event) => {
+                const next = event.target.value as "home" | "office";
+                setNewOrderDelivery(next);
+                if (next === "home") {
+                  setNewOrderOffice("");
+                  setNewOrderOfficeId("");
+                }
+              }}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            >
+              <option value="home">Domicile</option>
+              <option value="office">Bureau</option>
+            </select>
+          </div>
+          {newOrderDelivery === "home" ? (
+            <input
+              value={newOrderAddress}
+              onChange={(event) => setNewOrderAddress(event.target.value)}
+              placeholder="Adresse exacte du client"
+              required
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            />
+          ) : yalidineCenters.length > 0 ? (
+            <select
+              value={newOrderOfficeId}
+              onChange={(event) => {
+                const id = event.target.value;
+                setNewOrderOfficeId(id);
+                const center = yalidineCenters.find((item) => String(item.centerId) === id);
+                setNewOrderOffice(center?.name || "");
+              }}
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            >
+              <option value="">Choisir un bureau Yalidine</option>
+              {yalidineCenters.map((center) => (
+                <option key={center.centerId} value={String(center.centerId)}>
+                  {center.name}
+                  {center.commune ? ` · ${center.commune}` : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={newOrderOffice}
+              onChange={(event) => setNewOrderOffice(event.target.value)}
+              placeholder="Bureau Yalidine (nom du centre)"
+              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+            />
+          )}
+          <select value={newOrderProduct} onChange={(event) => setNewOrderProduct(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
+            {activeProducts.map((product) => (
               <option key={product.id} value={product.id}>{product.name} - {dzd.format(product.price)}</option>
             ))}
           </select>
-          <input type="number" min={1} max={99} value={props.newOrderQuantity || 1} onChange={(event) => props.setNewOrderQuantity?.(Number(event.target.value) || 1)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          {productVariants.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Couleur</label>
+              <select
+                value={newOrderVariant}
+                onChange={(event) => setNewOrderVariant(event.target.value)}
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+              >
+                {productVariants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.colorName || variant.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <textarea
+            value={newOrderText}
+            onChange={(event) => setNewOrderText(event.target.value)}
+            placeholder="Texte a graver sur le trophee"
+            rows={3}
+            className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+          />
+          <input type="number" min={1} max={99} value={newOrderQuantity} onChange={(event) => setNewOrderQuantity(Number(event.target.value) || 1)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
           <div className="flex gap-3 pt-2">
-            <CrmButton type="button" variant="ghost" onClick={() => setIsPopupOpen(false)} className="flex-1">Annuler</CrmButton>
+            <CrmButton type="button" variant="ghost" onClick={() => { setIsPopupOpen(false); resetCreateForm(); }} className="flex-1">Annuler</CrmButton>
             <CrmButton type="submit" disabled={!canCreateOrder(props.userRoles)} className="flex-1">Créer commande</CrmButton>
           </div>
         </form>

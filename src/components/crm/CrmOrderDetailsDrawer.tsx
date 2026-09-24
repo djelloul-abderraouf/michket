@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Phone, MapPin, User, Mail, Truck, Printer, FileDown } from "lucide-react";
+import { Phone, MapPin, User, Mail, Truck, Printer, FileDown, RefreshCw } from "lucide-react";
 import { canChangeOrderStatus } from "@/lib/crm/permissions";
+import { clientTypeLabel, deliveryLabel, itemPersonalization, orderSourceLabels } from "@/lib/crm/order-display";
 import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
@@ -13,10 +14,6 @@ import {
   orderRef,
 } from "./CrmUi";
 
-function deliveryLabel(order: Order) {
-  return order.deliveryType === "office" ? "Stop desk" : "Domicile";
-}
-
 function canExportBordereau(order?: Order) {
   return Boolean(order && order.status !== "pas_confirme" && order.status !== "annulee");
 }
@@ -28,6 +25,7 @@ export function CrmOrderDetailsDrawer({
   userRoles,
   onMove,
   onCreateParcel,
+  onSyncParcel,
   onToast,
   showStatusSelect = false,
   children,
@@ -38,6 +36,7 @@ export function CrmOrderDetailsDrawer({
   userRoles?: CrmRole[];
   onMove?: (order: Order, to: OrderStatus, note?: string) => void;
   onCreateParcel?: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
   onToast?: (message: string) => void;
   showStatusSelect?: boolean;
   children?: ReactNode;
@@ -94,6 +93,15 @@ export function CrmOrderDetailsDrawer({
               <p className="mt-1 text-sm text-black/60">
                 <Phone className="inline h-4 w-4 mr-1" />
                 {order.phone}
+              </p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-black/50">
+                {orderSourceLabels[order.source] || "Site e-com"}
+                {" · "}
+                {clientTypeLabel(order.clientType)}
+                {" · "}
+                {order.isExistingClient
+                  ? `Client existant (${order.previousOrderCount || 1} commande${(order.previousOrderCount || 1) > 1 ? "s" : ""})`
+                  : "Nouveau client"}
               </p>
               {order.email && (
                 <p className="text-sm text-black/60">
@@ -191,13 +199,29 @@ export function CrmOrderDetailsDrawer({
             {order.trackingNumber && (
               <p className="font-semibold">
                 <Truck className="inline h-4 w-4 mr-1" />
-                {order.trackingNumber} ({order.carrierStatus || "Yalidine"})
+                {order.trackingNumber}
+              </p>
+            )}
+            {order.yalidineStatus && (
+              <p className="text-sm">
+                Statut Yalidine: <span className="font-semibold">{order.yalidineStatus}</span>
+              </p>
+            )}
+            {order.yalidineSyncedAt && (
+              <p className="text-xs text-black/50">
+                Dernier sync: {formatDate(order.yalidineSyncedAt)}
               </p>
             )}
             <div className="pt-2 space-y-2">
               {!order.trackingNumber && onCreateParcel && canExportBordereau(order) && (
                 <CrmButton size="sm" className="w-full" onClick={() => onCreateParcel(order)}>
                   Creer colis Yalidine
+                </CrmButton>
+              )}
+              {order.trackingNumber && onSyncParcel && (
+                <CrmButton size="sm" className="w-full" variant="ghost" onClick={() => onSyncParcel(order)}>
+                  <RefreshCw className="h-4 w-4 mr-1 inline" />
+                  Actualiser Yalidine
                 </CrmButton>
               )}
               {(order.trackingNumber || order.labelUrl) && (
@@ -236,6 +260,11 @@ export function CrmOrderDetailsDrawer({
                     {(item.variantName || item.colorName) && (
                       <span className="block text-xs text-black/50">
                         {[item.variantName, item.colorName].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                    {itemPersonalization(item) && (
+                      <span className="block text-xs text-black/70">
+                        Texte trophee: {itemPersonalization(item)}
                       </span>
                     )}
                   </span>

@@ -86,8 +86,13 @@ export function CrmDelivery({
                       <p className="text-xs text-black/50">{order.phone}</p>
                     </td>
                     <td className="px-3 py-3 text-sm">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</td>
-                    <td className="px-3 py-3 text-sm">{order.deliveryType === "office" ? "Stop desk" : "Domicile"}</td>
-                    <td className="px-3 py-3 text-sm">{order.trackingNumber || "À créer"}</td>
+                    <td className="px-3 py-3 text-sm">{order.deliveryType === "office" ? "Bureau" : "Domicile"}</td>
+                    <td className="px-3 py-3 text-sm">
+                      <p>{order.trackingNumber || "À créer"}</p>
+                      {order.yalidineStatus && (
+                        <p className="text-xs text-black/50">{order.yalidineStatus}</p>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <CrmBadge variant={statusVariant(order)}>{orderStatusLabels[order.status]}</CrmBadge>
                     </td>
@@ -147,7 +152,10 @@ export function CrmDelivery({
                 <p className="text-xs text-black/50 mt-1">{order.addressLine1}</p>
                 <p className="mt-3 text-xs break-words">{productSummary(order)}</p>
                 <p className="mt-2 text-sm font-bold">{dzd.format(order.total)}</p>
-                <p className="text-xs text-black/50 mt-1">Suivi: {order.trackingNumber || "non créé"} {order.carrierStatus ? `· ${order.carrierStatus}` : ""}</p>
+                <p className="text-xs text-black/50 mt-1">
+                  Suivi: {order.trackingNumber || "non créé"}
+                  {order.yalidineStatus ? ` · ${order.yalidineStatus}` : order.carrierStatus ? ` · ${order.carrierStatus}` : ""}
+                </p>
                 <div className="mt-3 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <CrmButton

@@ -17,6 +17,8 @@ export function CrmProduction({
   onFinish,
   onLoadOrder,
   onToast,
+  onCreateParcel,
+  onSyncParcel,
 }: {
   jobs: ProductionJob[];
   orders: Order[];
@@ -25,6 +27,8 @@ export function CrmProduction({
   onFinish: (job: ProductionJob) => void;
   onLoadOrder?: (id: string) => void;
   onToast?: (message: string) => void;
+  onCreateParcel?: (order: Order) => void;
+  onSyncParcel?: (order: Order) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>();
@@ -251,6 +255,8 @@ export function CrmProduction({
         isOpen={Boolean(selectedJobId)}
         onClose={() => setSelectedJobId(undefined)}
         onToast={onToast}
+        onCreateParcel={onCreateParcel}
+        onSyncParcel={onSyncParcel}
       >
         {selectedJob && (
           <div className="space-y-3">

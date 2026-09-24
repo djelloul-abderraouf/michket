@@ -125,6 +125,13 @@ export interface Company {
   createdAt: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  name: string;
+  colorName?: string | null;
+  colorHex?: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -137,6 +144,7 @@ export interface Product {
   averageBuildHours: number;
   active: boolean;
   isPersonalizable?: boolean;
+  variants?: ProductVariant[];
 }
 
 export interface ProductCategory {
@@ -174,16 +182,22 @@ export interface Deal {
   expectedCloseAt: string;
 }
 
+export type OrderSource = "ecom" | "whatsapp" | "facebook" | "instagram";
+
+export type ClientType = "particulier" | "professionnel";
+
 export interface OrderItem {
   productId: string;
   productName: string;
   productSlug?: string;
   variantName?: string | null;
   colorName?: string | null;
+  colorHex?: string | null;
   quantity: number;
   unitPrice: number;
   lineTotal?: number;
   personalization?: unknown;
+  personalizationText?: string;
 }
 
 export interface OrderStatusEvent {
@@ -196,15 +210,50 @@ export interface OrderStatusEvent {
   note?: string;
 }
 
+export interface YalidineCenter {
+  centerId: number;
+  name: string;
+  address?: string;
+  commune?: string;
+  wilaya?: string;
+}
+
+export interface CreateCrmOrderPayload {
+  firstName: string;
+  lastName?: string;
+  phone: string;
+  email?: string;
+  wilayaName: string;
+  wilayaCode?: number;
+  commune?: string;
+  addressLine1?: string;
+  source: OrderSource;
+  deliveryType: "home" | "office";
+  deliveryOfficeName?: string;
+  deliveryOfficeId?: string;
+  clientType?: ClientType;
+  contactId?: string;
+  productId?: string;
+  variantId?: string;
+  colorName?: string;
+  personalizationText?: string;
+  quantity?: number;
+  notes?: string;
+}
+
 export interface Order {
   id: string;
   reference?: string;
-  source: "directe" | "affaire";
+  source: OrderSource;
   clientName: string;
   firstName?: string;
   lastName?: string;
   phone: string;
   email?: string | null;
+  clientType?: ClientType | null;
+  isExistingClient?: boolean;
+  previousOrderCount?: number;
+  contactId?: string | null;
   wilaya: string;
   wilayaCode?: number;
   commune?: string;
@@ -230,6 +279,8 @@ export interface Order {
   trackingNumber?: string | null;
   carrier?: string | null;
   carrierStatus?: string | null;
+  yalidineStatus?: string | null;
+  yalidineSyncedAt?: string | null;
   labelUrl?: string | null;
   deliveredAt?: string;
   shippedAt?: string;

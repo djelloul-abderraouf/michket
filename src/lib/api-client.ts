@@ -3,6 +3,7 @@ import type {
   Activity,
   Company,
   Contact,
+  CreateCrmOrderPayload,
   CrmTask,
   CrmUser,
   Deal,
@@ -14,6 +15,7 @@ import type {
   ProductionStatus,
   ProductCategory,
   Proposal,
+  YalidineCenter,
 } from './crm/types';
 
 function resolveApiBase(): string {
@@ -254,25 +256,22 @@ export const crmOrdersApi = {
   getAll: (params?: {
     status?: string;
     wilaya?: string;
+    source?: string;
     search?: string;
     page?: number;
     limit?: number;
   }) => apiClient.get<PaginatedOrders>('/crm/orders', params),
   getById: (id: string) => apiClient.get<Order>(`/crm/orders/${id}`),
+  lookupClient: (phone: string) =>
+    apiClient.get<{
+      exists: boolean;
+      previousOrderCount: number;
+      contact: Contact | null;
+    }>('/crm/orders/client-by-phone', { phone }),
   updateStatus: (id: string, status: OrderStatus | string, note?: string) =>
     apiClient.put<Order>(`/crm/orders/${id}/status`, { status, note }),
-  create: (orderData: {
-    firstName: string;
-    lastName?: string;
-    phone: string;
-    wilayaName?: string;
-    wilayaCode?: number;
-    productId?: string;
-    contactId?: string;
-    quantity?: number;
-    notes?: string;
-    email?: string;
-  }) => apiClient.post<Order>('/crm/orders', orderData),
+  create: (orderData: CreateCrmOrderPayload) =>
+    apiClient.post<Order>('/crm/orders', orderData),
 };
 
 export const crmCustomersApi = {
@@ -398,6 +397,10 @@ export const crmDeliveryApi = {
     apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}`),
   syncParcel: (orderId: string) =>
     apiClient.post<Order>(`/crm/delivery/yalidine/${orderId}/sync`),
+  listCenters: (wilayaCode?: number) =>
+    apiClient.get<YalidineCenter[]>(
+      `/crm/delivery/yalidine/centers${wilayaCode ? `?wilayaCode=${wilayaCode}` : ""}`,
+    ),
   health: () => apiClient.get<{ ok: boolean; provider: string; wilayas: number }>('/crm/delivery/yalidine/health'),
   getLabel: (orderId: string) =>
     apiClient.get<{ url: string; tracking: string | null }>(`/crm/delivery/yalidine/${orderId}/label`),

@@ -225,7 +225,7 @@ export const demoProposals: Proposal[] = [
 export const demoOrders: Order[] = [
   {
     id: "CMD-1048",
-    source: "directe",
+    source: "ecom",
     clientName: "Nadia Ait Salem",
     phone: "0555 20 11 90",
     wilaya: "Alger",
@@ -249,7 +249,7 @@ export const demoOrders: Order[] = [
   },
   {
     id: "CMD-1047",
-    source: "affaire",
+    source: "whatsapp",
     clientName: "Amina Belkacem",
     phone: "0550 12 34 56",
     wilaya: "Blida",
@@ -271,7 +271,7 @@ export const demoOrders: Order[] = [
   },
   {
     id: "CMD-1046",
-    source: "directe",
+    source: "ecom",
     clientName: "Meriem Taleb",
     phone: "0662 11 17 44",
     wilaya: "Oran",
@@ -288,7 +288,7 @@ export const demoOrders: Order[] = [
   },
   {
     id: "CMD-1045",
-    source: "directe",
+    source: "ecom",
     clientName: "Walid Rezzoug",
     phone: "0770 72 41 12",
     wilaya: "Constantine",
@@ -305,7 +305,7 @@ export const demoOrders: Order[] = [
   },
   {
     id: "CMD-1044",
-    source: "directe",
+    source: "ecom",
     clientName: "Imene Gacem",
     phone: "0559 03 14 77",
     wilaya: "Setif",
@@ -326,7 +326,7 @@ export const demoOrders: Order[] = [
   },
   {
     id: "CMD-1043",
-    source: "directe",
+    source: "ecom",
     clientName: "Rachid Kouider",
     phone: "0666 81 00 21",
     wilaya: "Alger",
