@@ -3,6 +3,7 @@ import type {
   Activity,
   Company,
   Contact,
+  CreateCrmCategoryPayload,
   CreateCrmOrderPayload,
   CrmTask,
   CrmUser,
@@ -118,6 +119,30 @@ class ApiClient {
 
   delete<T>(endpoint: string) {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async postForm<T>(endpoint: string, formData: FormData): Promise<T> {
+    const apiBase = resolveApiBase();
+    const headers = await this.getAuthHeaders();
+    let response: Response;
+    try {
+      response = await fetch(`${apiBase}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+    } catch {
+      throw new Error(`API indisponible (${apiBase}). Verifie que le backend tourne.`);
+    }
+
+    const payload = await response.json().catch(() => ({ message: 'An error occurred' }));
+    if (!response.ok) {
+      const message = Array.isArray(payload?.message)
+        ? payload.message.join(', ')
+        : payload?.message || `HTTP error! status: ${response.status}`;
+      throw new Error(message);
+    }
+    return payload as T;
   }
 
   async fetchBlob(endpoint: string) {
@@ -370,6 +395,7 @@ export const crmProductsApi = {
     price: number;
     shortDescription?: string;
     photoUrl?: string;
+    storagePath?: string;
     isActive?: boolean;
     isPersonalizable?: boolean;
   }) => apiClient.post<Product>('/crm/products', data),
@@ -381,10 +407,26 @@ export const crmProductsApi = {
       price?: number;
       shortDescription?: string;
       photoUrl?: string;
+      storagePath?: string;
       isActive?: boolean;
       isPersonalizable?: boolean;
     },
   ) => apiClient.put<Product>(`/crm/products/${id}`, data),
+  createCategory: (data: CreateCrmCategoryPayload) =>
+    apiClient.post<ProductCategory>('/crm/products/categories', data),
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.postForm<{ url: string; path: string }>('/crm/products/images', formData);
+  },
+  uploadCategoryImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.postForm<{ url: string; path: string }>(
+      '/crm/products/categories/images',
+      formData,
+    );
+  },
   setActive: (id: string, active: boolean) =>
     apiClient.put<{ id: string; isActive: boolean }>(`/crm/products/${id}/active`, {
       active,

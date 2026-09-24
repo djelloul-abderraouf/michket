@@ -151,7 +151,35 @@ export interface ProductCategory {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  imageStoragePath?: string | null;
+  href?: string | null;
+  parentId?: string | null;
   isActive?: boolean;
+  sortOrder?: number;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  pageTitle?: string | null;
+  productsTitle?: string | null;
+  filterLabel?: string | null;
+}
+
+export interface CreateCrmCategoryPayload {
+  name: string;
+  slug?: string;
+  description?: string;
+  imageUrl?: string;
+  imageStoragePath?: string;
+  href?: string;
+  parentId?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  metaTitle?: string;
+  metaDescription?: string;
+  pageTitle?: string;
+  productsTitle?: string;
+  filterLabel?: string;
 }
 
 export interface ProposalItem {

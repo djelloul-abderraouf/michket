@@ -853,6 +853,7 @@ export function CrmApp() {
     categoryId: string;
     price: number;
     photoUrl?: string;
+    storagePath?: string;
     shortDescription?: string;
     isPersonalizable?: boolean;
   }) {
@@ -874,6 +875,7 @@ export function CrmApp() {
       categoryId: string;
       price: number;
       photoUrl?: string;
+      storagePath?: string;
       shortDescription?: string;
       isPersonalizable?: boolean;
     },
@@ -1165,6 +1167,14 @@ export function CrmApp() {
               onCreate={createProduct}
               onUpdate={updateProduct}
               onDelete={deleteProduct}
+              onCategoryCreated={(category) => {
+                setCategories((current) =>
+                  current.some((item) => item.id === category.id)
+                    ? current
+                    : [...current, category].sort((a, b) => a.name.localeCompare(b.name)),
+                );
+              }}
+              onToast={setToast}
             />
           )}
 
