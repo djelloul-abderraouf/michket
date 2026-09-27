@@ -248,10 +248,10 @@ export function ProductDetail({
 
   const activeImage = galleryImages[selectedImage] ?? galleryImages[0];
 
-  // A selected variant can override the base product price.
-  // Example: product = 4 000 DA, red variant = 4 500 DA.
-  const effectiveUnitPrice =
-    selectedVariant?.price ?? product.price;
+  // Every color uses the model price. Multicolor adds 500 DA.
+  const effectiveUnitPrice = selectedVariant?.isMulticolor
+    ? product.price + 500
+    : product.price;
 
   const subtotal = effectiveUnitPrice * quantity;
   const total =
@@ -606,8 +606,8 @@ export function ProductDetail({
         }
       `}</style>
 
-      <section className="mx-auto w-full max-w-[1240px] px-3 py-3 sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:py-8">
-        <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.96fr)] lg:items-start lg:gap-6 xl:gap-8">
+      <section className="mx-auto w-full max-w-[1240px] overflow-x-hidden px-3 py-3 pb-16 sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:py-8">
+        <div className="grid min-w-0 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.92fr)] xl:items-start xl:gap-8">
           {/* ------------------------------------------------------ */}
           {/* PRODUIT / ARGUMENTAIRE                                */}
           {/* ------------------------------------------------------ */}
@@ -723,7 +723,10 @@ export function ProductDetail({
                 <p className="mb-2 text-[11px] font-extrabold text-[#251713]/60">
                   Couleur | اختر اللون
                 </p>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-4">
+                <p className="mb-3 text-[12px] leading-5 text-[#251713]/55">
+                  كل الألوان بنفس السعر. متعدد الألوان: +500 دج
+                </p>
+                <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:grid-cols-3">
                   {product.variants.map((variant) => {
                     const rawLabel = variant.colorName || variant.name;
                     const label = localizeColorLabel(rawLabel);
@@ -773,8 +776,13 @@ export function ProductDetail({
                             <span className="absolute inset-0 bg-[#E7DED3]" />
                           )}
                         </span>
-                        <span className="min-w-0 flex-1 break-words text-[11px] font-bold leading-4 text-[#251713]">
+                        <span className="min-w-0 flex-1 break-words text-[13px] font-bold leading-4 text-[#251713]">
                           {label}
+                          {variant.isMulticolor ? (
+                            <span className="mt-0.5 block text-[11px] font-semibold text-[#8A6A20]">
+                              +500 DA
+                            </span>
+                          ) : null}
                         </span>
                       </button>
                     );
@@ -791,7 +799,7 @@ export function ProductDetail({
                 </span>
               )}
 
-              <h1 className="mt-2 text-[24px] font-semibold leading-[1.35] tracking-[-0.04em] sm:text-[36px]">
+              <h1 className="mt-2 text-[22px] font-semibold leading-snug tracking-[-0.03em] sm:text-[32px] xl:text-[36px]">
                 {product.title}
               </h1>
 
@@ -878,7 +886,7 @@ export function ProductDetail({
                   <p className="text-[9px] font-extrabold tracking-[0.14em] text-[#8A6A20]">
                     Commande rapide | طلب سريع
                   </p>
-                  <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] sm:text-[28px]">
+                  <h2 className="mt-1 text-[20px] font-semibold leading-snug tracking-[-0.03em] sm:text-[28px]">
                     اطلب بسهولة في بضع خطوات
                   </h2>
                   <p className="mt-1 text-[11px] leading-5 text-[#251713]/45">
@@ -1195,7 +1203,7 @@ export function ProductDetail({
                       Total à payer | المبلغ الإجمالي
                     </span>
 
-                    <span className="text-[30px] font-extrabold tracking-[-0.04em]">
+                    <span className="text-[24px] font-extrabold tracking-[-0.04em] sm:text-[30px]">
                       {total === null ? "—" : formatPriceDA(total)}
                     </span>
                   </div>
@@ -1377,7 +1385,7 @@ export function ProductDetail({
 }
 
 const inputClass =
-  "min-h-12 w-full min-w-0 rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-right text-[13px] text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
+  "min-h-12 w-full min-w-0 rounded-[10px] border border-[#251713]/10 bg-white px-3.5 text-base text-[#251713] outline-none transition placeholder:text-[#251713]/25 focus:border-[#ECAB1C] focus:ring-2 focus:ring-[#ECAB1C]/10";
 
 function BilingualText({
   fr,

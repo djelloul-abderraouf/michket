@@ -354,7 +354,9 @@ function mapProductDetail(
       colorHex: v.colorHex,
       isMulticolor: v.isMulticolor,
       sortOrder: v.sortOrder,
-      price: v.priceCents != null ? centsToDA(v.priceCents) : undefined,
+      price: v.isMulticolor
+        ? centsToDA(detail.priceCents) + 500
+        : centsToDA(detail.priceCents),
       inventory: v.inventory,
       inStock: inventoryHasStock(v.inventory),
     }));
@@ -502,6 +504,7 @@ export async function fetchProducts(params: {
   sort?: string;
   page?: number;
   limit?: number;
+  noStore?: boolean;
 }): Promise<PaginatedResponse<ApiProductListItem>> {
   const qs = new URLSearchParams();
   if (params.category) qs.set("category", params.category);
@@ -517,6 +520,8 @@ export async function fetchProducts(params: {
   const query = qs.toString();
   return apiFetch<PaginatedResponse<ApiProductListItem>>(
     `/products${query ? `?${query}` : ""}`,
+    undefined,
+    params.noStore ? { noStore: true } : undefined,
   );
 }
 
@@ -570,6 +575,7 @@ export async function fetchProductsForCategory(
       page,
       limit,
       personalizable: opts?.personalizable,
+      noStore: true,
     });
     all.push(...res.data);
     if (page >= res.meta.totalPages) break;

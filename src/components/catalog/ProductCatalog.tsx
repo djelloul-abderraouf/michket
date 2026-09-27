@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { Product, ProductColor } from "@/lib/api";
+import type { Product } from "@/lib/api";
 
 type CatalogCategory = {
   slug: string;
@@ -29,8 +29,9 @@ function discountPercent(product: Product): number | null {
   );
 }
 
-function colorKey(color: ProductColor): string {
-  return color.isMulticolor ? "multicolor" : color.name.trim().toLowerCase();
+function matchesCategory(product: Product, slug: string): boolean {
+  if (slug === "all") return true;
+  return product.subcategorySlug === slug;
 }
 
 function ColorDot({
@@ -80,45 +81,33 @@ export function ProductCatalog({
 }) {
   const [categorySlug, setCategorySlug] = useState("all");
   const [modelId, setModelId] = useState("all");
-  const [color, setColor] = useState("all");
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const skipScroll = useRef(true);
 
   const modelsInCategory = useMemo(() => {
-    return products.filter((product) =>
-      categorySlug === "all"
-        ? true
-        : product.subcategorySlug === categorySlug,
-    );
+    return products.filter((product) => matchesCategory(product, categorySlug));
   }, [categorySlug, products]);
 
-  const availableColors = useMemo(() => {
-    const seen = new Map<string, ProductColor>();
+  const visibleProducts = useMemo(() => {
+    if (modelId === "all") return modelsInCategory;
+    return modelsInCategory.filter((product) => product.id === modelId);
+  }, [modelId, modelsInCategory]);
 
-    for (const product of modelsInCategory) {
-      for (const item of product.colors ?? []) {
-        const key = colorKey(item);
-        if (!seen.has(key)) seen.set(key, item);
-      }
+  useEffect(() => {
+    if (skipScroll.current) {
+      skipScroll.current = false;
+      return;
     }
 
-    return Array.from(seen.entries()).sort((left, right) => {
-      if (left[0] === "multicolor") return 1;
-      if (right[0] === "multicolor") return -1;
-      return left[1].name.localeCompare(right[1].name, "fr");
+    resultsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
     });
-  }, [modelsInCategory]);
-
-  const visibleProducts = useMemo(() => {
-    return modelsInCategory.filter((product) => {
-      if (modelId !== "all" && product.id !== modelId) return false;
-      if (color === "all") return true;
-      return (product.colors ?? []).some((item) => colorKey(item) === color);
-    });
-  }, [color, modelId, modelsInCategory]);
+  }, [categorySlug, modelId]);
 
   function selectCategory(slug: string) {
     setCategorySlug(slug);
     setModelId("all");
-    setColor("all");
   }
 
   return (
@@ -139,70 +128,53 @@ export function ProductCatalog({
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-10">
-        <div className="space-y-4 rounded-2xl border border-[#251713]/[0.08] bg-white p-3 sm:p-4">
-          {subcategories.length > 0 && (
-            <FilterRow label="Catégorie">
-              <FilterChip
-                active={categorySlug === "all"}
-                onClick={() => selectCategory("all")}
-              >
-                Toutes
-              </FilterChip>
-              {subcategories.map((item) => (
-                <FilterChip
-                  key={item.slug}
-                  active={categorySlug === item.slug}
-                  onClick={() => selectCategory(item.slug)}
-                >
-                  {item.name}
-                </FilterChip>
-              ))}
-            </FilterRow>
-          )}
-
-          <FilterRow label="Modèle">
-            <FilterChip
-              active={modelId === "all"}
-              onClick={() => setModelId("all")}
+      <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-5 lg:px-10">
+        <div className="grid gap-3 rounded-2xl border border-[#251713]/[0.08] bg-white p-3 sm:grid-cols-2 sm:p-4">
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#251713]/45">
+              Catégorie
+            </span>
+            <select
+              value={categorySlug}
+              onChange={(event) => selectCategory(event.target.value)}
+              className="h-12 w-full rounded-xl border border-[#251713]/15 bg-[#FFFCF8] px-3 text-base text-[#251713] outline-none focus:border-[#ECAB1C]"
             >
-              Tous les modèles
-            </FilterChip>
-            {modelsInCategory.map((product) => (
-              <FilterChip
-                key={product.id}
-                active={modelId === product.id}
-                onClick={() => setModelId(product.id)}
-              >
-                {product.title}
-              </FilterChip>
-            ))}
-          </FilterRow>
+              <option value="all">Toutes les catégories</option>
+              {subcategories.map((item) => (
+                <option key={item.slug} value={item.slug}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <FilterRow label="Couleur">
-            <FilterChip active={color === "all"} onClick={() => setColor("all")}>
-              Toutes
-            </FilterChip>
-            {availableColors.map(([key, item]) => (
-              <FilterChip
-                key={key}
-                active={color === key}
-                onClick={() => setColor(key)}
-              >
-                <ColorDot color={item} size="sm" />
-                {item.isMulticolor ? "Multicolore" : item.name}
-              </FilterChip>
-            ))}
-          </FilterRow>
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#251713]/45">
+              Modèle
+            </span>
+            <select
+              value={modelsInCategory.some((product) => product.id === modelId) ? modelId : "all"}
+              onChange={(event) => setModelId(event.target.value)}
+              className="h-12 w-full rounded-xl border border-[#251713]/15 bg-[#FFFCF8] px-3 text-base text-[#251713] outline-none focus:border-[#ECAB1C]"
+            >
+              <option value="all">Tous les modèles</option>
+              {modelsInCategory.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.title}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
+        <div ref={resultsRef} className="scroll-mt-24">
         <p className="mt-4 text-sm text-[#251713]/50">
           {visibleProducts.length} modèle
           {visibleProducts.length > 1 ? "s" : ""}
         </p>
 
         {visibleProducts.length > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {visibleProducts.map((product, index) => (
               <ModelCard key={product.id} product={product} priority={index < 2} />
             ))}
@@ -216,6 +188,7 @@ export function ProductCatalog({
             Aucun modèle ne correspond à ces filtres.
           </p>
         )}
+        </div>
       </section>
     </main>
   );
@@ -245,7 +218,7 @@ function ModelCard({
             fill
             priority={priority}
             className="object-cover"
-            sizes="(max-width: 639px) 50vw, 25vw"
+            sizes="(max-width: 519px) 100vw, (max-width: 1023px) 50vw, 25vw"
           />
         ) : null}
         {discount ? (
@@ -280,7 +253,7 @@ function ModelCard({
               <Link
                 key={item.id}
                 href={`/produits/${product.slug}?couleur=${item.id}`}
-                title={item.isMulticolor ? "Multicolore" : item.name}
+                title={item.isMulticolor ? "Multicolore +500 DA" : item.name}
                 aria-label={`${product.title} — ${item.isMulticolor ? "Multicolore" : item.name}`}
                 className="rounded-full p-0.5 transition hover:ring-2 hover:ring-[#ECAB1C]"
               >
@@ -289,50 +262,12 @@ function ModelCard({
             ))}
           </div>
         )}
+        {colors.some((item) => item.isMulticolor) ? (
+          <p className="mt-2 text-[11px] leading-4 text-[#251713]/50">
+            Multicolore : +500 DA
+          </p>
+        ) : null}
       </div>
     </article>
-  );
-}
-
-function FilterRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#251713]/45">
-        {label}
-      </p>
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition ${
-        active
-          ? "border-[#ECAB1C] bg-[#FFF4D5] text-[#251713]"
-          : "border-[#251713]/10 bg-[#FFFCF8] text-[#251713]/75 hover:border-[#251713]/25"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
