@@ -38,7 +38,7 @@ function ColorDot({
   color,
   size = "md",
 }: {
-  color: Pick<ProductColor, "hex" | "isMulticolor">;
+  color: { hex: string | null; isMulticolor: boolean };
   size?: "sm" | "md";
 }) {
   const dimension = size === "sm" ? "h-4 w-4" : "h-5 w-5";
