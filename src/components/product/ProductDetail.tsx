@@ -32,6 +32,7 @@ import { useCart } from "@/contexts/CartContext";
 
 interface ProductDetailProps {
   product: Product;
+  initialVariantId?: string;
   /**
    * Compatibilité temporaire avec la page produit actuelle.
    * Les données de cette prop ne sont plus utilisées : les wilayas et communes
@@ -90,15 +91,28 @@ function formatPriceDA(price: number): string {
 
 const MAIN_IMAGE_SIZES = "(max-width: 1023px) 100vw, 52vw";
 
-export function ProductDetail({ product }: ProductDetailProps) {
+export function ProductDetail({
+  product,
+  initialVariantId,
+}: ProductDetailProps) {
   const router = useRouter();
   const { addItem } = useCart();
-  const [selectedImage, setSelectedImage] = useState(0);
+  const initialVariant =
+    product.variants?.find((variant) => variant.id === initialVariantId) ??
+    null;
+  const initialImageIndex = initialVariant
+    ? Math.max(
+        0,
+        product.images.findIndex(
+          (image) => image.variantId === initialVariant.id,
+        ),
+      )
+    : 0;
+  const [selectedImage, setSelectedImage] = useState(initialImageIndex);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] =
-    useState<ProductVariant | null>(null);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+    useState<ProductVariant | null>(initialVariant);
 
   // Keep the complete gallery visible at all times.
   // Choosing a color only changes the large/main image.
@@ -166,12 +180,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
     preloadImagesRef.current.push(preloadImage);
   }, []);
 
-  const preloadAllVariantImages = useCallback(() => {
-    for (const src of variantImageSources) {
-      preloadVariantImage(src);
-    }
-  }, [preloadVariantImage, variantImageSources]);
-
   /*
    * Do not automatically preload every full-size variant image during the
    * initial page load. On a throttled mobile connection those requests can
@@ -195,7 +203,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
       setSelectedImage(variantImageIndex);
     }
 
-    setColorPickerOpen(false);
   }
 
   // Auto-dismiss cart message after 3s
@@ -208,7 +215,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [personalization, setPersonalization] = useState("");
-  const [personalizationFields, setPersonalizationFields] = useState<Record<string, string>>({});
 
   const [wilayas, setWilayas] = useState<ApiWilaya[]>([]);
   const [wilayaCode, setWilayaCode] = useState("");
@@ -456,20 +462,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
     setOrderState({ status: "sending" });
     const formData = new FormData(event.currentTarget);
-
-    // Serialize personalization: FREE → raw string, OPTIONS → field:value pairs
-    let personalizationValue = "";
-    if (isFreeMode) {
-      personalizationValue = personalization;
-    } else if (isOptionsMode && config.fields) {
-      const parts = config.fields
-        .map((field) => {
-          const val = personalizationFields[field.id] ?? "";
-          return val.trim() ? `${field.label}: ${val}` : "";
-        })
-        .filter(Boolean);
-      personalizationValue = parts.join("\n");
-    }
+    const personalizationValue = personalization.trim();
 
     try {
       const response = await fetch("/api/orders", {
@@ -522,29 +515,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
     }
   }
 
-  // --- Personalization validation ---
-  const config = product.personalizationConfig;
-  const isFreeMode = config?.mode === "FREE";
-  const isOptionsMode = config?.mode === "OPTIONS";
-
-  // FREE: required comes from config.required
-  const freeRequired = isFreeMode && config.required;
-
-  // OPTIONS: check each field's own required
-  function areOptionsFieldsValid(): boolean {
-    if (!isOptionsMode || !config.fields) return true;
-    return config.fields.every((field) => {
-      if (!field.required) return true;
-      const val = personalizationFields[field.id] ?? "";
-      return val.trim().length > 0;
-    });
-  }
-
   const isPersonalizationValid =
-    !product.personalizable ||
-    (isFreeMode && (!freeRequired || Boolean(personalization.trim()))) ||
-    (isOptionsMode && areOptionsFieldsValid()) ||
-    (!isFreeMode && !isOptionsMode); // NONE or invalid → no validation needed
+    !product.personalizable || Boolean(personalization.trim());
 
   // --- Add to cart handler ---
   async function handleAddToCart() {
@@ -560,20 +532,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
       return;
     }
 
-    // Build personalization payload for the backend
-    let personalizationPayload: Record<string, unknown> | undefined;
-    if (isFreeMode && personalization.trim()) {
-      personalizationPayload = { text: personalization.trim() };
-    } else if (isOptionsMode && config.fields) {
-      const fields: Record<string, string> = {};
-      for (const field of config.fields) {
-        const val = personalizationFields[field.id] ?? "";
-        if (val.trim()) fields[field.id] = val.trim();
-      }
-      if (Object.keys(fields).length > 0) {
-        personalizationPayload = fields;
-      }
-    }
+    const personalizationPayload = personalization.trim()
+      ? { text: personalization.trim() }
+      : undefined;
 
     const added = await addItem(
       {
@@ -757,180 +718,68 @@ export function ProductDetail({ product }: ProductDetailProps) {
               </div>
             )}
 
-            {/* Couleurs : sélecteur compact avec libellés toujours complets */}
             {product.variants && product.variants.length > 0 && (
-              <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white/95 p-2.5 shadow-[0_7px_18px_rgba(37,23,19,0.03)] sm:p-3">
-                <button
-                  type="button"
-                  onPointerEnter={preloadAllVariantImages}
-                  onFocus={preloadAllVariantImages}
-                  onClick={() => {
-                    if (!colorPickerOpen) {
-                      preloadAllVariantImages();
-                    }
+              <div className="rounded-[12px] border border-[#251713]/[0.07] bg-white p-3 shadow-[0_7px_18px_rgba(37,23,19,0.03)]">
+                <p className="mb-2 text-[11px] font-extrabold text-[#251713]/60">
+                  Couleur | اختر اللون
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-4">
+                  {product.variants.map((variant) => {
+                    const rawLabel = variant.colorName || variant.name;
+                    const label = localizeColorLabel(rawLabel);
+                    const isSelected = selectedVariant?.id === variant.id;
 
-                    setColorPickerOpen((value) => !value);
-                  }}
-                  aria-expanded={colorPickerOpen}
-                  aria-controls="michket-color-options"
-                  className={[
-                    "flex min-h-11 w-full items-center justify-between gap-3 rounded-[10px] border px-3 py-2 text-right transition",
-                    colorPickerOpen
-                      ? "border-[#ECAB1C] bg-[#FFF8E8]"
-                      : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
-                  ].join(" ")}
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <span
-                      className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border border-black/10 bg-[#E7DED3]"
-                      aria-hidden="true"
-                    >
-                      {selectedVariant ? (
-                        selectedVariant.isMulticolor ? (
-                          <span
-                            className="absolute inset-0"
-                            style={{
-                              background:
-                                "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                            }}
-                          />
-                        ) : selectedVariant.colorHex ? (
-                          <span
-                            className="absolute inset-0"
-                            style={{
-                              backgroundColor:
-                                selectedVariant.colorHex,
-                            }}
-                          />
-                        ) : (
-                          <span className="absolute inset-0 bg-[#E7DED3]" />
-                        )
-                      ) : (
-                        <span className="absolute inset-0 grid place-items-center text-[12px] font-black text-[#251713]/35">
-                          +
-                        </span>
-                      )}
-                    </span>
-
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[10px] font-extrabold text-[#251713]/55">
-                        Choisir une couleur | اختر اللون
-                      </span>
-                      <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-bold leading-4 text-[#251713]">
-                        {selectedVariant
-                          ? localizeColorLabel(
-                              selectedVariant.colorName ||
-                                selectedVariant.name,
-                            )
-                          : "اضغط لعرض الألوان المتوفرة"}
-                      </span>
-                    </span>
-                  </span>
-
-                  <svg
-                    className={`h-4 w-4 shrink-0 text-[#251713]/45 transition-transform duration-200 ${
-                      colorPickerOpen ? "rotate-180" : ""
-                    }`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m6 9 6 6 6-6"
-                    />
-                  </svg>
-                </button>
-
-                {colorPickerOpen && (
-                  <div
-                    id="michket-color-options"
-                    className="mt-2.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 xl:grid-cols-4"
-                  >
-                    {product.variants.map((variant) => {
-                      const rawLabel =
-                        variant.colorName || variant.name;
-                      const label =
-                        localizeColorLabel(rawLabel);
-                      const isSelected =
-                        selectedVariant?.id === variant.id;
-
-                      return (
-                        <button
-                          key={variant.id}
-                          type="button"
-                          onPointerEnter={() => {
-                            const image = product.images.find(
-                              (candidate) =>
-                                candidate.variantId === variant.id,
-                            );
-
-                            if (image?.src) {
-                              preloadVariantImage(image.src);
-                            }
-                          }}
-                          onFocus={() => {
-                            const image = product.images.find(
-                              (candidate) =>
-                                candidate.variantId === variant.id,
-                            );
-
-                            if (image?.src) {
-                              preloadVariantImage(image.src);
-                            }
-                          }}
-                          onClick={() =>
-                            handleVariantSelect(variant)
-                          }
-                          title={label}
-                          aria-label={`اختيار ${label}`}
-                          aria-pressed={isSelected}
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onPointerEnter={() => {
+                          const image = product.images.find(
+                            (candidate) => candidate.variantId === variant.id,
+                          );
+                          if (image?.src) preloadVariantImage(image.src);
+                        }}
+                        onClick={() => handleVariantSelect(variant)}
+                        aria-label={`اختيار ${label}`}
+                        aria-pressed={isSelected}
+                        className={[
+                          "flex min-h-[42px] min-w-0 items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-right transition",
+                          isSelected
+                            ? "border-[#ECAB1C] bg-[#FFF8E8]"
+                            : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20",
+                        ].join(" ")}
+                      >
+                        <span
                           className={[
-                            "flex min-h-[42px] min-w-0 items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-right transition sm:min-h-[44px]",
-                            isSelected
-                              ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_0_0_1px_rgba(236,171,28,0.10)]"
-                              : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20 hover:bg-white",
+                            "relative h-5 w-5 shrink-0 overflow-hidden rounded-full border",
+                            isSelected ? "border-[#ECAB1C]" : "border-black/10",
                           ].join(" ")}
+                          aria-hidden="true"
                         >
-                          <span
-                            className={[
-                              "relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full border bg-[#E7DED3] sm:h-5 sm:w-5",
-                              isSelected
-                                ? "border-[#ECAB1C] ring-2 ring-[#ECAB1C]/20"
-                                : "border-black/10",
-                            ].join(" ")}
-                            aria-hidden="true"
-                          >
-                            {variant.isMulticolor ? (
-                              <span
-                                className="absolute inset-0"
-                                style={{
-                                  background:
-                                    "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
-                                }}
-                              />
-                            ) : variant.colorHex ? (
-                              <span
-                                className="absolute inset-0"
-                                style={{
-                                  backgroundColor:
-                                    variant.colorHex,
-                                }}
-                              />
-                            ) : null}
-                          </span>
-
-                          <span className="min-w-0 flex-1 whitespace-normal break-words text-[9px] font-bold leading-4 text-[#251713] sm:text-[10px]">
-                            {label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          {variant.isMulticolor ? (
+                            <span
+                              className="absolute inset-0"
+                              style={{
+                                background:
+                                  "conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #00C7BE, #007AFF, #5856D6, #AF52DE, #FF2D55, #FF3B30)",
+                              }}
+                            />
+                          ) : variant.colorHex ? (
+                            <span
+                              className="absolute inset-0"
+                              style={{ backgroundColor: variant.colorHex }}
+                            />
+                          ) : (
+                            <span className="absolute inset-0 bg-[#E7DED3]" />
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1 break-words text-[11px] font-bold leading-4 text-[#251713]">
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -953,9 +802,20 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
                 {product.compareAtPrice &&
                   product.compareAtPrice > effectiveUnitPrice && (
-                    <span className="pb-1 text-sm text-[#251713]/30 line-through">
-                      {formatPriceDA(product.compareAtPrice)}
-                    </span>
+                    <>
+                      <span className="pb-1 text-sm text-[#251713]/30 line-through">
+                        {formatPriceDA(product.compareAtPrice)}
+                      </span>
+                      <span className="mb-1 rounded-full bg-[#ECAB1C] px-2.5 py-1 text-[11px] font-extrabold text-[#251713]">
+                        -
+                        {Math.round(
+                          ((product.compareAtPrice - effectiveUnitPrice) /
+                            product.compareAtPrice) *
+                            100,
+                        )}
+                        %
+                      </span>
+                    </>
                   )}
               </div>
 
@@ -1075,95 +935,29 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 </Field>
               </FormSection>
 
-              {/* Étape 2 : personnalisation uniquement si nécessaire */}
-              {(isFreeMode || isOptionsMode || product.personalizable) && (
+              {product.personalizable && (
                 <FormSection
                   number="2"
-                  title={<BilingualText fr="Personnalisation" ar="التخصيص" />}
-                  subtitle="اكتب تفاصيل التخصيص كما تريدها بالضبط."
+                  title={<BilingualText fr="Détails de la commande" ar="تفاصيل الطلب" />}
+                  subtitle={
+                    product.orderDetailsPrompt ||
+                    "اكتب كل تفاصيل طلبك في هذا الحقل."
+                  }
                 >
-                  {isFreeMode && (
-                    <Field label={config.label} required={config.required}>
-                      <textarea
-                        value={personalization}
-                        onChange={(e) => setPersonalization(e.target.value)}
-                        required={config.required}
-                        maxLength={config.maxLength}
-                        rows={4}
-                        className={`${inputClass} min-h-[105px] resize-y py-3`}
-                        placeholder={config.placeholder}
-                      />
-                      {config.maxLength > 0 && (
-                        <span className="mt-1 block text-right text-[9px] text-[#251713]/30">
-                          {personalization.length}/{config.maxLength}
-                        </span>
-                      )}
-                    </Field>
-                  )}
-
-                  {isOptionsMode && config.fields && (
-                    <div className="space-y-3">
-                      {config.fields.map((field) => {
-                        if (field.type === "SELECT" && field.options) {
-                          return (
-                            <Field
-                              key={field.id}
-                              label={field.label}
-                              required={field.required}
-                            >
-                              <select
-                                value={personalizationFields[field.id] ?? ""}
-                                onChange={(e) =>
-                                  setPersonalizationFields((prev) => ({
-                                    ...prev,
-                                    [field.id]: e.target.value,
-                                  }))
-                                }
-                                required={field.required}
-                                className={inputClass}
-                              >
-                                <option value="">اختر...</option>
-                                {field.options.map((opt) => (
-                                  <option key={opt} value={opt}>
-                                    {opt}
-                                  </option>
-                                ))}
-                              </select>
-                            </Field>
-                          );
-                        }
-
-                        return (
-                          <Field
-                            key={field.id}
-                            label={field.label}
-                            required={field.required}
-                          >
-                            <input
-                              type="text"
-                              value={personalizationFields[field.id] ?? ""}
-                              onChange={(e) =>
-                                setPersonalizationFields((prev) => ({
-                                  ...prev,
-                                  [field.id]: e.target.value,
-                                }))
-                              }
-                              required={field.required}
-                              maxLength={field.maxLength}
-                              className={inputClass}
-                              placeholder={field.placeholder ?? ""}
-                            />
-                          </Field>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {product.personalizable && !isFreeMode && !isOptionsMode && (
-                    <div className="rounded-[10px] border border-[#251713]/[0.08] bg-[#F7F1E8] px-4 py-3 text-[11px] text-[#251713]/50">
-                      إعدادات التخصيص غير متوفرة.
-                    </div>
-                  )}
+                  <Field
+                    label={<BilingualText fr="Votre message" ar="تفاصيل طلبك" />}
+                    required
+                  >
+                    <textarea
+                      value={personalization}
+                      onChange={(event) => setPersonalization(event.target.value)}
+                      required
+                      maxLength={500}
+                      rows={4}
+                      className={`${inputClass} min-h-[105px] resize-y py-3`}
+                      placeholder="اكتب هنا الاسم، التاريخ أو أي تفصيل تريد نقشه"
+                    />
+                  </Field>
                 </FormSection>
               )}
 

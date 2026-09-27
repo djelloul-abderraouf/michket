@@ -46,6 +46,7 @@ type Category = {
   pageTitle: string | null;
   productsTitle: string | null;
   filterLabel: string | null;
+  orderDetailsPrompt: string | null;
   imageUrl: string | null;
   imageStoragePath: string | null;
   href: string | null;
@@ -82,6 +83,7 @@ type CategoryFormState = {
   pageTitle: string;
   productsTitle: string;
   filterLabel: string;
+  orderDetailsPrompt: string;
   imageUrl: string;
   imageStoragePath: string;
   href: string;
@@ -100,6 +102,7 @@ const EMPTY_FORM: CategoryFormState = {
   pageTitle: "",
   productsTitle: "",
   filterLabel: "",
+  orderDetailsPrompt: "",
   imageUrl: "",
   imageStoragePath: "",
   href: "",
@@ -481,6 +484,7 @@ export default function AdminCategoriesPage() {
       pageTitle: category.pageTitle ?? "",
       productsTitle: category.productsTitle ?? "",
       filterLabel: category.filterLabel ?? "",
+      orderDetailsPrompt: category.orderDetailsPrompt ?? "",
       imageUrl: category.imageUrl ?? "",
       imageStoragePath: category.imageStoragePath ?? "",
       href: category.href ?? "",
@@ -1429,6 +1433,8 @@ export default function AdminCategoriesPage() {
           form.kind === "CATEGORY"
             ? form.filterLabel.trim() || undefined
             : "",
+        orderDetailsPrompt:
+          form.orderDetailsPrompt.trim() || "",
         imageUrl: imageUrlValue,
         imageStoragePath: imageStoragePathValue,
         href: form.href.trim() || undefined,
@@ -1610,6 +1616,8 @@ export default function AdminCategoriesPage() {
             savedCategory.productsTitle ?? "",
           filterLabel:
             savedCategory.filterLabel ?? "",
+          orderDetailsPrompt:
+            savedCategory.orderDetailsPrompt ?? "",
           imageUrl:
             savedCategory.imageUrl ?? "",
           imageStoragePath:
@@ -2924,6 +2932,25 @@ export default function AdminCategoriesPage() {
                         )
                       }
                       placeholder="Une courte présentation de cette catégorie."
+                      className="mt-2 w-full resize-y rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm outline-none focus:border-neutral-300"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="text-xs font-semibold text-neutral-600">
+                      Détails de commande
+                    </span>
+                    <textarea
+                      maxLength={500}
+                      rows={3}
+                      value={form.orderDetailsPrompt}
+                      onChange={(event) =>
+                        updateForm(
+                          "orderDetailsPrompt",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Ce texte explique au client ce qu'il doit écrire dans le champ unique de personnalisation."
                       className="mt-2 w-full resize-y rounded-xl border border-black/[0.08] bg-white px-3 py-3 text-sm outline-none focus:border-neutral-300"
                     />
                   </label>

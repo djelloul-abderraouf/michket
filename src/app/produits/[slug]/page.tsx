@@ -24,6 +24,7 @@ const arabicFont = Cairo({
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ couleur?: string }>;
 }
 
 /*
@@ -106,8 +107,10 @@ export async function generateMetadata({
 
 export default async function ProductPage({
   params,
+  searchParams,
 }: ProductPageProps) {
   const { slug } = await params;
+  const { couleur } = await searchParams;
 
   let product: Product & {
     metaTitle?: string;
@@ -140,7 +143,10 @@ export default async function ProductPage({
         dir="rtl"
         className={`${arabicFont.className} michket-arabic min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-8 text-[#251713]`}
       >
-        <ProductDetail product={product} />
+        <ProductDetail
+          product={product}
+          initialVariantId={couleur}
+        />
 
         {product.category ? (
           <Suspense fallback={null}>

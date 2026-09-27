@@ -72,6 +72,7 @@ export interface ApiCategory {
   pageTitle: string | null;
   productsTitle: string | null;
   filterLabel: string | null;
+  orderDetailsPrompt: string | null;
   imageUrl: string | null;
   imageStoragePath: string | null;
   href: string | null;
@@ -111,6 +112,8 @@ export interface ApiProductListItem {
   categoryId: string;
   categorySlug: string;
   categoryName: string;
+  subcategorySlug?: string | null;
+  subcategoryName?: string | null;
   priceCents: number;
   compareAtPriceCents: number | null;
   currency: string;
@@ -123,6 +126,12 @@ export interface ApiProductListItem {
   createdAt: string;
   imageUrl: string | null;
   imageAlt: string | null;
+  colors?: Array<{
+    id: string;
+    name: string;
+    hex: string | null;
+    isMulticolor: boolean;
+  }>;
 }
 
 export interface ApiProductImage {
@@ -188,6 +197,9 @@ export interface ApiProductDetail {
   }>;
   inventory: ApiInventory | null;
   category?: ApiCategory | null;
+  subcategory?: ApiCategory | null;
+  subsubcategory?: ApiCategory | null;
+  orderDetailsPrompt?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -208,6 +220,13 @@ export interface ProductImage {
   src: string;
   alt: string;
   variantId: string | null;
+}
+
+export interface ProductColor {
+  id: string;
+  name: string;
+  hex: string | null;
+  isMulticolor: boolean;
 }
 
 export interface ProductVariant {
@@ -237,6 +256,10 @@ export interface Product {
   badge?: "BEST SELLER" | "NOUVEAU" | "PROMO" | "PERSONNALISABLE" | "ENVOI GRATUIT";
   category: string;
   categoryName?: string;
+  subcategorySlug?: string;
+  subcategoryName?: string;
+  colors?: ProductColor[];
+  orderDetailsPrompt?: string;
   occasion?: string[];
   rating?: number;
   reviewCount?: number;
@@ -296,6 +319,9 @@ function mapProductListItem(
     badge: item.badge ? BADGE_MAP[item.badge] ?? undefined : undefined,
     category: item.categorySlug,
     categoryName: item.categoryName,
+    subcategorySlug: item.subcategorySlug ?? undefined,
+    subcategoryName: item.subcategoryName ?? undefined,
+    colors: item.colors ?? [],
     occasion: item.occasions ?? undefined,
     rating: normalizeRating(item.ratingAvg),
     reviewCount: item.ratingCount ?? undefined,
@@ -348,6 +374,15 @@ function mapProductDetail(
     badge: detail.badge ? BADGE_MAP[detail.badge] ?? undefined : undefined,
     category: categoryName,
     categoryName: detail.category?.name ?? undefined,
+    subcategorySlug: detail.subcategory?.slug ?? undefined,
+    subcategoryName: detail.subcategory?.name ?? undefined,
+    orderDetailsPrompt:
+      detail.orderDetailsPrompt ??
+      detail.subsubcategory?.orderDetailsPrompt ??
+      detail.subcategory?.orderDetailsPrompt ??
+      detail.category?.orderDetailsPrompt ??
+      detail.personalizationPrompt ??
+      undefined,
     occasion: detail.occasions ?? undefined,
     rating: normalizeRating(detail.ratingAvg),
     reviewCount: detail.ratingCount ?? undefined,

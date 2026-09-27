@@ -83,7 +83,7 @@ function DesktopNavigation({
                     onMegaCloseImmediate();
                   }
                 }}
-                className={`relative flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium tracking-wide uppercase transition-colors ${
+                className={`relative flex items-center gap-1.5 px-3 py-3 text-[13px] font-semibold tracking-[-0.01em] transition-colors ${
                   isActive
                     ? "text-michket-gold"
                     : "text-michket-charcoal/80 hover:text-michket-gold"
@@ -359,7 +359,7 @@ export function Header({ navItems = [] }: { navItems?: NavItemWithMega[] }) {
       {/* ── Sticky navbar ── */}
       <header
         ref={headerRef}
-        className={`sticky top-[99px] sm:top-[68px] lg:top-[72px] z-30 bg-white transition-shadow duration-200 ${
+        className={`sticky top-10 z-30 border-b border-[#ECAB1C]/35 bg-white transition-shadow duration-200 ${
           scrolled ? "shadow-md" : ""
         } ${megaOpenItem ? "shadow-md" : ""}`}
         style={promoHidden ? { top: "0px" } : undefined}

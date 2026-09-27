@@ -603,7 +603,7 @@ const PersonalizationSection = forwardRef<
           <p className={labelClassName}>
             Personnalisation
           </p>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {[
               {
                 value: "NONE" as const,
@@ -612,13 +612,8 @@ const PersonalizationSection = forwardRef<
               },
               {
                 value: "FREE" as const,
-                title: "Personnalisation libre",
-                desc: "Le client saisit un texte libre.",
-              },
-              {
-                value: "OPTIONS" as const,
-                title: "Choix définis par l'admin",
-                desc: "Champs et listes configurés par vous.",
+                title: "Un seul champ",
+                desc: "Le client écrit tous les détails de sa commande dans un seul champ.",
               },
             ].map((opt) => (
               <label
