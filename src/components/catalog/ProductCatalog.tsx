@@ -1,13 +1,15 @@
-"use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/api";
 
-type CatalogCategory = {
+export type CatalogCategoryCard = {
   slug: string;
   name: string;
+  description?: string | null;
+  href: string;
+  cover?: { src: string; alt: string };
+  examples: { src: string; alt: string }[];
+  modelCount: number;
 };
 
 function formatPriceDA(price: number): string {
@@ -29,23 +31,14 @@ function discountPercent(product: Product): number | null {
   );
 }
 
-function matchesCategory(product: Product, slug: string): boolean {
-  if (slug === "all") return true;
-  return product.subcategorySlug === slug;
-}
-
 function ColorDot({
   color,
-  size = "md",
 }: {
   color: { hex: string | null; isMulticolor: boolean };
-  size?: "sm" | "md";
 }) {
-  const dimension = size === "sm" ? "h-4 w-4" : "h-5 w-5";
-
   return (
     <span
-      className={`relative inline-block shrink-0 overflow-hidden rounded-full border border-black/10 ${dimension}`}
+      className="relative inline-block h-5 w-5 shrink-0 overflow-hidden rounded-full border border-black/10"
       aria-hidden="true"
     >
       {color.isMulticolor ? (
@@ -69,53 +62,18 @@ function ColorDot({
 export function ProductCatalog({
   title,
   description,
-  subcategories,
-  products,
-  apiError = false,
+  categories,
 }: {
   title: string;
   description?: string | null;
-  subcategories: CatalogCategory[];
-  products: Product[];
-  apiError?: boolean;
+  categories: CatalogCategoryCard[];
 }) {
-  const [categorySlug, setCategorySlug] = useState("all");
-  const [modelId, setModelId] = useState("all");
-  const resultsRef = useRef<HTMLDivElement>(null);
-  const skipScroll = useRef(true);
-
-  const modelsInCategory = useMemo(() => {
-    return products.filter((product) => matchesCategory(product, categorySlug));
-  }, [categorySlug, products]);
-
-  const visibleProducts = useMemo(() => {
-    if (modelId === "all") return modelsInCategory;
-    return modelsInCategory.filter((product) => product.id === modelId);
-  }, [modelId, modelsInCategory]);
-
-  useEffect(() => {
-    if (skipScroll.current) {
-      skipScroll.current = false;
-      return;
-    }
-
-    resultsRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, [categorySlug, modelId]);
-
-  function selectCategory(slug: string) {
-    setCategorySlug(slug);
-    setModelId("all");
-  }
-
   return (
     <main className="min-h-screen bg-[#F7F1E8] text-[#251713]">
       <section className="border-b border-[#251713]/[0.08] bg-white">
         <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6A20]">
-            Modèles
+            Catégories
           </p>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.04em] sm:text-[36px]">
             {title}
@@ -124,73 +82,133 @@ export function ProductCatalog({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#251713]/55">
               {description}
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#251713]/55">
+              Choisissez une catégorie pour voir ses modèles.
+            </p>
+          )}
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-5 lg:px-10">
-        <div className="grid gap-3 rounded-2xl border border-[#251713]/[0.08] bg-white p-3 sm:grid-cols-2 sm:p-4">
-          <label className="block min-w-0">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#251713]/45">
-              Catégorie
-            </span>
-            <select
-              value={categorySlug}
-              onChange={(event) => selectCategory(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#251713]/15 bg-[#FFFCF8] px-3 text-base text-[#251713] outline-none focus:border-[#ECAB1C]"
-            >
-              <option value="all">Toutes les catégories</option>
-              {subcategories.map((item) => (
-                <option key={item.slug} value={item.slug}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block min-w-0">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#251713]/45">
-              Modèle
-            </span>
-            <select
-              value={modelsInCategory.some((product) => product.id === modelId) ? modelId : "all"}
-              onChange={(event) => setModelId(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#251713]/15 bg-[#FFFCF8] px-3 text-base text-[#251713] outline-none focus:border-[#ECAB1C]"
-            >
-              <option value="all">Tous les modèles</option>
-              {modelsInCategory.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div ref={resultsRef} className="scroll-mt-24">
-        <p className="mt-4 text-sm text-[#251713]/50">
-          {visibleProducts.length} modèle
-          {visibleProducts.length > 1 ? "s" : ""}
-        </p>
-
-        {visibleProducts.length > 0 ? (
-          <div className="mt-4 grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-            {visibleProducts.map((product, index) => (
-              <ModelCard key={product.id} product={product} priority={index < 2} />
+      <section className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-6 lg:px-10">
+        {categories.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+            {categories.map((category, index) => (
+              <CategoryCard
+                key={category.slug}
+                category={category}
+                priority={index < 2}
+              />
             ))}
           </div>
-        ) : apiError ? (
-          <p className="mt-8 rounded-xl border border-red-200 bg-red-50 px-5 py-8 text-center text-sm text-red-800">
-            Impossible de charger les modèles pour le moment.
-          </p>
         ) : (
-          <p className="mt-8 rounded-xl border border-[#251713]/10 bg-white px-5 py-8 text-center text-sm text-[#251713]/55">
-            Aucun modèle ne correspond à ces filtres.
+          <p className="rounded-2xl border border-[#251713]/10 bg-white px-5 py-10 text-center text-sm text-[#251713]/55">
+            Aucune catégorie disponible pour le moment.
           </p>
         )}
-        </div>
       </section>
     </main>
+  );
+}
+
+function CategoryCard({
+  category,
+  priority,
+}: {
+  category: CatalogCategoryCard;
+  priority: boolean;
+}) {
+  return (
+    <Link
+      href={category.href}
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#251713]/[0.08] bg-white shadow-[0_10px_28px_rgba(37,23,19,0.06)] transition hover:-translate-y-0.5 hover:border-[#ECAB1C]/40"
+    >
+      <div className="relative aspect-[4/3] bg-[#EDE3D7]">
+        {category.cover ? (
+          <Image
+            src={category.cover.src}
+            alt={category.cover.alt}
+            fill
+            priority={priority}
+            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
+          />
+        ) : null}
+        <div
+          className="absolute inset-0 bg-gradient-to-t from-[#21130F]/75 via-[#21130F]/10 to-transparent"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+          <h2 className="text-xl font-semibold leading-tight sm:text-2xl">
+            {category.name}
+          </h2>
+          <p className="mt-1 text-sm text-white/80">
+            {category.modelCount} modèle
+            {category.modelCount > 1 ? "s" : ""}
+          </p>
+        </div>
+      </div>
+
+      {category.examples.length > 0 ? (
+        <div className="grid grid-cols-3 gap-1 bg-[#F7F1E8] p-1">
+          {category.examples.map((image) => (
+            <div
+              key={image.src}
+              className="relative aspect-square overflow-hidden rounded-lg bg-[#EDE3D7]"
+            >
+              <Image
+                src={image.src}
+                alt={image.alt}
+                fill
+                className="object-cover"
+                sizes="120px"
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <p className="line-clamp-2 text-sm leading-5 text-[#251713]/60">
+          {category.description || "Voir les modèles"}
+        </p>
+        <span className="shrink-0 text-sm font-semibold text-[#8A6A20]">
+          Voir
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+export function ModelGrid({
+  products,
+  apiError = false,
+}: {
+  products: Product[];
+  apiError?: boolean;
+}) {
+  if (apiError) {
+    return (
+      <p className="rounded-2xl border border-red-200 bg-red-50 px-5 py-10 text-center text-sm text-red-800">
+        Impossible de charger les modèles pour le moment.
+      </p>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <p className="rounded-2xl border border-[#251713]/10 bg-white px-5 py-10 text-center text-sm text-[#251713]/55">
+        Aucun modèle dans cette catégorie pour le moment.
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+      {products.map((product, index) => (
+        <ModelCard key={product.id} product={product} priority={index < 2} />
+      ))}
+    </div>
   );
 }
 
@@ -229,16 +247,13 @@ function ModelCard({
       </Link>
 
       <div className="flex flex-1 flex-col p-3 sm:p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8A6A20]">
-          {product.subcategoryName || product.categoryName}
-        </p>
         <Link href={`/produits/${product.slug}`}>
-          <h2 className="mt-1 line-clamp-2 text-sm font-semibold leading-5">
+          <h2 className="line-clamp-2 text-sm font-semibold leading-5 sm:text-base">
             {product.title}
           </h2>
         </Link>
 
-        <div className="mt-2 flex items-baseline gap-2">
+        <div className="mt-2 flex flex-wrap items-baseline gap-2">
           <span className="text-base font-bold">{formatPriceDA(product.price)}</span>
           {product.compareAtPrice && discount ? (
             <span className="text-xs text-[#251713]/35 line-through">

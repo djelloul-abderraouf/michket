@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { ProductCatalog } from "@/components/catalog/ProductCatalog";
+import {
+  ProductCatalog,
+  type CatalogCategoryCard,
+} from "@/components/catalog/ProductCatalog";
 import {
   fetchCategoryBySlugSafe,
   fetchProductsForCategory,
@@ -15,29 +18,46 @@ export async function CategoryCatalog({ slug }: { slug: string }) {
   }
 
   let products: Product[] = [];
-  let apiError = false;
 
   try {
     products = await fetchProductsForCategory(category.slug);
   } catch {
-    apiError = true;
+    products = [];
   }
 
-  const subcategories = category.children
+  const categories: CatalogCategoryCard[] = category.children
     .filter((child) => child.isActive)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "fr"))
-    .map((child) => ({
-      slug: child.slug,
-      name: child.name,
-    }));
+    .map((child) => {
+      const models = products.filter(
+        (product) => product.subcategorySlug === child.slug,
+      );
+      const examples = models
+        .flatMap((product) => product.images.slice(0, 1))
+        .filter((image) => image.src !== child.imageUrl)
+        .slice(0, 3);
+      const coverSource = child.imageUrl
+        ? { src: child.imageUrl, alt: child.name }
+        : models[0]?.images[0];
+
+      return {
+        slug: child.slug,
+        name: child.name,
+        description: child.description,
+        href: `/${category.slug}/${child.slug}`,
+        cover: coverSource
+          ? { src: coverSource.src, alt: coverSource.alt || child.name }
+          : undefined,
+        examples,
+        modelCount: models.length,
+      };
+    });
 
   return (
     <ProductCatalog
-      title={category.productsTitle?.trim() || category.pageTitle?.trim() || category.name}
+      title={category.pageTitle?.trim() || category.name}
       description={category.description}
-      subcategories={subcategories}
-      products={products}
-      apiError={apiError}
+      categories={categories}
     />
   );
 }
