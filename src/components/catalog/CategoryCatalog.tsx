@@ -32,23 +32,27 @@ export async function CategoryCatalog({ slug }: { slug: string }) {
       const models = products.filter(
         (product) => product.subcategorySlug === child.slug,
       );
-      const examples = models
-        .flatMap((product) => product.images.slice(0, 1))
-        .filter((image) => image.src !== child.imageUrl)
-        .slice(0, 3);
-      const coverSource = child.imageUrl
-        ? { src: child.imageUrl, alt: child.name }
-        : models[0]?.images[0];
+      const images = [
+        ...(child.imageUrl
+          ? [{ src: child.imageUrl, alt: child.name }]
+          : []),
+        ...models.flatMap((product) =>
+          product.images.slice(0, 1).map((image) => ({
+            src: image.src,
+            alt: image.alt || product.title,
+          })),
+        ),
+      ].filter(
+        (image, index, list) =>
+          list.findIndex((item) => item.src === image.src) === index,
+      ).slice(0, 4);
 
       return {
         slug: child.slug,
         name: child.name,
         description: child.description,
         href: `/${category.slug}/${child.slug}`,
-        cover: coverSource
-          ? { src: coverSource.src, alt: coverSource.alt || child.name }
-          : undefined,
-        examples,
+        images,
         modelCount: models.length,
       };
     });

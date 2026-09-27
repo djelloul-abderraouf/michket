@@ -1,14 +1,21 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/api";
+
+export type CatalogImage = {
+  src: string;
+  alt: string;
+};
 
 export type CatalogCategoryCard = {
   slug: string;
   name: string;
   description?: string | null;
   href: string;
-  cover?: { src: string; alt: string };
-  examples: { src: string; alt: string }[];
+  images: CatalogImage[];
   modelCount: number;
 };
 
@@ -98,6 +105,7 @@ export function ProductCatalog({
                 key={category.slug}
                 category={category}
                 priority={index < 2}
+                startDelay={index * 700}
               />
             ))}
           </div>
@@ -114,69 +122,129 @@ export function ProductCatalog({
 function CategoryCard({
   category,
   priority,
+  startDelay,
 }: {
   category: CatalogCategoryCard;
   priority: boolean;
+  startDelay: number;
 }) {
   return (
     <Link
       href={category.href}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#251713]/[0.08] bg-white shadow-[0_10px_28px_rgba(37,23,19,0.06)] transition hover:-translate-y-0.5 hover:border-[#ECAB1C]/40"
     >
-      <div className="relative aspect-[4/3] bg-[#EDE3D7]">
-        {category.cover ? (
-          <Image
-            src={category.cover.src}
-            alt={category.cover.alt}
-            fill
-            priority={priority}
-            className="object-cover transition duration-500 group-hover:scale-[1.03]"
-            sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
-          />
-        ) : null}
-        <div
-          className="absolute inset-0 bg-gradient-to-t from-[#21130F]/75 via-[#21130F]/10 to-transparent"
-          aria-hidden="true"
-        />
-        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-          <h2 className="text-xl font-semibold leading-tight sm:text-2xl">
+      <FadingImages
+        images={category.images}
+        priority={priority}
+        startDelay={startDelay}
+        label={category.name}
+      />
+
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold sm:text-lg">
             {category.name}
           </h2>
-          <p className="mt-1 text-sm text-white/80">
+          <p className="mt-0.5 text-sm text-[#251713]/55">
             {category.modelCount} modèle
             {category.modelCount > 1 ? "s" : ""}
           </p>
+          {category.description ? (
+            <p className="mt-1 line-clamp-1 text-sm text-[#251713]/45">
+              {category.description}
+            </p>
+          ) : null}
         </div>
-      </div>
-
-      {category.examples.length > 0 ? (
-        <div className="grid grid-cols-3 gap-1 bg-[#F7F1E8] p-1">
-          {category.examples.map((image) => (
-            <div
-              key={image.src}
-              className="relative aspect-square overflow-hidden rounded-lg bg-[#EDE3D7]"
-            >
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
-                className="object-cover"
-                sizes="120px"
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="line-clamp-2 text-sm leading-5 text-[#251713]/60">
-          {category.description || "Voir les modèles"}
-        </p>
         <span className="shrink-0 text-sm font-semibold text-[#8A6A20]">
           Voir
         </span>
       </div>
     </Link>
+  );
+}
+
+function FadingImages({
+  images,
+  priority,
+  startDelay,
+  label,
+}: {
+  images: CatalogImage[];
+  priority: boolean;
+  startDelay: number;
+  label: string;
+}) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (images.length < 2 || paused) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (reducedMotion) return;
+
+    let intervalId = 0;
+    const startId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        setIndex((current) => (current + 1) % images.length);
+      }, 3200);
+    }, startDelay);
+
+    return () => {
+      window.clearTimeout(startId);
+      window.clearInterval(intervalId);
+    };
+  }, [images.length, paused, startDelay]);
+
+  if (images.length === 0) {
+    return <div className="aspect-[4/3] bg-[#EDE3D7]" />;
+  }
+
+  return (
+    <div
+      className="relative aspect-[4/3] overflow-hidden bg-[#EDE3D7]"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      {images.map((image, imageIndex) => (
+        <Image
+          key={image.src}
+          src={image.src}
+          alt={imageIndex === index ? image.alt || label : ""}
+          fill
+          priority={priority && imageIndex === 0}
+          aria-hidden={imageIndex !== index}
+          className={`object-cover transition-opacity duration-700 ease-in-out ${
+            imageIndex === index ? "opacity-100" : "opacity-0"
+          }`}
+          sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
+        />
+      ))}
+      <div
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#21130F]/35 via-transparent to-transparent"
+        aria-hidden="true"
+      />
+      {images.length > 1 ? (
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          {images.map((image, imageIndex) => (
+            <span
+              key={image.src}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                imageIndex === index
+                  ? "w-5 bg-white"
+                  : "w-1.5 bg-white/55"
+              }`}
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
