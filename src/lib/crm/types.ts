@@ -93,11 +93,40 @@ export type CrmPage =
 
 export type Priority = "basse" | "normale" | "haute" | "urgente";
 
+export const orderKinds = [
+  "urgent",
+  "propre",
+  "refabrication_0",
+  "correction_interne",
+  "recupe",
+] as const;
+
+export type OrderKind = (typeof orderKinds)[number];
+
+export const orderKindLabels: Record<OrderKind, string> = {
+  urgent: "Urgent",
+  propre: "Propre",
+  refabrication_0: "Refabrication 0 DA",
+  correction_interne: "Correction interne",
+  recupe: "Recupe",
+};
+
+export function staffRoleLabel(role: string) {
+  if (role === "super_admin") {
+    return "Super admin";
+  }
+  if (role in roleLabels) {
+    return roleLabels[role as CrmRole];
+  }
+  return role;
+}
+
 export interface CrmUser {
   id: string;
   name: string;
   email: string;
   roles: CrmRole[];
+  assignedRoles?: string[];
   active: boolean;
   lastLoginAt?: string;
   businessRole?: string;
@@ -228,6 +257,23 @@ export interface OrderItem {
   personalizationText?: string;
 }
 
+export interface OrderRemark {
+  id: string;
+  body: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface OrderContactAttempt {
+  id: string;
+  attemptNumber: number;
+  notes: string;
+  employeeId: string;
+  employeeName: string;
+  createdAt: string;
+}
+
 export interface OrderStatusEvent {
   id: string;
   from?: OrderStatus;
@@ -267,6 +313,7 @@ export interface CreateCrmOrderPayload {
   personalizationText?: string;
   quantity?: number;
   notes?: string;
+  orderKind: OrderKind;
 }
 
 export interface Order {
@@ -301,6 +348,9 @@ export interface Order {
   items: OrderItem[];
   total: number;
   notes?: string;
+  orderKind?: OrderKind | null;
+  remarks?: OrderRemark[];
+  contactAttempts?: OrderContactAttempt[];
   cancelReason?: string | null;
   confirmationReason?: "injoignable" | "refus" | "a_rappeler";
   reminderAt?: string;

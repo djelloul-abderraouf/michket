@@ -1,4 +1,4 @@
-import { orderStatuses, type Order, type OrderSource, type OrderStatus } from "@/lib/crm/types";
+import { orderKinds, orderStatuses, type Order, type OrderKind, type OrderSource, type OrderStatus } from "@/lib/crm/types";
 import { personalizationText } from "@/lib/crm/order-display";
 
 function normalizeSource(value: unknown): OrderSource {
@@ -75,6 +75,9 @@ export function normalizeOrder(order: any): Order {
       : [],
     total: Number(order.total ?? 0),
     notes: order.notes,
+    orderKind: orderKinds.includes(order.orderKind) ? (order.orderKind as OrderKind) : null,
+    remarks: Array.isArray(order.remarks) ? order.remarks : [],
+    contactAttempts: Array.isArray(order.contactAttempts) ? order.contactAttempts : [],
     cancelReason: order.cancelReason,
     trackingNumber: order.trackingNumber,
     carrier: order.carrier,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Order } from "@/lib/crm/types";
+import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmPopup } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
@@ -11,6 +11,10 @@ export function CrmConfirmation({
   onToast,
   onCreateParcel,
   onSyncParcel,
+  userRoles,
+  currentUserId,
+  onOrderUpdated,
+  onMove,
 }: {
   orders: Order[];
   onConfirm: (order: Order) => void;
@@ -19,6 +23,10 @@ export function CrmConfirmation({
   onToast?: (message: string) => void;
   onCreateParcel?: (order: Order) => void;
   onSyncParcel?: (order: Order) => void;
+  userRoles?: CrmRole[];
+  currentUserId?: string;
+  onOrderUpdated?: (order: Order) => void;
+  onMove?: (order: Order, to: OrderStatus, note?: string) => void;
 }) {
   const [pendingOrder, setPendingOrder] = useState<Order | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -124,6 +132,11 @@ export function CrmConfirmation({
         onToast={onToast}
         onCreateParcel={onCreateParcel}
         onSyncParcel={onSyncParcel}
+        userRoles={userRoles}
+        currentUserId={currentUserId}
+        onOrderUpdated={onOrderUpdated}
+        onMove={onMove}
+        showStatusSelect
       >
         {selectedOrder && (
           <div className="space-y-2">

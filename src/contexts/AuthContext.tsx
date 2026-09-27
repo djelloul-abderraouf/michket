@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: me.id,
             email: me.email,
             role: me.role as UserRole,
+            staff_roles: me.staffRoles || [],
             first_name: me.firstName || undefined,
             last_name: me.lastName || undefined,
             is_active: me.isActive ?? true,

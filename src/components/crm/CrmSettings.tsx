@@ -2,9 +2,11 @@ import { useState } from "react";
 import { CrmPanel } from "./CrmUi";
 import type { CrmUser } from "@/lib/crm/types";
 import { Bell, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function CrmSettings({ user }: { user: CrmUser }) {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const darkMode = theme === "dark";
   const [language, setLanguage] = useState("fr");
   const [notifications, setNotifications] = useState(true);
   const initials = (user.name || user.email || "M").charAt(0).toUpperCase();
@@ -62,7 +64,7 @@ export function CrmSettings({ user }: { user: CrmUser }) {
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <button
-                onClick={() => setDarkMode(false)}
+                onClick={() => setTheme("light")}
                 className={`flex items-center gap-3 p-4 rounded-lg border transition ${
                   !darkMode
                     ? "border-michket-gold bg-michket-gold/10"
@@ -73,7 +75,7 @@ export function CrmSettings({ user }: { user: CrmUser }) {
                 <span className="text-sm font-medium">Mode clair</span>
               </button>
               <button
-                onClick={() => setDarkMode(true)}
+                onClick={() => setTheme("dark")}
                 className={`flex items-center gap-3 p-4 rounded-lg border transition ${
                   darkMode
                     ? "border-michket-gold bg-michket-gold/10"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { roleLabels, type CrmUser } from "@/lib/crm/types";
+import { staffRoleLabel, type CrmUser } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
 import { Mail, Calendar, Shield } from "lucide-react";
 import { crmUsersApi } from "@/lib/api-client";
@@ -20,9 +20,9 @@ export function CrmUsers({
     email: string;
     phone?: string;
     password: string;
-    role: string;
+    roles: string[];
   }) => void;
-  onUpdateUser?: (id: string, data: { role?: string; firstName?: string; lastName?: string; phone?: string }) => void;
+  onUpdateUser?: (id: string, data: { roles?: string[]; firstName?: string; lastName?: string; phone?: string }) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isDetailsPopupOpen, setIsDetailsPopupOpen] = useState(false);
@@ -34,9 +34,9 @@ export function CrmUsers({
     email: "",
     phone: "",
     password: "",
-    role: "commercial",
+    roles: ["commercial"] as string[],
   });
-  const [editRole, setEditRole] = useState("commercial");
+  const [editRoles, setEditRoles] = useState<string[]>(["commercial"]);
   const [period, setPeriod] = useState<"day" | "week" | "month">("week");
   const [performance, setPerformance] = useState<any>(null);
   const [performanceLoading, setPerformanceLoading] = useState(false);
@@ -48,6 +48,18 @@ export function CrmUsers({
     { id: "preparation", label: "Preparation" },
     { id: "livraison", label: "Livraison" },
   ];
+
+  function assignedOf(user: CrmUser) {
+    return user.assignedRoles?.length ? user.assignedRoles : [user.businessRole || "commercial"];
+  }
+
+  function toggleListedRole(current: string[], roleId: string) {
+    if (current.includes(roleId)) {
+      const next = current.filter((role) => role !== roleId);
+      return next.length > 0 ? next : current;
+    }
+    return [...current, roleId];
+  }
   const activeUsers = users.filter((user) => user.active);
   const inactiveUsers = users.filter((user) => !user.active);
 
@@ -132,7 +144,7 @@ export function CrmUsers({
                     key={user.id}
                     onClick={() => {
                       setSelectedUser(user);
-                      setEditRole(user.businessRole || "commercial");
+                      setEditRoles(assignedOf(user));
                       setIsDetailsPopupOpen(true);
                     }}
                     className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
@@ -141,12 +153,12 @@ export function CrmUsers({
                     <td className="px-4 py-3 text-sm text-black/70">{user.email}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {user.roles.map((role) => (
+                        {assignedOf(user).map((role) => (
                           <span
                             key={role}
                             className="rounded-md border border-michket-gold/40 bg-michket-gold/15 px-2 py-1 text-[11px] font-bold"
                           >
-                            {roleLabels[role]}
+                            {staffRoleLabel(role)}
                           </span>
                         ))}
                       </div>
@@ -170,7 +182,7 @@ export function CrmUsers({
                 className="p-5 cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => {
                   setSelectedUser(user);
-                  setEditRole(user.businessRole || "commercial");
+                  setEditRoles(assignedOf(user));
                   setIsDetailsPopupOpen(true);
                 }}
               >
@@ -195,12 +207,12 @@ export function CrmUsers({
                       Rôles
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {user.roles.map((role) => (
+                      {assignedOf(user).map((role) => (
                         <span
                           key={role}
                           className="rounded-md border border-michket-gold/40 bg-michket-gold/15 px-2 py-1 text-[11px] font-bold"
                         >
-                          {roleLabels[role]}
+                          {staffRoleLabel(role)}
                         </span>
                       ))}
                     </div>
@@ -232,7 +244,7 @@ export function CrmUsers({
               email: form.email,
               phone: form.phone || undefined,
               password: form.password,
-              role: form.role,
+              roles: form.roles,
             });
             setForm({
               firstName: "",
@@ -240,7 +252,7 @@ export function CrmUsers({
               email: "",
               phone: "",
               password: "",
-              role: "commercial",
+              roles: ["commercial"],
             });
             setIsPopupOpen(false);
           }}
@@ -305,22 +317,28 @@ export function CrmUsers({
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Role
+              Roles
             </label>
-            <select
-              value={form.role}
-              onChange={(event) => setForm({ ...form, role: event.target.value })}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
-            >
+            <div className="grid gap-2 sm:grid-cols-2">
               {staffRoles.map((role) => (
-                <option key={role.id} value={role.id}>
+                <label key={role.id} className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.roles.includes(role.id)}
+                    onChange={() =>
+                      setForm((current) => ({
+                        ...current,
+                        roles: toggleListedRole(current.roles, role.id),
+                      }))
+                    }
+                  />
                   {role.label}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
           <p className="text-sm text-black/50">
-            Le compte est cree dans Supabase Auth et active dans la table users.
+            Un utilisateur peut cumuler plusieurs roles, par exemple commercial et livraison.
           </p>
           <div className="flex gap-3 pt-2">
             <CrmButton
@@ -451,30 +469,31 @@ export function CrmUsers({
             <div>
               <h4 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-black/60">
                 <Shield className="h-4 w-4" />
-                Role
+                Roles
               </h4>
-              <select
-                value={editRole}
-                onChange={(event) => setEditRole(event.target.value)}
-                disabled={!canEdit}
-                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
-              >
+              <div className="grid gap-2 sm:grid-cols-2">
                 {staffRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
+                  <label key={role.id} className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editRoles.includes(role.id)}
+                      disabled={!canEdit}
+                      onChange={() => setEditRoles((current) => toggleListedRole(current, role.id))}
+                    />
                     {role.label}
-                  </option>
+                  </label>
                 ))}
-              </select>
+              </div>
               <CrmButton
                 size="sm"
                 className="mt-3 w-full"
                 disabled={!canEdit}
                 onClick={() => {
-                  onUpdateUser?.(selectedUser.id, { role: editRole });
+                  onUpdateUser?.(selectedUser.id, { roles: editRoles });
                   setIsDetailsPopupOpen(false);
                 }}
               >
-                Enregistrer le role
+                Enregistrer les roles
               </CrmButton>
             </div>
 

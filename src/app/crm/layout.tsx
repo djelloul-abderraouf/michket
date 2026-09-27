@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CrmApp } from "@/components/crm/CrmApp";
 
 export default function CrmLayout({
@@ -14,9 +15,9 @@ export default function CrmLayout({
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-[#f4f7f3]">
+      <ThemeProvider>
         {isLogin ? children : <CrmApp />}
-      </div>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

@@ -35,17 +35,17 @@ export const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
 };
 
 const transitionRoles: Record<string, CrmRole[]> = {
-  "pas_confirme:confirme": ["admin", "confirmation"],
+  "pas_confirme:confirme": ["admin", "confirmation", "commercial"],
   "pas_confirme:annulee": ["admin", "confirmation", "commercial"],
-  "confirme:en_fabrication": ["admin", "fabrication"],
+  "confirme:en_fabrication": ["admin", "fabrication", "commercial"],
   "confirme:annulee": ["admin", "confirmation", "commercial"],
-  "en_fabrication:en_preparation": ["admin", "fabrication"],
-  "en_fabrication:annulee": ["admin", "fabrication"],
-  "en_preparation:en_livraison": ["admin", "preparation"],
-  "en_preparation:annulee": ["admin", "preparation"],
-  "en_livraison:livre": ["admin", "livraison"],
-  "en_livraison:retour_echec": ["admin", "livraison"],
-  "en_livraison:annulee": ["admin", "livraison"],
+  "en_fabrication:en_preparation": ["admin", "fabrication", "commercial"],
+  "en_fabrication:annulee": ["admin", "fabrication", "commercial"],
+  "en_preparation:en_livraison": ["admin", "preparation", "commercial"],
+  "en_preparation:annulee": ["admin", "preparation", "commercial"],
+  "en_livraison:livre": ["admin", "livraison", "commercial"],
+  "en_livraison:retour_echec": ["admin", "livraison", "commercial"],
+  "en_livraison:annulee": ["admin", "livraison", "commercial"],
 };
 
 export function hasAnyRole(userRoles: CrmRole[], allowed: CrmRole[]) {
@@ -87,4 +87,40 @@ export function canManageCatalog(userRoles: CrmRole[]) {
 
 export function canManageUsers(userRoles: CrmRole[]) {
   return hasAnyRole(userRoles, ["admin"]);
+}
+
+export function canEditClientPhone(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "commercial"]);
+}
+
+export function canSetOrderKind(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "commercial"]);
+}
+
+export function canManageRemarks(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "commercial", "livraison", "confirmation"]);
+}
+
+export function canLogContactAttempt(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "livraison"]);
+}
+
+const STAFF_ROLE_EXPANSION: Record<string, CrmRole[]> = {
+  admin: ["admin", "commercial", "confirmation", "atelier_design", "fabrication", "preparation", "livraison"],
+  super_admin: ["admin", "commercial", "confirmation", "atelier_design", "fabrication", "preparation", "livraison"],
+  commercial: ["commercial"],
+  fabrication: ["fabrication"],
+  preparation: ["preparation"],
+  livraison: ["livraison"],
+  confirmation: ["confirmation"],
+};
+
+export function expandStaffRoles(assigned: string[]): CrmRole[] {
+  const expanded = new Set<CrmRole>();
+  for (const role of assigned) {
+    for (const mapped of STAFF_ROLE_EXPANSION[role] || []) {
+      expanded.add(mapped);
+    }
+  }
+  return [...expanded];
 }

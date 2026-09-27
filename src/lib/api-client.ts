@@ -1,4 +1,5 @@
 import { getFreshSession, supabase } from './supabase-client';
+import { expandStaffRoles } from './crm/permissions';
 import type {
   Activity,
   Company,
@@ -10,6 +11,7 @@ import type {
   Deal,
   DealStage,
   Order,
+  OrderKind,
   OrderStatus,
   Product,
   ProductionJob,
@@ -295,6 +297,16 @@ export const crmOrdersApi = {
     }>('/crm/orders/client-by-phone', { phone }),
   updateStatus: (id: string, status: OrderStatus | string, note?: string) =>
     apiClient.put<Order>(`/crm/orders/${id}/status`, { status, note }),
+  updatePhone: (id: string, phone: string) =>
+    apiClient.put<Order>(`/crm/orders/${id}/phone`, { phone }),
+  updateKind: (id: string, orderKind: OrderKind) =>
+    apiClient.put<Order>(`/crm/orders/${id}/kind`, { orderKind }),
+  addRemark: (id: string, body: string) =>
+    apiClient.post<Order>(`/crm/orders/${id}/remarks`, { body }),
+  deleteRemark: (id: string, remarkId: string) =>
+    apiClient.delete<Order>(`/crm/orders/${id}/remarks/${remarkId}`),
+  addContactAttempt: (id: string, notes: string) =>
+    apiClient.post<Order>(`/crm/orders/${id}/contact-attempts`, { notes }),
   create: (orderData: CreateCrmOrderPayload) =>
     apiClient.post<Order>('/crm/orders', orderData),
 };
@@ -463,6 +475,7 @@ export const crmUsersApi = {
     lastName?: string | null;
     phone?: string | null;
     role: string;
+    staffRoles?: string[] | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -492,7 +505,7 @@ export const crmUsersApi = {
     firstName?: string;
     lastName?: string;
     phone?: string;
-    role: string;
+    roles: string[];
   }) =>
     apiClient.post<{
       id: string;
@@ -501,13 +514,14 @@ export const crmUsersApi = {
       lastName?: string | null;
       phone?: string | null;
       role: string;
+      staffRoles?: string[] | null;
       isActive: boolean;
       createdAt: string;
     }>('/crm/users', data),
   update: (
     id: string,
     data: {
-      role?: string;
+      roles?: string[];
       isActive?: boolean;
       firstName?: string;
       lastName?: string;
@@ -521,6 +535,7 @@ export const crmUsersApi = {
       lastName?: string | null;
       phone?: string | null;
       role: string;
+      staffRoles?: string[] | null;
       isActive: boolean;
     }>(`/crm/users/${id}`, data),
 };
@@ -529,6 +544,7 @@ export interface AuthMeProfile {
   id: string;
   email: string;
   role: string;
+  staffRoles?: string[] | null;
   firstName?: string | null;
   lastName?: string | null;
   isActive?: boolean;
@@ -543,27 +559,21 @@ export function mapApiUserToCrmUser(user: {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-    phone?: string | null;
-    role: string;
+  phone?: string | null;
+  role: string;
+  staffRoles?: string[] | null;
   isActive: boolean;
   createdAt?: string;
   lastLoginAt?: string | null;
 }): CrmUser {
-  const roleMapping: Record<string, CrmUser['roles']> = {
-    admin: ['admin', 'commercial', 'confirmation', 'atelier_design', 'fabrication', 'preparation', 'livraison'],
-    super_admin: ['admin', 'commercial', 'confirmation', 'atelier_design', 'fabrication', 'preparation', 'livraison'],
-    commercial: ['commercial'],
-    fabrication: ['fabrication'],
-    preparation: ['preparation'],
-    livraison: ['livraison'],
-    confirmation: ['confirmation'],
-  };
+  const assignedRoles = user.staffRoles?.length ? user.staffRoles : [user.role];
 
   return {
     id: user.id,
     name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
     email: user.email,
-    roles: roleMapping[user.role] || [],
+    roles: expandStaffRoles(assignedRoles),
+    assignedRoles,
     active: user.isActive,
     lastLoginAt: user.lastLoginAt || user.createdAt,
     businessRole: user.role,

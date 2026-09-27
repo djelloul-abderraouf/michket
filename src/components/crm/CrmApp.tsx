@@ -10,6 +10,7 @@ import {
   canManageCatalog,
   canManageContacts,
   canManageUsers,
+  expandStaffRoles,
 } from "@/lib/crm/permissions";
 import {
   dealStageLabels,
@@ -48,6 +49,8 @@ import { CrmTasks } from "./CrmTasks";
 import { CrmUsers } from "./CrmUsers";
 import { EnhancedDashboard } from "./EnhancedDashboard";
 import { CrmButton, cx } from "./CrmUi";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Moon, Sun } from "lucide-react";
 import { crmPagePaths } from "@/lib/crm/routes";
 import { normalizeOrder } from "@/lib/crm/normalize-order";
 import { useCrmOrdersRealtime } from "@/lib/crm/use-crm-orders-realtime";
@@ -65,19 +68,6 @@ import {
   crmUsersApi,
   mapApiUserToCrmUser,
 } from "@/lib/api-client";
-
-function mapUserRoleToCrmRoles(role: string): CrmUser["roles"] {
-  const roleMapping: Record<string, CrmUser["roles"]> = {
-    admin: ["admin", "commercial", "confirmation", "atelier_design", "fabrication", "preparation", "livraison"],
-    super_admin: ["admin", "commercial", "confirmation", "atelier_design", "fabrication", "preparation", "livraison"],
-    commercial: ["commercial"],
-    fabrication: ["fabrication"],
-    preparation: ["preparation"],
-    livraison: ["livraison"],
-    confirmation: ["confirmation"],
-  };
-  return roleMapping[role] || [];
-}
 
 function pageFromPath(pathname: string): CrmPage {
   const match = (Object.entries(crmPagePaths) as [CrmPage, string][]).find(
@@ -108,6 +98,7 @@ export function CrmApp() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, profile, loading, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const activePage = pageFromPath(pathname || "");
   const loadedUserId = useRef<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -142,11 +133,13 @@ export function CrmApp() {
       };
     }
 
+    const assignedRoles = profile.staff_roles?.length ? profile.staff_roles : [profile.role];
     return {
       id: profile.id,
       name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || profile.email,
       email: profile.email,
-      roles: mapUserRoleToCrmRoles(profile.role),
+      roles: expandStaffRoles(assignedRoles),
+      assignedRoles,
       active: profile.is_active,
     };
   }, [profile]);
@@ -193,7 +186,10 @@ export function CrmApp() {
 
   const loadCrmData = async () => {
     setIsLoading(true);
-    const roles = mapUserRoleToCrmRoles(profile?.role || "");
+    const assignedRoles = profile?.staff_roles?.length
+      ? profile.staff_roles
+      : [profile?.role || ""];
+    const roles = expandStaffRoles(assignedRoles);
     const skip = <T,>(value: T) => Promise.resolve(value);
 
     try {
@@ -813,13 +809,18 @@ export function CrmApp() {
       });
   }
 
+  function applyOrderUpdate(updated: Order) {
+    const next = normalizeOrder(updated);
+    setOrders((current) => upsertOrder(current, next));
+  }
+
   function createUser(data: {
     firstName: string;
     lastName: string;
     email: string;
     phone?: string;
     password: string;
-    role: string;
+    roles: string[];
   }) {
     crmUsersApi
       .create(data)
@@ -832,7 +833,7 @@ export function CrmApp() {
       });
   }
 
-  function updateUser(id: string, data: { role?: string; firstName?: string; lastName?: string; phone?: string }) {
+  function updateUser(id: string, data: { roles?: string[]; firstName?: string; lastName?: string; phone?: string }) {
     crmUsersApi
       .update(id, data)
       .then((updated) => {
@@ -927,7 +928,7 @@ export function CrmApp() {
   }
 
   return (
-    <div className="bg-[#f4f7f3] min-h-screen text-black flex">
+    <div className="min-h-screen text-black flex">
       <CrmSidebar
         user={crmUser}
         activePage={activePage}
@@ -957,6 +958,10 @@ export function CrmApp() {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm text-black/60">{isLoading ? "Chargement..." : toast}</span>
+                <CrmButton variant="ghost" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === "dark" ? "Mode clair" : "Mode sombre"}
+                </CrmButton>
                 <CrmButton variant="ghost" onClick={() => signOut()}>
                   Deconnexion
                 </CrmButton>
@@ -1023,6 +1028,8 @@ export function CrmApp() {
               onCreateParcel={createParcel}
               onSyncParcel={syncParcel}
               onToast={setToast}
+              onOrderUpdated={applyOrderUpdate}
+              currentUserId={crmUser.id}
               products={products}
               contacts={contacts}
             />
@@ -1038,6 +1045,10 @@ export function CrmApp() {
               }
               onCreateParcel={createParcel}
               onSyncParcel={syncParcel}
+              userRoles={userRoles}
+              currentUserId={crmUser.id}
+              onOrderUpdated={applyOrderUpdate}
+              onMove={moveOrder}
               onReason={(order, reason) => {
                 const note = `Motif confirmation: ${reason}`;
                 if (reason === "refus") {
@@ -1155,6 +1166,11 @@ export function CrmApp() {
               onReturned={(order) =>
                 moveOrder(order, "retour_echec", "Echec livraison / retour.")
               }
+              userRoles={userRoles}
+              currentUserId={crmUser.id}
+              onOrderUpdated={applyOrderUpdate}
+              onMove={moveOrder}
+              onToast={setToast}
             />
           )}
 

@@ -9,18 +9,20 @@ import {
   orderSourceLabels,
   orderSources,
 } from "@/lib/crm/order-display";
-import { orderStatusLabels, orderStatuses } from "@/lib/crm/types";
+import { orderKindLabels, orderKinds, orderStatusLabels, orderStatuses } from "@/lib/crm/types";
 import type {
   ClientType,
   Contact,
   CreateCrmOrderPayload,
   CrmRole,
   Order,
+  OrderKind,
   OrderSource,
   OrderStatus,
   Product,
   YalidineCenter,
 } from "@/lib/crm/types";
+import { clientPhoneError, normalizeClientPhoneInput } from "@/lib/crm/phone";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 import {
@@ -68,6 +70,8 @@ export function CrmOrders(props: {
   onCreateOrder: (payload: CreateCrmOrderPayload) => void;
   onCreateParcel?: (order: Order) => void;
   onSyncParcel?: (order: Order) => void;
+  onOrderUpdated?: (order: Order) => void;
+  currentUserId?: string;
   onToast?: (message: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -78,6 +82,9 @@ export function CrmOrders(props: {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [newOrderName, setNewOrderName] = useState("");
   const [newOrderPhone, setNewOrderPhone] = useState("");
+  const [newOrderEmail, setNewOrderEmail] = useState("");
+  const [newOrderKind, setNewOrderKind] = useState<OrderKind>("propre");
+  const [newOrderNotes, setNewOrderNotes] = useState("");
   const [newOrderWilaya, setNewOrderWilaya] = useState("Alger");
   const [newOrderCommune, setNewOrderCommune] = useState("");
   const [newOrderProduct, setNewOrderProduct] = useState("");
@@ -261,6 +268,9 @@ export function CrmOrders(props: {
     setContactQuery("");
     setNewOrderName("");
     setNewOrderPhone("");
+    setNewOrderEmail("");
+    setNewOrderKind("propre");
+    setNewOrderNotes("");
     setNewOrderCommune("");
     setNewOrderAddress("");
     setNewOrderOffice("");
@@ -277,8 +287,13 @@ export function CrmOrders(props: {
 
   function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newOrderName.trim() || !newOrderPhone.trim()) {
-      props.onToast?.("Complete le client et le telephone.");
+    const phoneError = clientPhoneError(newOrderPhone);
+    if (!newOrderName.trim() || phoneError) {
+      props.onToast?.(phoneError || "Complete le client et le telephone.");
+      return;
+    }
+    if (!newOrderKind) {
+      props.onToast?.("Choisissez le type de commande.");
       return;
     }
     if (newOrderDelivery === "home" && !newOrderAddress.trim()) {
@@ -292,7 +307,7 @@ export function CrmOrders(props: {
       firstName,
       lastName: rest.join(" "),
       phone: newOrderPhone,
-      email: clientLookup?.contact?.email || undefined,
+      email: newOrderEmail.trim() || clientLookup?.contact?.email || undefined,
       wilayaName: newOrderWilaya,
       wilayaCode: wilaya?.code,
       commune: newOrderCommune || undefined,
@@ -308,6 +323,8 @@ export function CrmOrders(props: {
       colorName: variant?.colorName || variant?.name,
       personalizationText: newOrderText || undefined,
       quantity: newOrderQuantity || 1,
+      notes: newOrderNotes.trim() || undefined,
+      orderKind: newOrderKind,
     });
     setIsPopupOpen(false);
     resetCreateForm();
@@ -416,6 +433,7 @@ export function CrmOrders(props: {
                         <p className="font-medium">{order.clientName}</p>
                         <p className="text-xs text-black/50">
                           {order.isExistingClient ? "Client existant" : "Nouveau client"}
+                          {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
                         </p>
                       </td>
                       <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">{order.phone}</td>
@@ -510,6 +528,7 @@ export function CrmOrders(props: {
                           <p className="text-sm font-semibold truncate">{order.clientName}</p>
                           <p className="text-xs text-black/55">
                             {orderSourceLabels[order.source] || "Site e-com"} · {clientTypeLabel(order.clientType)}
+                            {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
                           </p>
                           <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
                           <p className="text-xs text-black/60 truncate">{order.phone}</p>
@@ -543,24 +562,46 @@ export function CrmOrders(props: {
         onCreateParcel={props.onCreateParcel}
         onSyncParcel={props.onSyncParcel}
         onToast={props.onToast}
+        onOrderUpdated={props.onOrderUpdated}
+        currentUserId={props.currentUserId}
         showStatusSelect
       />
 
       <CrmPopup isOpen={isPopupOpen} onClose={() => { setIsPopupOpen(false); resetCreateForm(); }} title="Nouvelle commande" size="large">
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Origine</label>
-            <select
-              value={newOrderSource}
-              onChange={(event) => setNewOrderSource(event.target.value as OrderSource)}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-            >
-              <option value="whatsapp">WhatsApp</option>
-              <option value="facebook">Facebook</option>
-              <option value="instagram">Instagram</option>
-              <option value="ecom">Site e-com</option>
-            </select>
-          </div>
+        <form onSubmit={handleCreateSubmit} className="space-y-5">
+          <section className="space-y-3 rounded-lg border border-black/10 p-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-black/60">Commande</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Origine</label>
+                <select
+                  value={newOrderSource}
+                  onChange={(event) => setNewOrderSource(event.target.value as OrderSource)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="ecom">Site e-com</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Type de commande</label>
+                <select
+                  value={newOrderKind}
+                  onChange={(event) => setNewOrderKind(event.target.value as OrderKind)}
+                  required
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+                >
+                  {orderKinds.map((kind) => (
+                    <option key={kind} value={kind}>{orderKindLabels[kind]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+          <section className="space-y-3 rounded-lg border border-black/10 p-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-black/60">Client</h3>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Rechercher un client</label>
             <input
@@ -578,7 +619,8 @@ export function CrmOrders(props: {
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-black/[0.04]"
                     onClick={() => {
                       setNewOrderName(`${contact.firstName} ${contact.lastName}`.trim());
-                      setNewOrderPhone(contact.phone);
+                      setNewOrderPhone(normalizeClientPhoneInput(contact.phone));
+                      setNewOrderEmail(contact.email || "");
                       setNewOrderContactId(contact.id);
                       setNewOrderClientType(contact.type);
                       if (contact.wilaya) setNewOrderWilaya(contact.wilaya);
@@ -592,8 +634,28 @@ export function CrmOrders(props: {
               </div>
             )}
           </div>
-          <input value={newOrderName} onChange={(event) => setNewOrderName(event.target.value)} placeholder="Nom client" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
-          <input value={newOrderPhone} onChange={(event) => setNewOrderPhone(event.target.value)} placeholder="Téléphone" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input value={newOrderName} onChange={(event) => setNewOrderName(event.target.value)} placeholder="Nom client" required className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+            <div>
+              <input
+                value={newOrderPhone}
+                onChange={(event) => setNewOrderPhone(normalizeClientPhoneInput(event.target.value))}
+                placeholder="Telephone (0XXXXXXXXX)"
+                inputMode="numeric"
+                maxLength={10}
+                required
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+              />
+              <p className="mt-1 text-xs text-black/45">Obligatoire, commence par 0, 10 chiffres maximum.</p>
+            </div>
+          </div>
+          <input
+            type="email"
+            value={newOrderEmail}
+            onChange={(event) => setNewOrderEmail(event.target.value)}
+            placeholder="Email"
+            className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
+          />
           {clientLookup && (
             <p className={`rounded-lg px-3 py-2 text-sm ${clientLookup.exists ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
               {clientLookup.exists
@@ -613,6 +675,9 @@ export function CrmOrders(props: {
               <option value="professionnel">Professionnel</option>
             </select>
           </div>
+          </section>
+          <section className="space-y-3 rounded-lg border border-black/10 p-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-black/60">Livraison</h3>
           <select value={newOrderWilaya} onChange={(event) => setNewOrderWilaya(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
             {ALGERIA_WILAYAS.map((wilaya) => (
               <option key={wilaya.code} value={wilaya.name}>{wilaya.code} - {wilaya.name}</option>
@@ -672,6 +737,9 @@ export function CrmOrders(props: {
               className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
             />
           )}
+          </section>
+          <section className="space-y-3 rounded-lg border border-black/10 p-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-black/60">Produit</h3>
           <select value={newOrderProduct} onChange={(event) => setNewOrderProduct(event.target.value)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm">
             {activeProducts.map((product) => (
               <option key={product.id} value={product.id}>{product.name} - {dzd.format(product.price)}</option>
@@ -700,7 +768,20 @@ export function CrmOrders(props: {
             rows={3}
             className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
           />
-          <input type="number" min={1} max={99} value={newOrderQuantity} onChange={(event) => setNewOrderQuantity(Number(event.target.value) || 1)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Quantite</label>
+              <input type="number" min={1} max={99} value={newOrderQuantity} onChange={(event) => setNewOrderQuantity(Number(event.target.value) || 1)} className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
+            </div>
+          </div>
+          <textarea
+            value={newOrderNotes}
+            onChange={(event) => setNewOrderNotes(event.target.value)}
+            placeholder="Notes internes"
+            rows={2}
+            className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+          />
+          </section>
           <div className="flex gap-3 pt-2">
             <CrmButton type="button" variant="ghost" onClick={() => { setIsPopupOpen(false); resetCreateForm(); }} className="flex-1">Annuler</CrmButton>
             <CrmButton type="submit" disabled={!canCreateOrder(props.userRoles)} className="flex-1">Créer commande</CrmButton>

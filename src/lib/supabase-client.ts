@@ -63,6 +63,7 @@ export interface UserProfile {
   id: string;
   email: string;
   role: UserRole;
+  staff_roles?: string[];
   first_name?: string;
   last_name?: string;
   is_active: boolean;

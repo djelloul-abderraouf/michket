@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { Order } from "@/lib/crm/types";
+import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
+import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderStatusLabels } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle } from "./CrmUi";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
@@ -17,13 +18,25 @@ export function CrmDelivery({
   onSyncParcel,
   onDelivered,
   onReturned,
+  userRoles,
+  currentUserId,
+  onOrderUpdated,
+  onMove,
+  onToast,
 }: {
   orders: Order[];
   onCreateParcel: (order: Order) => void;
   onSyncParcel?: (order: Order) => void;
   onDelivered: (order: Order) => void;
   onReturned: (order: Order) => void;
+  userRoles?: CrmRole[];
+  currentUserId?: string;
+  onOrderUpdated?: (order: Order) => void;
+  onMove?: (order: Order, to: OrderStatus, note?: string) => void;
+  onToast?: (message: string) => void;
 }) {
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const selectedOrder = orders.find((order) => order.id === selectedId);
   const [view, setView] = useState<"list" | "grid">("list");
   const ready = orders.filter((order) => order.status === "confirme");
   const inTransit = orders.filter((order) => order.status === "en_livraison");
@@ -99,6 +112,9 @@ export function CrmDelivery({
                     <td className="px-3 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <CrmButton size="sm" variant="ghost" onClick={() => setSelectedId(order.id)}>
+                          Details
+                        </CrmButton>
                         <CrmButton
                           size="sm"
                           variant="ghost"
@@ -157,6 +173,9 @@ export function CrmDelivery({
                   {order.yalidineStatus ? ` · ${order.yalidineStatus}` : order.carrierStatus ? ` · ${order.carrierStatus}` : ""}
                 </p>
                 <div className="mt-3 space-y-2">
+                  <CrmButton size="sm" variant="ghost" className="w-full" onClick={() => setSelectedId(order.id)}>
+                    Ouvrir la commande
+                  </CrmButton>
                   <div className="grid grid-cols-2 gap-2">
                     <CrmButton
                       size="sm"
@@ -196,6 +215,20 @@ export function CrmDelivery({
           </div>
         )}
       </CrmPanel>
+
+      <CrmOrderDetailsDrawer
+        order={selectedOrder}
+        isOpen={Boolean(selectedId)}
+        onClose={() => setSelectedId(undefined)}
+        userRoles={userRoles}
+        currentUserId={currentUserId}
+        onMove={onMove}
+        onCreateParcel={onCreateParcel}
+        onSyncParcel={onSyncParcel}
+        onOrderUpdated={onOrderUpdated}
+        onToast={onToast}
+        showStatusSelect
+      />
     </div>
   );
 }

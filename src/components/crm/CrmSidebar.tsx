@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { canAccessPage, crmPages } from "@/lib/crm/permissions";
 import { crmPagePaths } from "@/lib/crm/routes";
-import { roleLabels, type CrmPage, type CrmUser } from "@/lib/crm/types";
+import { staffRoleLabel, type CrmPage, type CrmUser } from "@/lib/crm/types";
 import { cx } from "./CrmUi";
 
 const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = {
@@ -112,12 +112,12 @@ export function CrmSidebar({
         </div>
         {!isCollapsed && (
           <div className="mt-3 flex flex-wrap gap-1.5 px-4">
-            {user.roles.map((role) => (
+            {(user.assignedRoles?.length ? user.assignedRoles : user.roles).map((role) => (
               <span
                 key={role}
                 className="rounded-full border border-black/20 bg-black/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black"
               >
-                {roleLabels[role]}
+                {staffRoleLabel(role)}
               </span>
             ))}
           </div>

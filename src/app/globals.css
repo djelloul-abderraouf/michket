@@ -597,3 +597,65 @@ body {
 .animate-fade-in-up {
   animation: fade-in-up var(--transition-slow) ease-out forwards;
 }
+
+.crm-app {
+  background: #f4f7f3;
+  color: #0a0a0a;
+}
+
+.crm-app[data-theme="dark"] {
+  background: #121418;
+  color: #f4f1ea;
+  color-scheme: dark;
+}
+
+.crm-app[data-theme="dark"] .bg-white,
+.crm-app[data-theme="dark"] .bg-\[\#f4f7f3\] {
+  background-color: #1c1f26 !important;
+}
+
+.crm-app[data-theme="dark"] .text-black {
+  color: #f4f1ea !important;
+}
+
+.crm-app[data-theme="dark"] .text-black\/40,
+.crm-app[data-theme="dark"] .text-black\/50,
+.crm-app[data-theme="dark"] .text-black\/55,
+.crm-app[data-theme="dark"] .text-black\/60,
+.crm-app[data-theme="dark"] .text-black\/70 {
+  color: rgba(244, 241, 234, 0.68) !important;
+}
+
+.crm-app[data-theme="dark"] .border-black\/5,
+.crm-app[data-theme="dark"] .border-black\/10,
+.crm-app[data-theme="dark"] .border-black\/15,
+.crm-app[data-theme="dark"] .border-black\/20,
+.crm-app[data-theme="dark"] .border-black\/30 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.crm-app[data-theme="dark"] .bg-black\/5,
+.crm-app[data-theme="dark"] .bg-black\/10,
+.crm-app[data-theme="dark"] .bg-black\/\[0\.02\],
+.crm-app[data-theme="dark"] .bg-black\/\[0\.04\] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.crm-app[data-theme="dark"] .hover\:bg-black\/5:hover,
+.crm-app[data-theme="dark"] .hover\:bg-black\/\[0\.02\]:hover,
+.crm-app[data-theme="dark"] .hover\:bg-black\/\[0\.04\]:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.crm-app[data-theme="dark"] input,
+.crm-app[data-theme="dark"] select,
+.crm-app[data-theme="dark"] textarea {
+  background-color: #141820;
+  color: #f4f1ea;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.crm-app[data-theme="dark"] input::placeholder,
+.crm-app[data-theme="dark"] textarea::placeholder {
+  color: rgba(244, 241, 234, 0.45);
+}
