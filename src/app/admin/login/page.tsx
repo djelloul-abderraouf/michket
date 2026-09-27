@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 type MeResponse = {
   id: string;
   email: string;
-  role: "customer" | "admin" | "super_admin";
+  role: "customer" | "admin" | "super_admin" | "social_media";
 };
 
 export default function AdminLoginPage() {
@@ -104,7 +104,11 @@ export default function AdminLoginPage() {
 
       const me = (await response.json()) as MeResponse;
 
-      if (me.role !== "admin" && me.role !== "super_admin") {
+      if (
+        me.role !== "admin" &&
+        me.role !== "super_admin" &&
+        me.role !== "social_media"
+      ) {
         await supabase.auth.signOut();
         setErrorMessage(
           "Ce compte n'a pas accès à l'administration Michket.",
@@ -117,7 +121,9 @@ export default function AdminLoginPage() {
        * This guarantees that the Supabase auth cookies written by the browser
        * client are available to src/proxy.ts before /admin is rendered.
        */
-      window.location.replace("/admin");
+      window.location.replace(
+        me.role === "social_media" ? "/admin/campaigns" : "/admin",
+      );
     } catch {
       setErrorMessage(
         "Une erreur est survenue pendant la connexion.",

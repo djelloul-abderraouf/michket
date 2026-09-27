@@ -14,7 +14,11 @@ export function AdminHeader({
   onMenuToggle,
 }: AdminHeaderProps) {
   const roleLabel =
-    role === "super_admin" ? "Super Admin" : "Administrateur";
+    role === "super_admin"
+      ? "Super Admin"
+      : role === "social_media"
+        ? "Social media"
+        : "Administrateur";
 
   const initial =
     email.trim().charAt(0).toUpperCase() || "M";

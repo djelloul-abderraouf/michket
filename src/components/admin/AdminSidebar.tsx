@@ -77,6 +77,25 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "Campagnes",
+    href: "/admin/campaigns",
+    icon: (
+      <svg
+        className={iconClassName}
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M4 15.5 10 3.5l6 12" />
+        <path d="M6.2 11.5h7.6" />
+      </svg>
+    ),
+  },
+  {
     label: "Nos références",
     href: "/admin/references",
     icon: (
@@ -161,11 +180,19 @@ const NAV_ITEMS: NavItem[] = [
 interface AdminSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  role?: string;
 }
+
+const SOCIAL_MEDIA_HREFS = [
+  "/admin/campaigns",
+  "/admin/products",
+  "/admin/categories",
+];
 
 export function AdminSidebar({
   isOpen,
   onClose,
+  role,
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
@@ -182,6 +209,13 @@ export function AdminSidebar({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen, onClose]);
+
+  const navItems =
+    role === "social_media"
+      ? SOCIAL_MEDIA_HREFS.flatMap((href) =>
+          NAV_ITEMS.filter((item) => item.href === href),
+        )
+      : NAV_ITEMS;
 
   function isActive(href: string) {
     if (href === "/admin") {
@@ -222,7 +256,7 @@ export function AdminSidebar({
 
         <div className="relative flex h-[82px] items-center border-b border-white/10 px-5">
           <Link
-            href="/admin"
+            href={role === "social_media" ? "/admin/campaigns" : "/admin"}
             onClick={onClose}
             className="group flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
@@ -250,7 +284,7 @@ export function AdminSidebar({
             className="space-y-1"
             aria-label="Menu principal"
           >
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = isActive(item.href);
 
               return (

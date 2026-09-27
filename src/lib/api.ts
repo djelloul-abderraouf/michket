@@ -1162,3 +1162,40 @@ export async function getOrderByReference(
 
   return apiFetch<ApiOrder>(`/orders/${reference}`, { headers });
 }
+
+export interface CampaignVariant {
+  id: string;
+  name: string;
+  hex: string | null;
+  isMulticolor: boolean;
+}
+
+export interface CampaignItem {
+  id: string;
+  title: string;
+  productId: string;
+  name: string;
+  slug: string;
+  price: number;
+  imageUrl: string | null;
+  personalizable: boolean;
+  orderDetailsPrompt: string | null;
+  variants: CampaignVariant[];
+}
+
+export interface CampaignPage {
+  id: string;
+  slug: string;
+  publicTitle: string;
+  items: CampaignItem[];
+}
+
+export async function fetchCampaign(
+  slug: string,
+): Promise<CampaignPage> {
+  return apiFetch<CampaignPage>(
+    `/campaigns/${encodeURIComponent(slug)}`,
+    undefined,
+    { noStore: true },
+  );
+}

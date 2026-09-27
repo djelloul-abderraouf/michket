@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   usePathname,
+  useRouter,
 } from "next/navigation";
 
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -16,7 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 type AdminProfile = {
   id: string;
   email: string;
-  role: "customer" | "admin" | "super_admin";
+  role: "customer" | "admin" | "super_admin" | "social_media";
 };
 
 export default function AdminLayout({
@@ -25,6 +26,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Keep a single Supabase client instance for the lifetime of this layout.
   const [supabase] = useState(() => createClient());
@@ -119,7 +121,8 @@ export default function AdminLayout({
 
         if (
           adminProfile.role !== "admin" &&
-          adminProfile.role !== "super_admin"
+          adminProfile.role !== "super_admin" &&
+          adminProfile.role !== "social_media"
         ) {
           await supabase.auth.signOut();
 
@@ -149,11 +152,30 @@ export default function AdminLayout({
     };
   }, [pathname, redirectToLogin, supabase]);
 
+  const socialMediaBlocked =
+    profile?.role === "social_media" &&
+    (pathname === "/admin" ||
+      [
+        "/admin/orders",
+        "/admin/promotions",
+        "/admin/users",
+        "/admin/references",
+      ].some(
+        (path) =>
+          pathname === path || pathname.startsWith(`${path}/`),
+      ));
+
+  useEffect(() => {
+    if (socialMediaBlocked) {
+      router.replace("/admin/campaigns");
+    }
+  }, [router, socialMediaBlocked]);
+
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || socialMediaBlocked) {
     return (
       <main className="min-h-screen bg-[#f6f4ef]">
         <div className="flex min-h-screen items-center justify-center px-6">
@@ -187,6 +209,7 @@ export default function AdminLayout({
       <AdminSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        role={profile?.role}
       />
 
       <div className="admin-main min-w-0">

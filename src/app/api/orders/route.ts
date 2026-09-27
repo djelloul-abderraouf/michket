@@ -72,6 +72,231 @@ async function readBackendError(
   return "La commande n'a pas pu être enregistrée.";
 }
 
+type CampaignLineInput = {
+  itemId?: unknown;
+  variantId?: unknown;
+  quantity?: unknown;
+  personalization?: unknown;
+};
+
+type PublicCampaignItem = {
+  id: string;
+  productId: string;
+  personalizable: boolean;
+  variants: Array<{ id: string }>;
+};
+
+async function forwardOrder(
+  request: Request,
+  backendPayload: unknown,
+) {
+  const incomingSessionId =
+    request.headers.get("x-session-id")?.trim();
+
+  const sessionId =
+    incomingSessionId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      incomingSessionId,
+    )
+      ? incomingSessionId
+      : randomUUID();
+
+  const incomingIdempotencyKey =
+    request.headers.get("idempotency-key")?.trim();
+
+  const idempotencyKey =
+    incomingIdempotencyKey &&
+    incomingIdempotencyKey.length >= 16 &&
+    incomingIdempotencyKey.length <= 128
+      ? incomingIdempotencyKey
+      : randomUUID();
+
+  const backendResponse = await fetch(`${API_BASE}/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+      "X-Session-Id": sessionId,
+    },
+    cache: "no-store",
+    body: JSON.stringify(backendPayload),
+  });
+
+  if (!backendResponse.ok) {
+    const message = await readBackendError(backendResponse);
+
+    return NextResponse.json(
+      { message },
+      { status: backendResponse.status },
+    );
+  }
+
+  const order =
+    (await backendResponse.json()) as BackendOrderResponse;
+
+  return NextResponse.json({
+    ok: true,
+    reference: order.reference,
+    total: order.totalCents / 100,
+    guestAccessToken: order.guestAccessToken,
+  });
+}
+
+async function submitCampaignOrder(
+  request: Request,
+  body: Record<string, unknown>,
+) {
+  const campaignSlug = clean(body.campaignSlug, 160);
+  const fullName = clean(body.fullName, 200);
+  const phone = normalizePhone(clean(body.phone, 30));
+  const address = clean(body.address, 255);
+  const commune = clean(body.commune, 100);
+  const wilayaCode = Number(body.wilayaCode);
+  const communeId = Number(body.communeId);
+  const rawDeliveryType = clean(body.deliveryType, 20);
+  const deliveryType: DeliveryType | null =
+    rawDeliveryType === "home" || rawDeliveryType === "office"
+      ? rawDeliveryType
+      : null;
+
+  if (!fullName || fullName.length < 2 || !commune) {
+    return NextResponse.json(
+      { message: "Merci de compléter tous les champs obligatoires." },
+      { status: 400 },
+    );
+  }
+
+  if (!isValidAlgerianPhone(phone)) {
+    return NextResponse.json(
+      { message: "Le numéro de téléphone n'est pas valide." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    !Number.isInteger(wilayaCode) ||
+    wilayaCode < 1 ||
+    wilayaCode > 58 ||
+    !Number.isInteger(communeId) ||
+    communeId <= 0 ||
+    !deliveryType
+  ) {
+    return NextResponse.json(
+      { message: "Adresse de livraison invalide." },
+      { status: 400 },
+    );
+  }
+
+  if (deliveryType === "home" && !address) {
+    return NextResponse.json(
+      { message: "Merci d'indiquer l'adresse de livraison." },
+      { status: 400 },
+    );
+  }
+
+  const rawLines = Array.isArray(body.lines) ? body.lines : [];
+  if (rawLines.length < 1 || rawLines.length > 20) {
+    return NextResponse.json(
+      { message: "Choisissez au moins un produit de la campagne." },
+      { status: 400 },
+    );
+  }
+
+  const campaignResponse = await fetch(
+    `${API_BASE}/campaigns/${encodeURIComponent(campaignSlug)}`,
+    { cache: "no-store" },
+  );
+
+  if (!campaignResponse.ok) {
+    return NextResponse.json(
+      { message: "Cette campagne n'est plus disponible." },
+      { status: 404 },
+    );
+  }
+
+  const campaign = (await campaignResponse.json()) as {
+    items?: PublicCampaignItem[];
+  };
+  const items = new Map(
+    (campaign.items ?? []).map((item) => [item.id, item]),
+  );
+  const seen = new Set<string>();
+  const orderItems: Array<{
+    productId: string;
+    variantId?: string;
+    quantity: number;
+    personalization?: { text: string };
+  }> = [];
+
+  for (const raw of rawLines as CampaignLineInput[]) {
+    const itemId = clean(raw.itemId, 80);
+    const item = items.get(itemId);
+
+    if (!item || seen.has(itemId)) {
+      return NextResponse.json(
+        { message: "Un produit de la campagne est invalide." },
+        { status: 400 },
+      );
+    }
+
+    seen.add(itemId);
+
+    const quantity = Number(raw.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+      return NextResponse.json(
+        { message: "La quantité sélectionnée est invalide." },
+        { status: 400 },
+      );
+    }
+
+    const variantId = clean(raw.variantId, 80);
+    if (item.variants.length > 0) {
+      if (!item.variants.some((variant) => variant.id === variantId)) {
+        return NextResponse.json(
+          { message: "Merci de sélectionner une couleur valide." },
+          { status: 400 },
+        );
+      }
+    } else if (variantId) {
+      return NextResponse.json(
+        { message: "Ce produit ne possède pas cette couleur." },
+        { status: 400 },
+      );
+    }
+
+    const personalization = clean(raw.personalization, 500);
+    if (item.personalizable && !personalization) {
+      return NextResponse.json(
+        { message: "Merci de remplir les détails de chaque produit." },
+        { status: 400 },
+      );
+    }
+
+    orderItems.push({
+      productId: item.productId,
+      ...(variantId ? { variantId } : {}),
+      quantity,
+      ...(item.personalizable && personalization
+        ? { personalization: { text: personalization } }
+        : {}),
+    });
+  }
+
+  return forwardOrder(request, {
+    items: orderItems,
+    fullName,
+    phone,
+    addressLine1:
+      deliveryType === "home"
+        ? address
+        : `Bureau Yalidine - ${commune}`,
+    wilayaCode,
+    communeId,
+    commune,
+    deliveryType,
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body =
@@ -85,6 +310,10 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
       });
+    }
+
+    if (clean(body.campaignSlug, 160)) {
+      return submitCampaignOrder(request, body);
     }
 
     const productSlug = clean(
