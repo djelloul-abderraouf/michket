@@ -205,14 +205,14 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="admin-layout min-h-screen bg-[#f6f4ef] text-neutral-950">
+    <div className="admin-layout h-dvh min-h-0 bg-[#f6f4ef] text-neutral-950">
       <AdminSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         role={profile?.role}
       />
 
-      <div className="admin-main min-w-0">
+      <div className="admin-main min-h-0 min-w-0 overflow-hidden">
         <AdminHeader
           email={profile?.email ?? ""}
           role={profile?.role ?? ""}

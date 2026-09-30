@@ -26,7 +26,7 @@ export default async function CampaignPage({
       <main
         lang="ar"
         dir="rtl"
-        className={`${arabicFont.className} min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-16 text-[#251713]`}
+        className={`${arabicFont.className} michket-arabic min-h-screen overflow-x-hidden bg-[#F7F1E8] pb-8 text-[#251713]`}
       >
         <CampaignOrder campaign={campaign} />
       </main>

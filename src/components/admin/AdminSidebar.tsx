@@ -242,11 +242,11 @@ export function AdminSidebar({
       <aside
         aria-label="Navigation administrateur"
         className={[
-          "fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col overflow-hidden border-r border-white/10 bg-[#151512] text-white shadow-2xl transition-transform duration-300 ease-out",
-          "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:shadow-none",
+          "flex h-dvh w-[272px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-[#151512] text-white shadow-2xl transition-transform duration-300 ease-out",
+          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 lg:relative lg:z-20 lg:shadow-none",
           isOpen
             ? "translate-x-0"
-            : "-translate-x-full",
+            : "max-lg:-translate-x-full",
         ].join(" ")}
       >
         <div
@@ -269,7 +269,7 @@ export function AdminSidebar({
                 Michket
               </span>
               <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
-                Administration
+                {role === "social_media" ? "Social media" : "Administration"}
               </span>
             </span>
           </Link>
@@ -341,7 +341,9 @@ export function AdminSidebar({
             </div>
 
             <p className="mt-1.5 text-[11px] leading-4 text-white/35">
-              Gestion interne Michket
+              {role === "social_media"
+                ? "Campagnes, produits et catégories"
+                : "Gestion interne Michket"}
             </p>
           </div>
         </div>

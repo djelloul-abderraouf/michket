@@ -27,7 +27,8 @@ export function AppShell({
    * d'afficher deux boutons WhatsApp en même temps.
    */
   const isProductLandingPage =
-    pathname.startsWith("/produits/");
+    pathname.startsWith("/produits/") ||
+    pathname.startsWith("/campagne/");
 
   const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
     "Bonjour Michket, j’ai besoin d’aide.",

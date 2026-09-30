@@ -33,7 +33,7 @@ export function AdminHeader({
   return (
     <header
       role="banner"
-      className="sticky top-0 z-30 border-b border-black/[0.07] bg-[#f6f4ef]/90 backdrop-blur-xl"
+      className="z-30 shrink-0 border-b border-black/[0.07] bg-[#f6f4ef]"
     >
       <div className="flex min-h-[74px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         {/* Left */}

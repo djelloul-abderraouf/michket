@@ -623,8 +623,10 @@ input[type="reset"]:disabled,
 /* Layout only. Sidebar/header positioning is handled in React/Tailwind. */
 .admin-layout {
   display: flex;
+  align-items: stretch;
   min-height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
 .admin-main {
@@ -638,7 +640,10 @@ input[type="reset"]:disabled,
 .admin-content {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Compatibility while the remaining admin components are audited. */

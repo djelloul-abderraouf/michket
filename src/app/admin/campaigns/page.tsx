@@ -38,8 +38,8 @@ type CampaignSummary = {
   itemCount: number;
 };
 
-const inputClass =
-  "min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none focus:border-neutral-950";
+const fieldClass =
+  "min-h-11 w-full rounded-xl border border-[#E5E1D8] bg-white px-3 text-sm text-[#171714] outline-none transition focus:border-[#171714]";
 
 function slugify(value: string) {
   return value
@@ -66,6 +66,7 @@ export default function AdminCampaignsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   async function authorizedFetch(path: string, init?: RequestInit) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -74,10 +75,7 @@ export default function AdminCampaignsPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-
-    if (!session?.access_token) {
-      throw new Error("Session expirée.");
-    }
+    if (!session?.access_token) throw new Error("Session expirée.");
 
     const response = await fetch(`${apiUrl}${path}`, {
       ...init,
@@ -116,9 +114,19 @@ export default function AdminCampaignsPage() {
   }
 
   useEffect(() => {
-    void loadLists().catch((reason: unknown) => {
-      setError(reason instanceof Error ? reason.message : "Chargement impossible.");
-    });
+    let cancelled = false;
+    loadLists()
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setError(reason instanceof Error ? reason.message : "Chargement impossible.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -181,9 +189,7 @@ export default function AdminCampaignsPage() {
     setItems(
       detail.items.flatMap((item, index) => {
         const product =
-          item.product ??
-          catalog.find((entry) => entry.id === item.productId) ??
-          null;
+          item.product ?? catalog.find((entry) => entry.id === item.productId) ?? null;
         if (!product) return [];
         return [
           {
@@ -204,10 +210,7 @@ export default function AdminCampaignsPage() {
     setMessage("");
 
     try {
-      if (items.length === 0) {
-        throw new Error("Ajoutez au moins un produit.");
-      }
-
+      if (items.length === 0) throw new Error("Ajoutez au moins un produit.");
       const payload = {
         title: title.trim(),
         publicTitle: publicTitle.trim(),
@@ -246,186 +249,251 @@ export default function AdminCampaignsPage() {
   const publicPath = slug ? `/campagne/${slug}` : "";
 
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <PageHeader
         title="Campagnes"
-        description="Choisissez les produits et les couleurs, puis partagez la page de commande."
+        description="Choisissez les produits et les couleurs. La page client reprend le formulaire de commande du site."
         action={
           <button
             type="button"
             onClick={resetForm}
-            className="min-h-11 rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#171714] px-4 text-sm font-semibold text-white"
           >
             Nouvelle campagne
           </button>
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-        <aside className="rounded-2xl border border-black/10 bg-white p-3">
-          <p className="px-2 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">
-            Enregistrées
+      <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="rounded-2xl border border-[#E5E1D8] bg-white p-3 shadow-[0_1px_2px_rgba(23,23,20,0.04)] lg:sticky lg:top-4">
+          <p className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#918C82]">
+            Campagnes
           </p>
-          <div className="space-y-1">
-            {campaigns.length === 0 ? (
-              <p className="px-2 py-4 text-sm text-neutral-500">
-                Aucune campagne pour le moment.
-              </p>
-            ) : (
-              campaigns.map((campaign) => (
-                <button
-                  key={campaign.id}
-                  type="button"
-                  onClick={() => void editCampaign(campaign.id)}
-                  className={[
-                    "w-full rounded-xl px-3 py-2 text-left",
-                    editingId === campaign.id ? "bg-neutral-950 text-white" : "hover:bg-neutral-50",
-                  ].join(" ")}
-                >
-                  <span className="block truncate text-sm font-semibold">
-                    {campaign.title}
-                  </span>
-                  <span className="mt-0.5 block text-xs opacity-70">
-                    {campaign.itemCount} produit{campaign.itemCount > 1 ? "s" : ""}
-                    {campaign.isActive ? "" : " · inactive"}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
+          {loading ? (
+            <p className="px-2 py-6 text-sm text-[#5F5C55]">Chargement…</p>
+          ) : campaigns.length === 0 ? (
+            <p className="px-2 py-6 text-sm leading-6 text-[#5F5C55]">
+              Aucune campagne enregistrée.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {campaigns.map((campaign) => {
+                const active = editingId === campaign.id;
+                return (
+                  <button
+                    key={campaign.id}
+                    type="button"
+                    onClick={() => void editCampaign(campaign.id)}
+                    className={[
+                      "w-full rounded-xl px-3 py-3 text-left transition",
+                      active
+                        ? "bg-[#171714] text-white"
+                        : "hover:bg-[#F6F4EF]",
+                    ].join(" ")}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold">
+                        {campaign.title}
+                      </span>
+                      <span
+                        className={[
+                          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          active
+                            ? "bg-white/15 text-white"
+                            : campaign.isActive
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-[#F2F0EA] text-[#918C82]",
+                        ].join(" ")}
+                      >
+                        {campaign.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </span>
+                    <span className={`mt-1 block truncate text-xs ${active ? "text-white/70" : "text-[#918C82]"}`}>
+                      {campaign.itemCount} produit{campaign.itemCount > 1 ? "s" : ""} · /campagne/{campaign.slug}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </aside>
 
-        <div className="space-y-5">
-          <section className="grid gap-3 rounded-2xl border border-black/10 bg-white p-4 sm:grid-cols-2">
-            <label className="block text-sm sm:col-span-2">
-              <span className="mb-1 block font-medium">Nom interne</span>
-              <input
-                value={title}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setTitle(next);
-                  if (!slugTouched) setSlug(slugify(next));
-                }}
-                className={inputClass}
-                placeholder="Ramadan lampes"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Titre affiché au client</span>
-              <input
-                dir="rtl"
-                value={publicTitle}
-                onChange={(event) => setPublicTitle(event.target.value)}
-                className={inputClass}
-                placeholder="حملة رمضان"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Lien</span>
-              <input
-                value={slug}
-                onChange={(event) => {
-                  setSlugTouched(true);
-                  setSlug(slugify(event.target.value));
-                }}
-                className={inputClass}
-                placeholder="ramadan-lampes"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(event) => setIsActive(event.target.checked)}
-              />
-              Campagne active
-            </label>
-            {publicPath ? (
-              <a
-                href={publicPath}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm font-semibold text-neutral-950 underline"
-              >
-                Ouvrir {publicPath}
-              </a>
-            ) : null}
+        <div className="min-w-0 space-y-4">
+          <section className="rounded-2xl border border-[#E5E1D8] bg-white p-4 shadow-[0_1px_2px_rgba(23,23,20,0.04)] sm:p-5">
+            <h2 className="text-sm font-semibold text-[#171714]">1. La campagne</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Nom interne</span>
+                <input
+                  value={title}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setTitle(next);
+                    if (!slugTouched) setSlug(slugify(next));
+                  }}
+                  className={fieldClass}
+                  placeholder="Ramadan lampes"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Titre affiché</span>
+                <input
+                  dir="rtl"
+                  value={publicTitle}
+                  onChange={(event) => setPublicTitle(event.target.value)}
+                  className={fieldClass}
+                  placeholder="حملة رمضان"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Lien public</span>
+                <input
+                  value={slug}
+                  onChange={(event) => {
+                    setSlugTouched(true);
+                    setSlug(slugify(event.target.value));
+                  }}
+                  className={fieldClass}
+                  placeholder="ramadan-lampes"
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-[#171714]">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(event) => setIsActive(event.target.checked)}
+                  className="h-4 w-4 accent-[#171714]"
+                />
+                Page visible pour les clients
+              </label>
+              {publicPath ? (
+                <a
+                  href={publicPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-[#171714] underline decoration-[#ECAB1C] underline-offset-4"
+                >
+                  Voir la page
+                </a>
+              ) : null}
+            </div>
           </section>
 
-          <section className="rounded-2xl border border-black/10 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Produits de la campagne</h2>
+          <section className="rounded-2xl border border-[#E5E1D8] bg-white p-4 shadow-[0_1px_2px_rgba(23,23,20,0.04)] sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-[#171714]">2. Choisir les produits</h2>
+                <p className="mt-1 text-xs leading-5 text-[#918C82]">
+                  Ajoutez un modèle, puis gardez seulement les couleurs de la campagne.
+                </p>
+              </div>
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Rechercher un produit"
-                className={`${inputClass} max-w-xs`}
+                placeholder="Rechercher"
+                className={`${fieldClass} sm:max-w-[220px]`}
               />
             </div>
-
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-              {filteredCatalog.slice(0, 12).map((product) => (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {filteredCatalog.slice(0, 9).map((product) => (
                 <button
                   key={product.id}
                   type="button"
                   onClick={() => addProduct(product)}
-                  className="min-w-40 rounded-xl border border-black/10 px-3 py-2 text-left text-sm hover:border-neutral-950"
+                  className="overflow-hidden rounded-xl border border-[#E5E1D8] bg-[#F6F4EF] text-left transition hover:border-[#171714]"
                 >
-                  <span className="line-clamp-2 font-medium">{product.name}</span>
-                  <span className="mt-1 block text-xs text-neutral-500">
-                    {product.price} DA · {product.variants.length} couleurs
+                  <span className="block aspect-[4/3] bg-[#EDE3D7]">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : null}
+                  </span>
+                  <span className="block px-3 py-2.5">
+                    <span className="line-clamp-2 block text-sm font-semibold text-[#171714]">
+                      {product.name}
+                    </span>
+                    <span className="mt-1 block text-xs text-[#918C82]">
+                      {product.price} DA · {product.variants.length} couleurs
+                    </span>
                   </span>
                 </button>
               ))}
             </div>
+          </section>
 
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <article key={item.key} className="rounded-xl border border-black/10 p-3">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">{item.product.name}</p>
-                      <p className="text-xs text-neutral-500">{item.product.price} DA</p>
+          <section className="space-y-3">
+            <h2 className="px-1 text-sm font-semibold text-[#171714]">
+              3. Titre et couleurs
+            </h2>
+            {items.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[#E5E1D8] bg-white px-4 py-10 text-center text-sm text-[#918C82]">
+                Les produits choisis apparaîtront ici.
+              </div>
+            ) : (
+              items.map((item, index) => (
+                <article
+                  key={item.key}
+                  className="rounded-2xl border border-[#E5E1D8] bg-white p-4 shadow-[0_1px_2px_rgba(23,23,20,0.04)]"
+                >
+                  <div className="flex gap-3">
+                    <span className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#EDE3D7]">
+                      {item.product.imageUrl ? (
+                        <img src={item.product.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : null}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[#171714]">
+                            {item.product.name}
+                          </p>
+                          <p className="text-xs text-[#918C82]">{item.product.price} DA</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setItems((current) => current.filter((entry) => entry.key !== item.key))
+                          }
+                          className="shrink-0 text-xs font-semibold text-[#B42318]"
+                        >
+                          Retirer
+                        </button>
+                      </div>
+                      <label className="mt-3 block text-sm">
+                        <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">
+                          Titre sur la page
+                        </span>
+                        <input
+                          dir="rtl"
+                          value={item.title}
+                          onChange={(event) =>
+                            setItems((current) =>
+                              current.map((entry) =>
+                                entry.key === item.key
+                                  ? { ...entry, title: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          className={fieldClass}
+                          placeholder={`المنتج ${index + 1}`}
+                        />
+                      </label>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setItems((current) =>
-                          current.filter((entry) => entry.key !== item.key),
-                        )
-                      }
-                      className="text-xs font-semibold text-red-700"
-                    >
-                      Retirer
-                    </button>
                   </div>
-
-                  <label className="mb-3 block text-sm">
-                    <span className="mb-1 block font-medium">Titre en arabe</span>
-                    <input
-                      dir="rtl"
-                      value={item.title}
-                      onChange={(event) =>
-                        setItems((current) =>
-                          current.map((entry) =>
-                            entry.key === item.key
-                              ? { ...entry, title: event.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                      className={inputClass}
-                      placeholder={`المنتج ${index + 1}`}
-                    />
-                  </label>
-
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {item.product.variants.map((variant) => {
                       const checked = item.variantIds.includes(variant.id);
                       return (
                         <label
                           key={variant.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1.5 text-sm"
+                          className={[
+                            "inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-sm",
+                            checked
+                              ? "border-[#ECAB1C] bg-[#FFF8E8] text-[#171714]"
+                              : "border-[#E5E1D8] bg-white text-[#5F5C55]",
+                          ].join(" ")}
                         >
                           <input
                             type="checkbox"
@@ -441,6 +509,15 @@ export default function AdminCampaignsPage() {
                                 }),
                               );
                             }}
+                            className="accent-[#171714]"
+                          />
+                          <span
+                            className="h-3.5 w-3.5 rounded-full border border-black/10"
+                            style={{
+                              background: variant.isMulticolor
+                                ? "conic-gradient(#FF3B30, #FFCC00, #34C759, #007AFF, #FF3B30)"
+                                : variant.hex || "#E7DED3",
+                            }}
                           />
                           {variant.name}
                           {variant.isMulticolor ? " +500" : ""}
@@ -449,21 +526,31 @@ export default function AdminCampaignsPage() {
                     })}
                   </div>
                 </article>
-              ))}
-            </div>
+              ))
+            )}
           </section>
 
-          {error ? <p className="text-sm text-red-700">{error}</p> : null}
-          {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+          {error ? (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error}
+            </p>
+          ) : null}
+          {message ? (
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {message}
+            </p>
+          ) : null}
 
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void saveCampaign()}
-            className="min-h-11 rounded-xl bg-[#ECAB1C] px-5 text-sm font-bold text-[#251713] disabled:opacity-50"
-          >
-            {saving ? "Enregistrement..." : "Enregistrer la campagne"}
-          </button>
+          <div className="sticky bottom-3 flex justify-end">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveCampaign()}
+              className="min-h-12 rounded-xl bg-[#ECAB1C] px-6 text-sm font-bold text-[#251713] shadow-[0_10px_24px_rgba(236,171,28,0.28)] disabled:opacity-50"
+            >
+              {saving ? "Enregistrement…" : "Enregistrer la campagne"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
