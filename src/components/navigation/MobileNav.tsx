@@ -138,6 +138,12 @@ export function MobileNav({ items, open, onClose }: MobileNavProps) {
             <Link href="/contact" className="hover:text-michket-gold transition-colors">
               Nous contacter
             </Link>
+            <Link
+              href="/admin/login"
+              className="mt-2 inline-flex h-10 items-center justify-center rounded-full bg-michket-gold px-4 text-sm font-bold text-michket-black transition-opacity hover:opacity-90"
+            >
+              Connexion
+            </Link>
           </div>
         </div>
       </div>
