@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { isSocialMedia } from "@/lib/admin-access";
+
 type NavItem = {
   label: string;
   href: string;
@@ -211,7 +213,7 @@ export function AdminSidebar({
   }, [isOpen, onClose]);
 
   const navItems =
-    role === "social_media"
+    isSocialMedia(role)
       ? SOCIAL_MEDIA_HREFS.flatMap((href) =>
           NAV_ITEMS.filter((item) => item.href === href),
         )
@@ -256,7 +258,7 @@ export function AdminSidebar({
 
         <div className="relative flex h-[82px] items-center border-b border-white/10 px-5">
           <Link
-            href={role === "social_media" ? "/admin/campaigns" : "/admin"}
+            href={isSocialMedia(role) ? "/admin/campaigns" : "/admin"}
             onClick={onClose}
             className="group flex min-w-0 items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
@@ -269,7 +271,7 @@ export function AdminSidebar({
                 Michket
               </span>
               <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
-                {role === "social_media" ? "Social media" : "Administration"}
+                {isSocialMedia(role) ? "Social media" : "Administration"}
               </span>
             </span>
           </Link>
@@ -341,7 +343,7 @@ export function AdminSidebar({
             </div>
 
             <p className="mt-1.5 text-[11px] leading-4 text-white/35">
-              {role === "social_media"
+              {isSocialMedia(role)
                 ? "Campagnes, produits et catégories"
                 : "Gestion interne Michket"}
             </p>

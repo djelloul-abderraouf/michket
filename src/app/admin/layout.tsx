@@ -12,12 +12,13 @@ import {
 
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { canAccessAdmin, isSocialMedia } from "@/lib/admin-access";
 import { createClient } from "@/lib/supabase/client";
 
 type AdminProfile = {
   id: string;
   email: string;
-  role: "customer" | "admin" | "super_admin" | "social_media";
+  role: string;
 };
 
 export default function AdminLayout({
@@ -119,11 +120,7 @@ export default function AdminLayout({
         const adminProfile =
           (await response.json()) as AdminProfile;
 
-        if (
-          adminProfile.role !== "admin" &&
-          adminProfile.role !== "super_admin" &&
-          adminProfile.role !== "social_media"
-        ) {
+        if (!canAccessAdmin(adminProfile.role)) {
           await supabase.auth.signOut();
 
           if (!cancelled) {
@@ -153,7 +150,7 @@ export default function AdminLayout({
   }, [pathname, redirectToLogin, supabase]);
 
   const socialMediaBlocked =
-    profile?.role === "social_media" &&
+    isSocialMedia(profile?.role) &&
     (pathname === "/admin" ||
       [
         "/admin/orders",

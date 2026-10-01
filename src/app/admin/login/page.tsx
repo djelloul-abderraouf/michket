@@ -2,12 +2,13 @@
 
 import { FormEvent, useState } from "react";
 
+import { canAccessAdmin, isSocialMedia } from "@/lib/admin-access";
 import { createClient } from "@/lib/supabase/client";
 
 type MeResponse = {
   id: string;
   email: string;
-  role: "customer" | "admin" | "super_admin" | "social_media";
+  role: string;
 };
 
 export default function AdminLoginPage() {
@@ -104,11 +105,7 @@ export default function AdminLoginPage() {
 
       const me = (await response.json()) as MeResponse;
 
-      if (
-        me.role !== "admin" &&
-        me.role !== "super_admin" &&
-        me.role !== "social_media"
-      ) {
+      if (!canAccessAdmin(me.role)) {
         await supabase.auth.signOut();
         setErrorMessage(
           "Ce compte n'a pas accès à l'administration Michket.",
@@ -122,7 +119,7 @@ export default function AdminLoginPage() {
        * client are available to src/proxy.ts before /admin is rendered.
        */
       window.location.replace(
-        me.role === "social_media" ? "/admin/campaigns" : "/admin",
+        isSocialMedia(me.role) ? "/admin/campaigns" : "/admin",
       );
     } catch {
       setErrorMessage(

@@ -292,9 +292,10 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
             <p className="mb-3 text-[11px] font-extrabold text-[#251713]/60">
               Produit | اختر المنتج
             </p>
-            <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2">
-              {campaign.items.map((entry) => {
+            <div className="grid grid-cols-1 gap-3">
+              {campaign.items.map((entry, index) => {
                 const active = entry.id === item.id;
+                const entryPrice = entry.price;
                 return (
                   <button
                     key={entry.id}
@@ -302,9 +303,9 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
                     onClick={() => chooseProduct(entry)}
                     aria-pressed={active}
                     className={[
-                      "flex min-h-[76px] items-center gap-3 rounded-[12px] border p-2 text-right transition",
+                      "flex min-h-[92px] items-center gap-3 rounded-[14px] border p-2.5 text-right transition",
                       active
-                        ? "border-[#ECAB1C] bg-[#FFF8E8]"
+                        ? "border-[#ECAB1C] bg-[#FFF8E8] shadow-[0_8px_20px_rgba(236,171,28,0.16)]"
                         : "border-[#251713]/10 bg-[#FFFCF8] hover:border-[#251713]/20",
                     ].join(" ")}
                   >
@@ -312,17 +313,28 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
                       <img
                         src={entry.imageUrl}
                         alt=""
-                        className="h-16 w-16 shrink-0 rounded-[10px] object-cover"
+                        className="h-[76px] w-[76px] shrink-0 rounded-[12px] object-cover"
                       />
                     ) : (
-                      <span className="h-16 w-16 shrink-0 rounded-[10px] bg-[#EDE3D7]" />
+                      <span className="h-[76px] w-[76px] shrink-0 rounded-[12px] bg-[#EDE3D7]" />
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-extrabold">
+                      <span className="block text-[11px] font-bold text-[#8A6A20]">
+                        {index + 1 < 10 ? `0${index + 1}` : index + 1}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[16px] font-extrabold">
                         {entry.title}
                       </span>
-                      <span className="mt-0.5 block truncate text-[12px] text-[#251713]/50">
+                      <span className="mt-0.5 block truncate text-[12px] text-[#251713]/55">
                         {entry.name}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-left">
+                      <span className="block text-[15px] font-extrabold">
+                        {formatPriceDA(entryPrice)}
+                      </span>
+                      <span className="mt-1 block text-[11px] font-semibold text-[#8A6A20]">
+                        {active ? "مختار" : "اختيار"}
                       </span>
                     </span>
                   </button>
@@ -694,9 +706,29 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
                   </div>
                 </div>
                 <div className="my-3 h-px bg-[#251713]/[0.08]" />
+                <div className="mb-3 rounded-[12px] bg-white p-3">
+                  <p className="text-[10px] font-bold tracking-[0.06em] text-[#8A6A20]">
+                    Produit choisi | المنتج المختار
+                  </p>
+                  <p className="mt-1 text-[15px] font-extrabold">{item.title}</p>
+                  <p className="text-[12px] text-[#251713]/55">{item.name}</p>
+                  <p className="mt-1 text-[12px] font-semibold">
+                    {variant
+                      ? `${localizeColorLabel(variant.name)}${variant.isMulticolor ? " · +500 DA" : ""}`
+                      : "بدون لون"}
+                  </p>
+                </div>
                 <div className="space-y-2 text-[12px]">
                   <PriceRow
-                    label={<BilingualText fr="Produit" ar="المنتج" />}
+                    label={<BilingualText fr="Prix unitaire" ar="سعر الوحدة" />}
+                    value={formatPriceDA(price)}
+                  />
+                  <PriceRow
+                    label={<BilingualText fr="Quantité" ar="الكمية" />}
+                    value={String(quantity)}
+                  />
+                  <PriceRow
+                    label={<BilingualText fr="Produits" ar="المنتجات" />}
                     value={formatPriceDA(subtotal)}
                   />
                   <PriceRow

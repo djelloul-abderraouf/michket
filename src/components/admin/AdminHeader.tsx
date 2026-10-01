@@ -1,5 +1,7 @@
 "use client";
 
+import { isSocialMedia } from "@/lib/admin-access";
+
 interface AdminHeaderProps {
   email: string;
   role: string;
@@ -16,7 +18,7 @@ export function AdminHeader({
   const roleLabel =
     role === "super_admin"
       ? "Super Admin"
-      : role === "social_media"
+      : isSocialMedia(role)
         ? "Social media"
         : "Administrateur";
 
