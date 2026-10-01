@@ -10,6 +10,10 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
+  loadCampaignPixels,
+  trackCampaignPurchase,
+} from "@/lib/campaign-pixels";
+import {
   getCommunes,
   getDeliveryRate,
   getWilayas,
@@ -100,6 +104,10 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
     () => communes.find((entry) => String(entry.id) === communeId) ?? null,
     [communeId, communes],
   );
+
+  useEffect(() => {
+    loadCampaignPixels(campaign.pixels ?? { meta: null, tiktok: null });
+  }, [campaign.pixels]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,6 +262,7 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
       const data = (await response.json()) as {
         message?: string;
         reference?: string;
+        total?: number;
         guestAccessToken?: string;
       };
 
@@ -268,6 +277,13 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
       if (data.guestAccessToken) {
         setGuestOrderAccessToken(data.reference, data.guestAccessToken);
       }
+
+      trackCampaignPurchase(campaign.pixels ?? { meta: null, tiktok: null }, {
+        value: typeof data.total === "number" ? data.total : total ?? subtotal,
+        contentId: item.productId,
+        contentName: item.name,
+        quantity,
+      });
 
       router.replace(`/commande/${encodeURIComponent(data.reference)}`);
     } catch {

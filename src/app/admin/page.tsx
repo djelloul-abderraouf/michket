@@ -15,8 +15,13 @@ type DashboardStats = {
 
 const ACTIONS = [
   {
+    title: "Pixels",
+    description: "Ajouter un pixel Meta ou TikTok et le relier aux campagnes.",
+    href: "/admin/pixels",
+  },
+  {
     title: "Campagnes",
-    description: "Créer une page de commande et choisir les produits.",
+    description: "Créer une page de commande, choisir les produits et les pixels.",
     href: "/admin/campaigns",
   },
   {

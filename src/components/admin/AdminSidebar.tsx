@@ -98,6 +98,26 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "Pixels",
+    href: "/admin/pixels",
+    icon: (
+      <svg
+        className={iconClassName}
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="10" cy="10" r="6.25" />
+        <circle cx="10" cy="10" r="2.25" />
+        <path d="M10 2.5v2.25M10 15.25V17.5M2.5 10h2.25M15.25 10H17.5" />
+      </svg>
+    ),
+  },
+  {
     label: "Nos références",
     href: "/admin/references",
     icon: (
@@ -186,6 +206,7 @@ interface AdminSidebarProps {
 }
 
 const SOCIAL_MEDIA_HREFS = [
+  "/admin/pixels",
   "/admin/campaigns",
   "/admin/products",
   "/admin/categories",
@@ -344,7 +365,7 @@ export function AdminSidebar({
 
             <p className="mt-1.5 text-[11px] leading-4 text-white/35">
               {isSocialMedia(role)
-                ? "Campagnes, produits et catégories"
+                ? "Campagnes, pixels, produits et catégories"
                 : "Gestion interne Michket"}
             </p>
           </div>

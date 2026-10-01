@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/admin/PageHeader";
+import { resolveApiBase } from "@/lib/api-base";
 import { createClient } from "@/lib/supabase/client";
 
 type VariantChoice = {
@@ -38,6 +40,14 @@ type CampaignSummary = {
   itemCount: number;
 };
 
+type PixelChoice = {
+  id: string;
+  name: string;
+  platform: "meta" | "tiktok";
+  pixelId: string;
+  isActive: boolean;
+};
+
 const fieldClass =
   "min-h-11 w-full rounded-xl border border-[#E5E1D8] bg-white px-3 text-sm text-[#171714] outline-none transition focus:border-[#171714]";
 
@@ -62,6 +72,15 @@ export default function AdminCampaignsPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<DraftItem[]>([]);
+  const [pixels, setPixels] = useState<PixelChoice[]>([]);
+  const [metaPixelId, setMetaPixelId] = useState("");
+  const [tiktokPixelId, setTiktokPixelId] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [newPixelName, setNewPixelName] = useState("");
+  const [newPixelPlatform, setNewPixelPlatform] = useState<"meta" | "tiktok">("meta");
+  const [newPixelId, setNewPixelId] = useState("");
+  const [creatingPixel, setCreatingPixel] = useState(false);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -69,7 +88,7 @@ export default function AdminCampaignsPage() {
   const [loading, setLoading] = useState(true);
 
   async function authorizedFetch(path: string, init?: RequestInit) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiUrl = resolveApiBase();
     if (!apiUrl) throw new Error("NEXT_PUBLIC_API_URL n'est pas configurée.");
 
     const {
@@ -111,7 +130,23 @@ export default function AdminCampaignsPage() {
     ]);
     setCatalog(productRows as CatalogProduct[]);
     setCampaigns(campaignRows as CampaignSummary[]);
+
+    try {
+      const pixelRows = await authorizedFetch("/admin/pixels");
+      setPixels(pixelRows as PixelChoice[]);
+    } catch (reason) {
+      setPixels([]);
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Les pixels n'ont pas pu être chargés. Redémarrez le backend, puis réessayez.",
+      );
+    }
   }
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +181,9 @@ export default function AdminCampaignsPage() {
     setSlugTouched(false);
     setIsActive(true);
     setItems([]);
+    setMetaPixelId("");
+    setTiktokPixelId("");
+    setLinkCopied(false);
     setError("");
     setMessage("");
   }
@@ -172,6 +210,8 @@ export default function AdminCampaignsPage() {
       publicTitle: string;
       slug: string;
       isActive: boolean;
+      metaPixelId: string | null;
+      tiktokPixelId: string | null;
       items: Array<{
         productId: string;
         title: string;
@@ -186,6 +226,9 @@ export default function AdminCampaignsPage() {
     setSlug(detail.slug);
     setSlugTouched(true);
     setIsActive(detail.isActive);
+    setMetaPixelId(detail.metaPixelId ?? "");
+    setTiktokPixelId(detail.tiktokPixelId ?? "");
+    setLinkCopied(false);
     setItems(
       detail.items.flatMap((item, index) => {
         const product =
@@ -216,6 +259,8 @@ export default function AdminCampaignsPage() {
         publicTitle: publicTitle.trim(),
         slug: slug.trim(),
         isActive,
+        metaPixelId: metaPixelId || null,
+        tiktokPixelId: tiktokPixelId || null,
         items: items.map((item, index) => ({
           productId: item.productId,
           title: item.title.trim(),
@@ -246,21 +291,64 @@ export default function AdminCampaignsPage() {
     }
   }
 
+  async function createPixel() {
+    setCreatingPixel(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const created = (await authorizedFetch("/admin/pixels", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newPixelName.trim(),
+          platform: newPixelPlatform,
+          pixelId: newPixelId.trim(),
+          isActive: true,
+        }),
+      })) as PixelChoice;
+
+      setPixels((current) => [created, ...current.filter((pixel) => pixel.id !== created.id)]);
+      if (created.platform === "tiktok") {
+        setTiktokPixelId(created.id);
+      } else {
+        setMetaPixelId(created.id);
+      }
+      setNewPixelName("");
+      setNewPixelId("");
+      setMessage(`Pixel ${created.platform === "meta" ? "Meta" : "TikTok"} ajouté et sélectionné.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Impossible de créer le pixel.");
+    } finally {
+      setCreatingPixel(false);
+    }
+  }
+
   const publicPath = slug ? `/campagne/${slug}` : "";
+  const publicUrl = publicPath && origin ? `${origin}${publicPath}` : publicPath;
+  const metaPixels = pixels.filter((pixel) => pixel.platform === "meta");
+  const tiktokPixels = pixels.filter((pixel) => pixel.platform === "tiktok");
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
         title="Campagnes"
-        description="Choisissez les produits et les couleurs. La page client reprend le formulaire de commande du site."
+        description="Choisissez les produits, les pixels Meta et TikTok, puis générez le lien de commande."
         action={
-          <button
-            type="button"
-            onClick={resetForm}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#171714] px-4 text-sm font-semibold text-white"
-          >
-            Nouvelle campagne
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Link
+              href="/admin/pixels"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#171714] bg-white px-4 text-sm font-semibold text-[#171714]"
+            >
+              Gérer les pixels
+            </Link>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#171714] px-4 text-sm font-semibold text-white"
+            >
+              Nouvelle campagne
+            </button>
+          </div>
         }
       />
 
@@ -381,10 +469,137 @@ export default function AdminCampaignsPage() {
             </div>
           </section>
 
+          <section className="rounded-2xl border border-[#ECAB1C]/50 bg-white p-4 shadow-[0_1px_2px_rgba(23,23,20,0.04)] sm:p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-[#171714]">
+                  2. Pixels Meta et TikTok
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-[#918C82]">
+                  Créez un pixel ici, puis choisissez-le pour cette campagne. Le même produit peut utiliser d’autres pixels dans une autre campagne.
+                </p>
+              </div>
+              <Link
+                href="/admin/pixels"
+                className="shrink-0 text-sm font-semibold text-[#171714] underline decoration-[#ECAB1C] underline-offset-4"
+              >
+                Voir tous les pixels
+              </Link>
+            </div>
+
+            <div className="mt-4 grid gap-3 rounded-xl bg-[#F6F4EF] p-3 sm:grid-cols-[1fr_140px_1fr_auto] sm:items-end">
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Nouveau pixel</span>
+                <input
+                  value={newPixelName}
+                  onChange={(event) => setNewPixelName(event.target.value)}
+                  className={fieldClass}
+                  placeholder="Nom, ex. Ramadan"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Plateforme</span>
+                <select
+                  value={newPixelPlatform}
+                  onChange={(event) =>
+                    setNewPixelPlatform(event.target.value as "meta" | "tiktok")
+                  }
+                  className={fieldClass}
+                >
+                  <option value="meta">Meta</option>
+                  <option value="tiktok">TikTok</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">ID du pixel</span>
+                <input
+                  value={newPixelId}
+                  onChange={(event) =>
+                    setNewPixelId(event.target.value.replace(/[^A-Za-z0-9]/g, ""))
+                  }
+                  className={fieldClass}
+                  placeholder="1234567890"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={creatingPixel || newPixelName.trim().length < 2 || newPixelId.trim().length < 4}
+                onClick={() => void createPixel()}
+                className="min-h-11 rounded-xl bg-[#171714] px-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {creatingPixel ? "Ajout…" : "Créer le pixel"}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Pixel Meta de la campagne</span>
+                <select
+                  value={metaPixelId}
+                  onChange={(event) => setMetaPixelId(event.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Aucun pixel Meta</option>
+                  {metaPixels.map((pixel) => (
+                    <option key={pixel.id} value={pixel.id}>
+                      {pixel.name} · {pixel.pixelId}
+                      {pixel.isActive ? "" : " · inactif"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-medium text-[#5F5C55]">Pixel TikTok de la campagne</span>
+                <select
+                  value={tiktokPixelId}
+                  onChange={(event) => setTiktokPixelId(event.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Aucun pixel TikTok</option>
+                  {tiktokPixels.map((pixel) => (
+                    <option key={pixel.id} value={pixel.id}>
+                      {pixel.name} · {pixel.pixelId}
+                      {pixel.isActive ? "" : " · inactif"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-[#E5E1D8] p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#918C82]">
+                Lien de commande
+              </p>
+              {publicPath ? (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-[#F6F4EF] px-3 py-2 text-sm text-[#171714]">
+                    {publicUrl}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(publicUrl).then(() => {
+                        setLinkCopied(true);
+                        window.setTimeout(() => setLinkCopied(false), 1600);
+                      });
+                    }}
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#171714] px-3 text-xs font-semibold text-white"
+                  >
+                    {linkCopied ? "Copié" : "Copier le lien"}
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-[#5F5C55]">
+                  Le lien apparaît dès que le nom de la campagne est renseigné.
+                </p>
+              )}
+            </div>
+          </section>
+
           <section className="rounded-2xl border border-[#E5E1D8] bg-white p-4 shadow-[0_1px_2px_rgba(23,23,20,0.04)] sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-[#171714]">2. Choisir les produits</h2>
+                <h2 className="text-sm font-semibold text-[#171714]">3. Choisir les produits</h2>
                 <p className="mt-1 text-xs leading-5 text-[#918C82]">
                   Ajoutez un modèle, puis gardez seulement les couleurs de la campagne.
                 </p>
@@ -424,7 +639,7 @@ export default function AdminCampaignsPage() {
 
           <section className="space-y-3">
             <h2 className="px-1 text-sm font-semibold text-[#171714]">
-              3. Titre et couleurs
+              4. Titre et couleurs
             </h2>
             {items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-[#E5E1D8] bg-white px-4 py-10 text-center text-sm text-[#918C82]">

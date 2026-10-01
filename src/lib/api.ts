@@ -1187,6 +1187,10 @@ export interface CampaignPage {
   id: string;
   slug: string;
   publicTitle: string;
+  pixels: {
+    meta: string | null;
+    tiktok: string | null;
+  };
   items: CampaignItem[];
 }
 
