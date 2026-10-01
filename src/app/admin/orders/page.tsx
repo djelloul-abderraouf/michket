@@ -80,6 +80,9 @@ type OrderRow = {
   cancelledAt?: string | null;
   cancelReason?: string | null;
 
+  campaignSlug?: string | null;
+  campaignTitle?: string | null;
+
   items: OrderItemRow[];
 };
 
@@ -893,6 +896,7 @@ export default function AdminOrdersPage() {
                                   ? "Paiement à la livraison"
                                   : order.paymentMethod}
                               </p>
+                              <OrderOrigin order={order} />
                             </td>
 
                             <td className="px-4 py-4">
@@ -1121,6 +1125,8 @@ export default function AdminOrdersPage() {
                       </div>
                     </button>
 
+                    <OrderOrigin order={order} />
+
                     {isExpanded ? (
                       <div className="mt-4 border-t border-black/[0.06] pt-4">
                         <OrderDetails
@@ -1185,6 +1191,48 @@ export default function AdminOrdersPage() {
           </div>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function OrderOrigin({ order }: { order: OrderRow }) {
+  const products = Array.from(
+    new Map(
+      order.items
+        .filter((item) => item.productSlug)
+        .map((item) => [item.productSlug, item.productName]),
+    ).entries(),
+  );
+
+  if (!order.campaignSlug && products.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-col items-start gap-1">
+      {order.campaignSlug ? (
+        <a
+          href={`/campagne/${encodeURIComponent(order.campaignSlug)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-semibold text-[#9a7010] underline-offset-2 hover:underline"
+        >
+          Campagne
+          {order.campaignTitle ? ` · ${order.campaignTitle}` : ""}
+        </a>
+      ) : null}
+
+      {products.map(([slug, name]) => (
+        <a
+          key={slug}
+          href={`/produits/${encodeURIComponent(slug)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="max-w-[220px] truncate text-xs font-medium text-neutral-600 underline-offset-2 hover:text-neutral-950 hover:underline"
+        >
+          {order.campaignSlug ? name : `Produit · ${name}`}
+        </a>
+      ))}
     </div>
   );
 }
@@ -1305,6 +1353,12 @@ function OrderDetails({
             label="Référence"
             value={order.reference}
           />
+          <div className="px-4 py-3 sm:px-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+              Origine
+            </p>
+            <OrderOrigin order={order} />
+          </div>
           <DetailRow
             label="Créée le"
             value={formatDate(order.createdAt)}
@@ -1365,9 +1419,14 @@ function OrderDetails({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-neutral-950">
+                        <a
+                          href={`/produits/${encodeURIComponent(item.productSlug)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold text-neutral-950 underline-offset-2 hover:underline"
+                        >
                           {item.productName}
-                        </p>
+                        </a>
 
                         {item.variantName ? (
                           <p className="mt-1 text-xs text-neutral-500">

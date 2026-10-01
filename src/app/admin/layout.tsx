@@ -13,6 +13,7 @@ import {
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { canAccessAdmin, isSocialMedia } from "@/lib/admin-access";
+import { resolveApiBase } from "@/lib/api-base";
 import { createClient } from "@/lib/supabase/client";
 
 type AdminProfile = {
@@ -82,8 +83,7 @@ export default function AdminLayout({
           return;
         }
 
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl = resolveApiBase();
 
         if (!apiUrl) {
           await supabase.auth.signOut();

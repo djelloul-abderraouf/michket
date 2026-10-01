@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { canAccessAdmin, isSocialMedia } from "@/lib/admin-access";
+import { resolveApiBase } from "@/lib/api-base";
 import { createClient } from "@/lib/supabase/client";
 
 type MeResponse = {
@@ -39,7 +40,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = resolveApiBase();
 
       if (!apiUrl) {
         await supabase.auth.signOut();
@@ -66,7 +67,7 @@ export default function AdminLoginPage() {
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           setErrorMessage(
-            "Le serveur Michket met trop de temps à répondre. Vérifiez que le backend fonctionne sur le port 3000.",
+            "Le serveur Michket met trop de temps à répondre. Vérifiez que le backend est démarré.",
           );
         } else {
           setErrorMessage(

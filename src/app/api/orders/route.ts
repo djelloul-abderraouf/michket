@@ -284,6 +284,7 @@ async function submitCampaignOrder(
 
   return forwardOrder(request, {
     items: orderItems,
+    campaignSlug,
     fullName,
     phone,
     addressLine1:
