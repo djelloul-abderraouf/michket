@@ -8,6 +8,13 @@ function resolveBackendApiBase() {
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  env: {
+    // Client components cannot read a non-NEXT_PUBLIC key directly.
+    NEXT_PUBLIC_ECOMMERCE_MICHKET_URL: (
+      process.env["e-commerce-michket_url"] || ""
+    ).replace(/\/$/, ""),
+  },
+
   turbopack: {
     root: process.cwd(),
   },

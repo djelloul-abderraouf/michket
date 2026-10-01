@@ -28,12 +28,17 @@ function canExportBordereau(order?: Order) {
   return Boolean(order && order.status !== "pas_confirme" && order.status !== "annulee");
 }
 
+function storefrontHref(path: string) {
+  const base = (process.env.NEXT_PUBLIC_ECOMMERCE_MICHKET_URL || "").replace(/\/$/, "");
+  return `${base}${path}`;
+}
+
 function productPageHref(slug?: string | null) {
   const value = slug?.trim();
   if (!value || value === "commande-crm") {
     return null;
   }
-  return `/produits/${encodeURIComponent(value)}`;
+  return storefrontHref(`/produits/${encodeURIComponent(value)}`);
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -172,7 +177,7 @@ export function CrmOrderDetailsDrawer({
             <Section title="Liens">
               {order.campaignSlug ? (
                 <a
-                  href={`/campagne/${encodeURIComponent(order.campaignSlug)}`}
+                  href={storefrontHref(`/campagne/${encodeURIComponent(order.campaignSlug)}`)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-michket-gold underline underline-offset-2"
