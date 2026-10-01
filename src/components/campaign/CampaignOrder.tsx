@@ -279,9 +279,11 @@ export function CampaignOrder({ campaign }: { campaign: CampaignPage }) {
       }
 
       trackCampaignPurchase(campaign.pixels ?? { meta: null, tiktok: null }, {
+        reference: data.reference,
         value: typeof data.total === "number" ? data.total : total ?? subtotal,
         contentId: item.productId,
         contentName: item.name,
+        contentPrice: price,
         quantity,
       });
 

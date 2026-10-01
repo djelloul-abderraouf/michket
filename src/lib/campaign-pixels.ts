@@ -4,9 +4,11 @@ type CampaignPixels = {
 };
 
 type PurchaseInput = {
+  reference: string;
   value: number;
   contentId: string;
   contentName: string;
+  contentPrice: number;
   quantity: number;
 };
 
@@ -19,18 +21,19 @@ type FbqFn = {
   push: FbqFn;
 };
 
-type TikTokEventTarget = {
+type PixelBucket = {
+  push: (entry: unknown[]) => void;
   page: () => void;
   track: (event: string, payload?: Record<string, unknown>) => void;
-  push: (entry: unknown[]) => void;
+  _u?: string;
 };
 
-type TikTokQueue = TikTokEventTarget & {
+type TikTokQueue = PixelBucket & {
   methods: string[];
-  setAndDefer: (target: { push: (entry: unknown[]) => void }, method: string) => void;
-  instance: (pixelId: string) => TikTokEventTarget;
-  load: (pixelId: string, options?: Record<string, unknown>) => void;
-  _i: Record<string, TikTokEventTarget & unknown[]>;
+  setAndDefer: (target: PixelBucket, method: string) => void;
+  instance: (pixelId: string) => PixelBucket;
+  load: (pixelId: string) => void;
+  _i: Record<string, PixelBucket>;
   _t: Record<string, number>;
   _o: Record<string, unknown>;
 };
@@ -44,6 +47,7 @@ declare global {
     __michketPixels?: {
       meta: Set<string>;
       tiktok: Set<string>;
+      purchases: Set<string>;
     };
   }
 }
@@ -52,11 +56,12 @@ function state() {
   window.__michketPixels ??= {
     meta: new Set<string>(),
     tiktok: new Set<string>(),
+    purchases: new Set<string>(),
   };
   return window.__michketPixels;
 }
 
-function ensureMeta() {
+function ensureMetaBase() {
   if (window.fbq) return;
 
   const fbq = function (...args: unknown[]) {
@@ -81,7 +86,7 @@ function ensureMeta() {
   document.head.appendChild(script);
 }
 
-function ensureTikTok() {
+function ensureTikTokBase() {
   if (window.ttq) return;
 
   const ttq = [] as unknown as TikTokQueue;
@@ -109,28 +114,37 @@ function ensureTikTok() {
         target.push([method, ...args]);
       };
   };
+  ttq._i = {};
+  ttq._t = {};
+  ttq._o = {};
+
   for (const method of ttq.methods) {
     ttq.setAndDefer(ttq, method);
   }
+
   ttq.instance = (pixelId) => {
-    const bucket =
-      ttq._i?.[pixelId] ??
-      ([] as unknown as TikTokQueue["_i"][string]);
+    const bucket = ttq._i[pixelId] ?? ([] as unknown as PixelBucket);
+    ttq._i[pixelId] = bucket;
     for (const method of ttq.methods) {
       ttq.setAndDefer(bucket, method);
     }
     return bucket;
   };
-  ttq.load = (pixelId, options) => {
-    ttq._i = ttq._i || {};
-    ttq._i[pixelId] = [] as unknown as TikTokQueue["_i"][string];
-    ttq._t = ttq._t || {};
+
+  ttq.load = (pixelId) => {
+    const scriptUrl = "https://analytics.tiktok.com/i18n/pixel/events.js";
+    const bucket = [] as unknown as PixelBucket;
+    bucket._u = scriptUrl;
+    ttq._i[pixelId] = bucket;
     ttq._t[pixelId] = Date.now();
-    ttq._o = ttq._o || {};
-    ttq._o[pixelId] = options || {};
+    ttq._o[pixelId] = {};
+    for (const method of ttq.methods) {
+      ttq.setAndDefer(bucket, method);
+    }
+
     const script = document.createElement("script");
     script.async = true;
-    script.src = `https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=${encodeURIComponent(pixelId)}&lib=ttq`;
+    script.src = `${scriptUrl}?sdkid=${encodeURIComponent(pixelId)}&lib=ttq`;
     document.head.appendChild(script);
   };
 
@@ -138,22 +152,35 @@ function ensureTikTok() {
   window.ttq = ttq;
 }
 
+function prepareMeta(pixelId: string) {
+  ensureMetaBase();
+  const loaded = state();
+  if (loaded.meta.has(pixelId)) return;
+  window.fbq?.("set", "autoConfig", false, pixelId);
+  window.fbq?.("init", pixelId);
+  loaded.meta.add(pixelId);
+}
+
+function prepareTikTok(pixelId: string) {
+  ensureTikTokBase();
+  const loaded = state();
+  if (loaded.tiktok.has(pixelId)) return;
+  window.ttq?.load(pixelId);
+  loaded.tiktok.add(pixelId);
+}
+
 export function loadCampaignPixels(pixels: CampaignPixels | null | undefined) {
   if (typeof window === "undefined" || !pixels) return;
   const loaded = state();
 
   if (pixels.meta && !loaded.meta.has(pixels.meta)) {
-    ensureMeta();
-    window.fbq?.("init", pixels.meta);
+    prepareMeta(pixels.meta);
     window.fbq?.("trackSingle", pixels.meta, "PageView");
-    loaded.meta.add(pixels.meta);
   }
 
   if (pixels.tiktok && !loaded.tiktok.has(pixels.tiktok)) {
-    ensureTikTok();
-    window.ttq?.load(pixels.tiktok);
+    prepareTikTok(pixels.tiktok);
     window.ttq?.instance(pixels.tiktok).page();
-    loaded.tiktok.add(pixels.tiktok);
   }
 }
 
@@ -162,12 +189,21 @@ export function trackCampaignPurchase(
   purchase: PurchaseInput,
 ) {
   if (typeof window === "undefined" || !pixels) return;
+  if (!pixels.meta && !pixels.tiktok) return;
+
+  const reference = purchase.reference.trim();
+  if (!reference) return;
+
+  const loaded = state();
+  if (loaded.purchases.has(reference)) return;
+  loaded.purchases.add(reference);
 
   const value = Math.max(0, Math.round(purchase.value));
-  const quantity = Math.max(1, purchase.quantity);
+  const quantity = Math.max(1, Math.round(purchase.quantity));
+  const contentPrice = Math.max(0, Math.round(purchase.contentPrice));
 
   if (pixels.meta) {
-    ensureMeta();
+    prepareMeta(pixels.meta);
     window.fbq?.("trackSingle", pixels.meta, "Purchase", {
       value,
       currency: "DZD",
@@ -175,21 +211,22 @@ export function trackCampaignPurchase(
       content_name: purchase.contentName,
       content_type: "product",
       num_items: quantity,
-    });
+    }, { eventID: reference });
   }
 
   if (pixels.tiktok) {
-    ensureTikTok();
+    prepareTikTok(pixels.tiktok);
     window.ttq?.instance(pixels.tiktok).track("CompletePayment", {
       value,
       currency: "DZD",
+      event_id: reference,
       contents: [
         {
           content_id: purchase.contentId,
           content_type: "product",
           content_name: purchase.contentName,
           quantity,
-          price: quantity > 0 ? value / quantity : value,
+          price: contentPrice,
         },
       ],
     });
