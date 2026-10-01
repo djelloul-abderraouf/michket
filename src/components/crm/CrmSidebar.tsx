@@ -18,17 +18,24 @@ import {
   CheckSquare, 
   UserCog, 
   Settings,
+  Hourglass,
+  Flame,
+  Archive,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
 import { canAccessPage, crmPages } from "@/lib/crm/permissions";
 import { crmPagePaths } from "@/lib/crm/routes";
 import { staffRoleLabel, type CrmPage, type CrmUser } from "@/lib/crm/types";
+import type { UnconfirmedBucket } from "@/lib/crm/order-followup";
 import { cx } from "./CrmUi";
 
 const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = {
   overview: LayoutDashboard,
   orders: Package,
+  orders_prospection: Hourglass,
+  orders_prioritaire: Flame,
+  orders_archive: Archive,
   confirmation: CheckCircle,
   sales: Briefcase,
   proposals: FileText,
@@ -46,6 +53,7 @@ const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = 
 
 const pageGroups: Array<{ group: string; pages: CrmPage[] }> = [
   { group: "Principal", pages: ["overview", "orders", "sales", "proposals", "contacts", "companies", "activities"] },
+  { group: "Suivi commercial", pages: ["orders_prospection", "orders_prioritaire", "orders_archive"] },
   { group: "Opérations", pages: ["confirmation", "production", "preparation", "delivery"] },
   { group: "Gestion", pages: ["catalog", "tasks", "users", "settings"] },
 ];
@@ -54,12 +62,14 @@ export function CrmSidebar({
   user,
   activePage,
   onPageChange,
+  followUpCounts,
   isCollapsed: externalCollapsed,
   onToggleCollapse,
 }: {
   user: CrmUser;
   activePage: CrmPage;
   onPageChange?: (page: CrmPage) => void;
+  followUpCounts?: Partial<Record<UnconfirmedBucket, number>>;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
@@ -155,6 +165,15 @@ export function CrmSidebar({
                       <Icon className={cx("h-5 w-5", isCollapsed ? "h-6 w-6" : "")} />
                       {!isCollapsed && (
                         <span className="flex-1">{page.label}</span>
+                      )}
+                      {!isCollapsed && page.id === "orders_prospection" && followUpCounts?.prospection != null && (
+                        <span className={cx("rounded-full px-2 py-0.5 text-[10px]", activePage === page.id ? "bg-white/20" : "bg-black/10")}>{followUpCounts.prospection}</span>
+                      )}
+                      {!isCollapsed && page.id === "orders_prioritaire" && followUpCounts?.prioritaire != null && (
+                        <span className={cx("rounded-full px-2 py-0.5 text-[10px]", activePage === page.id ? "bg-white/20" : "bg-black/10")}>{followUpCounts.prioritaire}</span>
+                      )}
+                      {!isCollapsed && page.id === "orders_archive" && followUpCounts?.archive != null && (
+                        <span className={cx("rounded-full px-2 py-0.5 text-[10px]", activePage === page.id ? "bg-white/20" : "bg-black/10")}>{followUpCounts.archive}</span>
                       )}
                     </button>
                   );

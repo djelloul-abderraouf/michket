@@ -77,6 +77,9 @@ export const productionStatusLabels: Record<ProductionStatus, string> = {
 export type CrmPage =
   | "overview"
   | "orders"
+  | "orders_prospection"
+  | "orders_prioritaire"
+  | "orders_archive"
   | "confirmation"
   | "sales"
   | "proposals"
@@ -320,6 +323,9 @@ export interface Order {
   id: string;
   reference?: string;
   source: OrderSource;
+  campaignId?: string | null;
+  campaignSlug?: string | null;
+  campaignTitle?: string | null;
   clientName: string;
   firstName?: string;
   lastName?: string;

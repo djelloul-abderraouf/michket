@@ -1,7 +1,9 @@
-import { useState } from "react";
-import type { Order } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { useMemo, useState } from "react";
+import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
+import { orderStatusLabels } from "@/lib/crm/types";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmAddButton, CrmPopup, ViewToggle, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
 
 export function CrmPreparation({
   orders,
@@ -13,6 +15,10 @@ export function CrmPreparation({
   onToast,
   onCreateParcel,
   onSyncParcel,
+  userRoles,
+  currentUserId,
+  onOrderUpdated,
+  onMove,
 }: {
   orders: Order[];
   qualityChecked: boolean;
@@ -23,10 +29,30 @@ export function CrmPreparation({
   onToast?: (message: string) => void;
   onCreateParcel?: (order: Order) => void;
   onSyncParcel?: (order: Order) => void;
+  userRoles?: CrmRole[];
+  currentUserId?: string;
+  onOrderUpdated?: (order: Order) => void;
+  onMove?: (order: Order, to: OrderStatus, note?: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [query, setQuery] = useState("");
+  const [wilaya, setWilaya] = useState("all");
+  const [onlyConfirmed, setOnlyConfirmed] = useState<"all" | "confirme" | "en_preparation">("all");
+  const wilayas = useMemo(
+    () => Array.from(new Set(orders.map((order) => order.wilaya).filter(Boolean))).sort(),
+    [orders],
+  );
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        if (onlyConfirmed !== "all" && order.status !== onlyConfirmed) return false;
+        if (wilaya !== "all" && order.wilaya !== wilaya) return false;
+        return orderMatchesQuery(order, query);
+      }),
+    [orders, query, wilaya, onlyConfirmed],
+  );
   const selectedOrder = orders.find((order) => order.id === selectedId);
 
   function openDetails(order: Order) {
@@ -80,7 +106,7 @@ export function CrmPreparation({
       </div>
 
       <CrmPanel
-        title={`Commandes en préparation (${orders.length})`}
+        title={`Preparation et confirmees (${visibleOrders.length})`}
         actions={
           <div className="flex items-center gap-3">
             <CrmBadge variant="info">
@@ -91,7 +117,29 @@ export function CrmPreparation({
           </div>
         }
       >
-        {orders.length === 0 ? (
+        <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px_200px]">
+          <OrderSearchField value={query} onChange={setQuery} />
+          <select
+            value={wilaya}
+            onChange={(event) => setWilaya(event.target.value)}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Toutes wilayas</option>
+            {wilayas.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select
+            value={onlyConfirmed}
+            onChange={(event) => setOnlyConfirmed(event.target.value as "all" | "confirme" | "en_preparation")}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Confirmees et en preparation</option>
+            <option value="confirme">Confirmees</option>
+            <option value="en_preparation">En preparation</option>
+          </select>
+        </div>
+        {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune commande en préparation</p>
             <p className="mt-2 text-sm text-black/30">
@@ -112,7 +160,7 @@ export function CrmPreparation({
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {visibleOrders.map((order) => (
                   <tr
                     key={order.id}
                     onClick={() => openDetails(order)}
@@ -131,7 +179,7 @@ export function CrmPreparation({
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <CrmCard
                 key={order.id}
                 onClick={() => openDetails(order)}
@@ -161,6 +209,7 @@ export function CrmPreparation({
                   </div>
                 </div>
 
+                {order.status === "en_preparation" && (
                 <CrmButton
                   onClick={(event) => {
                     event.stopPropagation();
@@ -171,6 +220,7 @@ export function CrmPreparation({
                 >
                   {qualityChecked ? "Envoyer en livraison" : "Valider contrôle qualité d'abord"}
                 </CrmButton>
+                )}
               </CrmCard>
             ))}
           </div>
@@ -184,8 +234,13 @@ export function CrmPreparation({
         onToast={onToast}
         onCreateParcel={onCreateParcel}
         onSyncParcel={onSyncParcel}
+        userRoles={userRoles}
+        currentUserId={currentUserId}
+        onOrderUpdated={onOrderUpdated}
+        onMove={onMove}
+        showStatusSelect
       >
-        {selectedOrder && (
+        {selectedOrder?.status === "en_preparation" && (
           <CrmButton
             className="w-full"
             onClick={() => {

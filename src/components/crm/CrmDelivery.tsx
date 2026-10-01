@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderStatusLabels } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle } from "./CrmUi";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 
 function statusVariant(order: Order) {
@@ -38,6 +39,15 @@ export function CrmDelivery({
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const selectedOrder = orders.find((order) => order.id === selectedId);
   const [view, setView] = useState<"list" | "grid">("list");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<"all" | OrderStatus>("all");
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) => (status === "all" || order.status === status) && orderMatchesQuery(order, query),
+      ),
+    [orders, query, status],
+  );
   const ready = orders.filter((order) => order.status === "confirme");
   const inTransit = orders.filter((order) => order.status === "en_livraison");
   const delivered = orders.filter((order) => order.status === "livre");
@@ -66,11 +76,28 @@ export function CrmDelivery({
         </CrmPanel>
       </div>
 
+      <CrmPanel className="!p-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+          <OrderSearchField value={query} onChange={setQuery} placeholder="Rechercher client, telephone, suivi, remarque..." />
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Tous les statuts</option>
+            <option value="confirme">Confirme</option>
+            <option value="en_livraison">En livraison</option>
+            <option value="livre">Livre</option>
+            <option value="retour_echec">Retour</option>
+          </select>
+        </div>
+      </CrmPanel>
+
       <CrmPanel
-        title={`Livraisons (${orders.length})`}
+        title={`Livraisons (${visibleOrders.length})`}
         actions={<ViewToggle view={view} onViewChange={setView} type="grid" />}
       >
-        {orders.length === 0 ? (
+        {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune livraison</p>
             <p className="mt-2 text-sm text-black/30">Les commandes confirmées apparaissent ici automatiquement.</p>
@@ -91,7 +118,7 @@ export function CrmDelivery({
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {visibleOrders.map((order) => (
                   <tr key={order.id} className="border-b border-black/5">
                     <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{orderRef(order)}</td>
                     <td className="px-3 py-3 text-sm">
@@ -154,7 +181,7 @@ export function CrmDelivery({
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <CrmCard key={order.id} className="p-5 overflow-hidden">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">

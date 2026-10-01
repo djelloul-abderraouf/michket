@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Search, Printer, FileDown } from "lucide-react";
+import { Printer, FileDown } from "lucide-react";
 import { crmDeliveryApi, crmOrdersApi } from "@/lib/api-client";
 import { canCreateOrder } from "@/lib/crm/permissions";
 import {
@@ -10,6 +10,8 @@ import {
   orderSources,
 } from "@/lib/crm/order-display";
 import { orderKindLabels, orderKinds, orderStatusLabels, orderStatuses } from "@/lib/crm/types";
+import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
 import type {
   ClientType,
   Contact,
@@ -38,6 +40,7 @@ import {
   CrmAddButton,
   CrmPopup,
   ViewToggle,
+  OrderSearchField,
 } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 
@@ -54,6 +57,7 @@ const statusTone: Record<OrderStatus, { border: string; bg: string; badge: strin
 
 export function CrmOrders(props: {
   orders: Order[];
+  presetBucket?: UnconfirmedBucket;
   selectedOrder?: Order;
   query: string;
   statusFilter: OrderStatus | "all";
@@ -79,6 +83,9 @@ export function CrmOrders(props: {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<OrderSource | "all">("all");
+  const [kindFilter, setKindFilter] = useState<OrderKind | "all">("all");
+  const [clientTypeFilter, setClientTypeFilter] = useState<ClientType | "all">("all");
+  const [deliveryFilter, setDeliveryFilter] = useState<"all" | "home" | "office">("all");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [newOrderName, setNewOrderName] = useState("");
   const [newOrderPhone, setNewOrderPhone] = useState("");
@@ -184,10 +191,18 @@ export function CrmOrders(props: {
 
   const visibleOrders = useMemo(
     () =>
-      sourceFilter === "all"
-        ? props.orders
-        : props.orders.filter((order) => order.source === sourceFilter),
-    [props.orders, sourceFilter],
+      props.orders.filter((order) => {
+        if (!orderMatchesQuery(order, props.query)) return false;
+        if (sourceFilter !== "all" && order.source !== sourceFilter) return false;
+        if (kindFilter !== "all" && order.orderKind !== kindFilter) return false;
+        if (clientTypeFilter !== "all" && order.clientType !== clientTypeFilter) return false;
+        if (deliveryFilter !== "all" && order.deliveryType !== deliveryFilter) return false;
+        if (props.presetBucket && unconfirmedBucket(order.createdAt, order.status) !== props.presetBucket) {
+          return false;
+        }
+        return true;
+      }),
+    [props.orders, props.query, props.presetBucket, sourceFilter, kindFilter, clientTypeFilter, deliveryFilter],
   );
 
   useEffect(() => {
@@ -334,15 +349,19 @@ export function CrmOrders(props: {
     <div className="space-y-6">
       <section className="min-w-0 space-y-4">
         <CrmPanel className="!p-4">
+          {props.presetBucket && (
+            <div className="mb-4 rounded-lg border border-michket-gold/40 bg-michket-gold/10 px-4 py-3 text-sm">
+              <p className="font-bold">{unconfirmedBucketLabels[props.presetBucket]}</p>
+              <p className="mt-1 text-black/70">
+                {props.presetBucket === "prospection" && "Commandes non confirmees depuis moins de 48 heures. Sans confirmation, elles deviennent prioritaires."}
+                {props.presetBucket === "prioritaire" && "Commandes non confirmees depuis plus de 48 heures. Elles restent ici 3 jours, puis passent en archive."}
+                {props.presetBucket === "archive" && "Commandes non confirmees depuis plus de 5 jours (48 h + 3 jours)."}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1">
-              <input
-                value={props.query}
-                onChange={(event) => props.onQuery(event.target.value)}
-                placeholder="Rechercher client, téléphone, référence..."
-                className="h-11 w-full rounded-lg border border-black/15 px-4 pl-10 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-              />
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-black/40" />
+              <OrderSearchField value={props.query} onChange={props.onQuery} />
             </div>
             <div className="flex items-center gap-3">
               <ViewToggle view={view} onViewChange={setView} />
@@ -353,21 +372,23 @@ export function CrmOrders(props: {
               />
             </div>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <select
-              value={props.statusFilter}
-              onChange={(event) => props.onStatusFilter(event.target.value as OrderStatus | "all")}
-              className="h-11 w-full rounded-lg border border-black/15 px-4 text-sm outline-none focus:border-michket-gold"
-            >
-              <option value="all">Tous statuts</option>
-              {orderStatuses.map((status) => (
-                <option key={status} value={status}>{orderStatusLabels[status]}</option>
-              ))}
-            </select>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {!props.presetBucket && (
+              <select
+                value={props.statusFilter}
+                onChange={(event) => props.onStatusFilter(event.target.value as OrderStatus | "all")}
+                className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
+              >
+                <option value="all">Tous statuts</option>
+                {orderStatuses.map((status) => (
+                  <option key={status} value={status}>{orderStatusLabels[status]}</option>
+                ))}
+              </select>
+            )}
             <select
               value={props.wilayaFilter}
               onChange={(event) => props.onWilayaFilter(event.target.value)}
-              className="h-11 w-full rounded-lg border border-black/15 px-4 text-sm outline-none focus:border-michket-gold"
+              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
             >
               <option value="all">Toutes wilayas</option>
               {props.wilayas.map((wilaya) => (
@@ -377,19 +398,47 @@ export function CrmOrders(props: {
             <select
               value={sourceFilter}
               onChange={(event) => setSourceFilter(event.target.value as OrderSource | "all")}
-              className="h-11 w-full rounded-lg border border-black/15 px-4 text-sm outline-none focus:border-michket-gold"
+              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
             >
               <option value="all">Toutes origines</option>
               {orderSources.map((source) => (
                 <option key={source} value={source}>{orderSourceLabels[source]}</option>
               ))}
             </select>
+            <select
+              value={kindFilter}
+              onChange={(event) => setKindFilter(event.target.value as OrderKind | "all")}
+              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
+            >
+              <option value="all">Tous types</option>
+              {orderKinds.map((kind) => (
+                <option key={kind} value={kind}>{orderKindLabels[kind]}</option>
+              ))}
+            </select>
+            <select
+              value={clientTypeFilter}
+              onChange={(event) => setClientTypeFilter(event.target.value as ClientType | "all")}
+              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
+            >
+              <option value="all">Tous clients</option>
+              <option value="particulier">Particulier</option>
+              <option value="professionnel">Professionnel</option>
+            </select>
+            <select
+              value={deliveryFilter}
+              onChange={(event) => setDeliveryFilter(event.target.value as "all" | "home" | "office")}
+              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
+            >
+              <option value="all">Toute livraison</option>
+              <option value="home">Domicile</option>
+              <option value="office">Bureau</option>
+            </select>
           </div>
         </CrmPanel>
 
         {view === "list" ? (
           <CrmPanel
-            title="Liste des commandes"
+            title={props.presetBucket ? unconfirmedBucketLabels[props.presetBucket] : "Liste des commandes"}
             actions={
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
                 Temps réel
@@ -434,6 +483,7 @@ export function CrmOrders(props: {
                         <p className="text-xs text-black/50">
                           {order.isExistingClient ? "Client existant" : "Nouveau client"}
                           {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
+                          {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
                         </p>
                       </td>
                       <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">{order.phone}</td>
@@ -529,6 +579,7 @@ export function CrmOrders(props: {
                           <p className="text-xs text-black/55">
                             {orderSourceLabels[order.source] || "Site e-com"} · {clientTypeLabel(order.clientType)}
                             {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
+                            {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
                           </p>
                           <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
                           <p className="text-xs text-black/60 truncate">{order.phone}</p>

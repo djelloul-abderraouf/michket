@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmPopup } from "./CrmUi";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmPopup, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
+import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
 
 export function CrmConfirmation({
   orders,
@@ -30,7 +32,23 @@ export function CrmConfirmation({
 }) {
   const [pendingOrder, setPendingOrder] = useState<Order | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const pendingValue = orders.reduce((sum, order) => sum + order.total, 0);
+  const [query, setQuery] = useState("");
+  const [wilaya, setWilaya] = useState("all");
+  const [bucket, setBucket] = useState<UnconfirmedBucket | "all">("all");
+  const wilayas = useMemo(
+    () => Array.from(new Set(orders.map((order) => order.wilaya).filter(Boolean))).sort(),
+    [orders],
+  );
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        if (wilaya !== "all" && order.wilaya !== wilaya) return false;
+        if (bucket !== "all" && unconfirmedBucket(order.createdAt, order.status) !== bucket) return false;
+        return orderMatchesQuery(order, query);
+      }),
+    [orders, query, wilaya, bucket],
+  );
+  const pendingValue = visibleOrders.reduce((sum, order) => sum + order.total, 0);
   const selectedOrder = orders.find((order) => order.id === selectedId);
 
   function openDetails(order: Order) {
@@ -43,7 +61,7 @@ export function CrmConfirmation({
       <div className="grid gap-4 sm:grid-cols-3">
         <CrmPanel className="!p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-black/50">À confirmer</p>
-          <p className="mt-2 text-2xl font-bold text-black">{orders.length}</p>
+          <p className="mt-2 text-2xl font-bold text-black">{visibleOrders.length}</p>
           <p className="mt-1 text-sm text-black/60">Commandes en attente</p>
         </CrmPanel>
         <CrmPanel className="!p-4">
@@ -59,14 +77,37 @@ export function CrmConfirmation({
         </CrmPanel>
       </div>
 
-      <CrmPanel title={`Commandes à confirmer (${orders.length})`}>
-        {orders.length === 0 ? (
+      <CrmPanel title={`Commandes à confirmer (${visibleOrders.length})`}>
+        <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px_180px]">
+          <OrderSearchField value={query} onChange={setQuery} />
+          <select
+            value={wilaya}
+            onChange={(event) => setWilaya(event.target.value)}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Toutes wilayas</option>
+            {wilayas.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select
+            value={bucket}
+            onChange={(event) => setBucket(event.target.value as UnconfirmedBucket | "all")}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Prospection, prioritaire, archive</option>
+            <option value="prospection">{unconfirmedBucketLabels.prospection}</option>
+            <option value="prioritaire">{unconfirmedBucketLabels.prioritaire}</option>
+            <option value="archive">{unconfirmedBucketLabels.archive}</option>
+          </select>
+        </div>
+        {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune commande à confirmer</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <CrmCard
                 key={order.id}
                 onClick={() => openDetails(order)}
@@ -79,6 +120,7 @@ export function CrmConfirmation({
                       <CrmBadge variant="warning">Pas confirmé</CrmBadge>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-black/70 truncate">{order.clientName}</p>
+                    <p className="text-xs text-black/50">{followUpHint(order.createdAt)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-lg font-bold text-black">{dzd.format(order.total)}</p>

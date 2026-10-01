@@ -3,6 +3,9 @@ import type { CrmPage } from "./types";
 export const crmPagePaths: Record<CrmPage, string> = {
   overview: "/crm/dashboard",
   orders: "/crm/orders",
+  orders_prospection: "/crm/orders/prospection",
+  orders_prioritaire: "/crm/orders/prioritaire",
+  orders_archive: "/crm/orders/archive",
   confirmation: "/crm/confirmation",
   sales: "/crm/sales",
   proposals: "/crm/proposals",

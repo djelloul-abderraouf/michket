@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Phone, MapPin, User, Mail, Truck, Printer, FileDown, RefreshCw, Trash2 } from "lucide-react";
+import { Phone, MapPin, User, Mail, Truck, Printer, FileDown, RefreshCw, Trash2, ExternalLink } from "lucide-react";
 import {
   canChangeOrderStatus,
   canEditClientPhone,
@@ -26,6 +26,14 @@ const fieldClass =
 
 function canExportBordereau(order?: Order) {
   return Boolean(order && order.status !== "pas_confirme" && order.status !== "annulee");
+}
+
+function productPageHref(slug?: string | null) {
+  const value = slug?.trim();
+  if (!value || value === "commande-crm") {
+    return null;
+  }
+  return `/produits/${encodeURIComponent(value)}`;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -159,6 +167,42 @@ export function CrmOrderDetailsDrawer({
               <p className="text-sm text-black/50">{formatDate(order.createdAt)}</p>
             </div>
           </div>
+
+          {(order.campaignSlug || order.items.some((item) => productPageHref(item.productSlug))) && (
+            <Section title="Liens">
+              {order.campaignSlug ? (
+                <a
+                  href={`/campagne/${encodeURIComponent(order.campaignSlug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-michket-gold underline underline-offset-2"
+                >
+                  Campagne{order.campaignTitle ? ` · ${order.campaignTitle}` : ""}
+                  <ExternalLink size={14} />
+                </a>
+              ) : null}
+              <div className="flex flex-col gap-1.5">
+                {order.items.map((item, index) => {
+                  const href = productPageHref(item.productSlug);
+                  if (!href) {
+                    return null;
+                  }
+                  return (
+                    <a
+                      key={`${item.productId}-${index}`}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-michket-gold underline underline-offset-2"
+                    >
+                      Produit · {item.productName}
+                      <ExternalLink size={14} />
+                    </a>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           <Section title="Statut et type">
             {showStatusSelect && onMove ? (

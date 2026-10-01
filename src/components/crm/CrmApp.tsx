@@ -53,6 +53,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Moon, Sun } from "lucide-react";
 import { crmPagePaths } from "@/lib/crm/routes";
 import { normalizeOrder } from "@/lib/crm/normalize-order";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
+import { unconfirmedBucket, type UnconfirmedBucket } from "@/lib/crm/order-followup";
 import { useCrmOrdersRealtime } from "@/lib/crm/use-crm-orders-realtime";
 import {
   crmActivitiesApi,
@@ -70,9 +72,9 @@ import {
 } from "@/lib/api-client";
 
 function pageFromPath(pathname: string): CrmPage {
-  const match = (Object.entries(crmPagePaths) as [CrmPage, string][]).find(
-    ([, path]) => pathname === path || pathname.startsWith(`${path}/`),
-  );
+  const match = (Object.entries(crmPagePaths) as [CrmPage, string][])
+    .sort((a, b) => b[1].length - a[1].length)
+    .find(([, path]) => pathname === path || pathname.startsWith(`${path}/`));
   return match?.[0] ?? "overview";
 }
 
@@ -327,16 +329,31 @@ export function CrmApp() {
   );
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchesText =
-        query.trim().length === 0 ||
-        `${order.clientName} ${order.phone} ${order.id} ${order.reference || ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase());
+      const matchesText = orderMatchesQuery(order, query);
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
       const matchesWilaya = wilayaFilter === "all" || order.wilaya === wilayaFilter;
       return matchesText && matchesStatus && matchesWilaya;
     });
   }, [orders, query, statusFilter, wilayaFilter]);
+  const followUpBucket: UnconfirmedBucket | undefined =
+    activePage === "orders_prospection"
+      ? "prospection"
+      : activePage === "orders_prioritaire"
+        ? "prioritaire"
+        : activePage === "orders_archive"
+          ? "archive"
+          : undefined;
+  const followUpCounts = useMemo(() => {
+    const counts: Record<UnconfirmedBucket, number> = { prospection: 0, prioritaire: 0, archive: 0 };
+    for (const order of orders) {
+      const bucket = unconfirmedBucket(order.createdAt, order.status);
+      if (bucket) counts[bucket] += 1;
+    }
+    return counts;
+  }, [orders]);
+  const listedOrders = followUpBucket
+    ? orders.filter((order) => unconfirmedBucket(order.createdAt, order.status) === followUpBucket && orderMatchesQuery(order, query))
+    : filteredOrders;
 
   function loadOrderDetails(id: string) {
     crmOrdersApi
@@ -935,6 +952,7 @@ export function CrmApp() {
         onPageChange={(page) => {
           router.push(crmPagePaths[page]);
         }}
+        followUpCounts={followUpCounts}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
@@ -1007,9 +1025,10 @@ export function CrmApp() {
             </>
           )}
 
-          {canSeeActivePage && activePage === "orders" && (
+          {canSeeActivePage && (activePage === "orders" || followUpBucket) && (
             <CrmOrders
-              orders={filteredOrders}
+              orders={listedOrders}
+              presetBucket={followUpBucket}
               selectedOrder={selectedOrder}
               query={query}
               statusFilter={statusFilter}
@@ -1138,20 +1157,28 @@ export function CrmApp() {
               onToast={setToast}
               onCreateParcel={createParcel}
               onSyncParcel={syncParcel}
+              userRoles={userRoles}
+              currentUserId={crmUser.id}
+              onOrderUpdated={applyOrderUpdate}
+              onMove={moveOrder}
             />
           )}
 
           {canSeeActivePage && activePage === "preparation" && (
             <CrmPreparation
-              orders={orders.filter((order) => order.status === "en_preparation")}
+              orders={orders.filter((order) => order.status === "en_preparation" || order.status === "confirme")}
               qualityChecked={qualityChecked}
               setQualityChecked={setQualityChecked}
               onValidate={validatePreparation}
-              canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison")}
+              canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison") || canChangeOrderStatus(userRoles, "confirme", "en_fabrication")}
               onLoadOrder={loadOrderDetails}
               onToast={setToast}
               onCreateParcel={createParcel}
               onSyncParcel={syncParcel}
+              userRoles={userRoles}
+              currentUserId={crmUser.id}
+              onOrderUpdated={applyOrderUpdate}
+              onMove={moveOrder}
             />
           )}
 

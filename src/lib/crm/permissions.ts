@@ -8,6 +8,9 @@ export const crmPages: Array<{
 }> = [
   { id: "overview", label: "Dashboard", shortLabel: "Dash", requiredRoles: ["admin", "commercial", "confirmation", "atelier_design", "fabrication", "preparation", "livraison"] },
   { id: "orders", label: "Commandes", shortLabel: "Cmd", requiredRoles: ["admin", "commercial", "confirmation", "fabrication", "preparation", "livraison"] },
+  { id: "orders_prospection", label: "Prospection", shortLabel: "48h", requiredRoles: ["admin", "commercial", "confirmation"] },
+  { id: "orders_prioritaire", label: "Prioritaire", shortLabel: "Prio", requiredRoles: ["admin", "commercial", "confirmation"] },
+  { id: "orders_archive", label: "Archive", shortLabel: "Arch", requiredRoles: ["admin", "commercial", "confirmation"] },
   { id: "confirmation", label: "Confirmation", shortLabel: "Conf", requiredRoles: ["admin", "confirmation"] },
   { id: "sales", label: "Affaires", shortLabel: "Sales", requiredRoles: ["admin", "commercial"] },
   { id: "proposals", label: "Devis", shortLabel: "Devis", requiredRoles: ["admin", "commercial"] },
@@ -37,12 +40,12 @@ export const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
 const transitionRoles: Record<string, CrmRole[]> = {
   "pas_confirme:confirme": ["admin", "confirmation", "commercial"],
   "pas_confirme:annulee": ["admin", "confirmation", "commercial"],
-  "confirme:en_fabrication": ["admin", "fabrication", "commercial"],
-  "confirme:annulee": ["admin", "confirmation", "commercial"],
-  "en_fabrication:en_preparation": ["admin", "fabrication", "commercial"],
-  "en_fabrication:annulee": ["admin", "fabrication", "commercial"],
-  "en_preparation:en_livraison": ["admin", "preparation", "commercial"],
-  "en_preparation:annulee": ["admin", "preparation", "commercial"],
+  "confirme:en_fabrication": ["admin", "fabrication", "preparation", "commercial"],
+  "confirme:annulee": ["admin", "confirmation", "commercial", "fabrication", "preparation"],
+  "en_fabrication:en_preparation": ["admin", "fabrication", "preparation", "commercial"],
+  "en_fabrication:annulee": ["admin", "fabrication", "preparation", "commercial"],
+  "en_preparation:en_livraison": ["admin", "preparation", "fabrication", "commercial"],
+  "en_preparation:annulee": ["admin", "preparation", "fabrication", "commercial"],
   "en_livraison:livre": ["admin", "livraison", "commercial"],
   "en_livraison:retour_echec": ["admin", "livraison", "commercial"],
   "en_livraison:annulee": ["admin", "livraison", "commercial"],
@@ -98,7 +101,7 @@ export function canSetOrderKind(userRoles: CrmRole[]) {
 }
 
 export function canManageRemarks(userRoles: CrmRole[]) {
-  return hasAnyRole(userRoles, ["admin", "commercial", "livraison", "confirmation"]);
+  return hasAnyRole(userRoles, ["admin", "commercial", "livraison", "confirmation", "fabrication", "preparation"]);
 }
 
 export function canLogContactAttempt(userRoles: CrmRole[]) {

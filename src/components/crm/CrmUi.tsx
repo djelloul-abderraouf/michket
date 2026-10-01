@@ -1,6 +1,6 @@
 import type { Order } from "@/lib/crm/types";
 import { itemPersonalization } from "@/lib/crm/order-display";
-import { X, Plus, List, LayoutGrid, ChevronRight } from "lucide-react";
+import { X, Plus, List, LayoutGrid, ChevronRight, Search } from "lucide-react";
 
 export const dzd = new Intl.NumberFormat("fr-DZ", {
   style: "currency",
@@ -359,5 +359,27 @@ export function CrmSideDrawer({
         </div>
       </div>
     </>
+  );
+}
+
+export function OrderSearchField({
+  value,
+  onChange,
+  placeholder = "Rechercher reference, client, telephone, produit, remarque...",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 pl-10 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
+      />
+    </div>
   );
 }

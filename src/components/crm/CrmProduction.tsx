@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { productionStatusLabels, type Order, type ProductionJob } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, ViewToggle } from "./CrmUi";
+import { useMemo, useState } from "react";
+import { productionStatusLabels, type CrmRole, type Order, type OrderStatus, type ProductionJob } from "@/lib/crm/types";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, ViewToggle, OrderSearchField, orderRef } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
 
 const statusConfig: Record<ProductionJob["status"], { variant: "warning" | "info" | "success"; color: string }> = {
   en_attente: { variant: "warning", color: "bg-amber-500" },
@@ -19,6 +20,10 @@ export function CrmProduction({
   onToast,
   onCreateParcel,
   onSyncParcel,
+  userRoles,
+  currentUserId,
+  onOrderUpdated,
+  onMove,
 }: {
   jobs: ProductionJob[];
   orders: Order[];
@@ -29,21 +34,45 @@ export function CrmProduction({
   onToast?: (message: string) => void;
   onCreateParcel?: (order: Order) => void;
   onSyncParcel?: (order: Order) => void;
+  userRoles?: CrmRole[];
+  currentUserId?: string;
+  onOrderUpdated?: (order: Order) => void;
+  onMove?: (order: Order, to: OrderStatus, note?: string) => void;
 }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [selectedJobId, setSelectedJobId] = useState<string | undefined>();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | undefined>();
   const [view, setView] = useState<"list" | "grid">("list");
+  const [query, setQuery] = useState("");
+  const [jobStatus, setJobStatus] = useState<ProductionJob["status"] | "all">("all");
   const waitingJobs = jobs.filter((job) => job.status === "en_attente");
   const inProgressJobs = jobs.filter((job) => job.status === "en_cours");
   const completedJobs = jobs.filter((job) => job.status === "termine");
-  const selectedJob = jobs.find((job) => job.id === selectedJobId);
-  const selectedOrder = selectedJob
-    ? orders.find((order) => order.id === selectedJob.orderId)
-    : undefined;
+  const visibleJobs = useMemo(
+    () =>
+      jobs.filter((job) => {
+        if (jobStatus !== "all" && job.status !== jobStatus) return false;
+        const order = orders.find((item) => item.id === job.orderId);
+        if (!query.trim()) return true;
+        const haystack = `${job.orderRef} ${job.clientName} ${job.productSummary}`.toLowerCase();
+        return haystack.includes(query.trim().toLowerCase()) || (order ? orderMatchesQuery(order, query) : false);
+      }),
+    [jobs, orders, query, jobStatus],
+  );
+  const confirmedOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          (order.status === "confirme" || order.status === "en_fabrication") &&
+          orderMatchesQuery(order, query),
+      ),
+    [orders, query],
+  );
+  const selectedOrder = orders.find((order) => order.id === selectedOrderId);
+  const selectedJob = jobs.find((job) => job.orderId === selectedOrderId);
 
-  function openJob(job: ProductionJob) {
-    setSelectedJobId(job.id);
-    onLoadOrder?.(job.orderId);
+  function openOrder(orderId: string) {
+    setSelectedOrderId(orderId);
+    onLoadOrder?.(orderId);
   }
 
   return (
@@ -90,6 +119,43 @@ export function CrmProduction({
         </CrmPanel>
       </div>
 
+      <CrmPanel className="!p-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+          <OrderSearchField value={query} onChange={setQuery} placeholder="Rechercher reference, client, produit, remarque..." />
+          <select
+            value={jobStatus}
+            onChange={(event) => setJobStatus(event.target.value as ProductionJob["status"] | "all")}
+            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
+          >
+            <option value="all">Tous les statuts fabrication</option>
+            <option value="en_attente">En attente</option>
+            <option value="en_cours">En cours</option>
+            <option value="termine">Termine</option>
+          </select>
+        </div>
+      </CrmPanel>
+
+      <CrmPanel title={`Commandes confirmees (${confirmedOrders.length})`}>
+        {confirmedOrders.length === 0 ? (
+          <p className="text-sm text-black/40">Aucune commande confirmee pour cette recherche.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {confirmedOrders.map((order) => (
+              <button
+                key={order.id}
+                type="button"
+                onClick={() => openOrder(order.id)}
+                className="rounded-lg border border-black/10 bg-white p-4 text-left hover:border-michket-gold"
+              >
+                <p className="font-bold">{orderRef(order)}</p>
+                <p className="text-sm">{order.clientName}</p>
+                <p className="text-xs text-black/50">{order.phone} · {order.wilaya}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </CrmPanel>
+
       <CrmPanel
         title="File de production"
         actions={
@@ -99,7 +165,7 @@ export function CrmProduction({
           </div>
         }
       >
-        {jobs.length === 0 ? (
+        {visibleJobs.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune production en file</p>
             <p className="mt-2 text-sm text-black/30">
@@ -119,10 +185,10 @@ export function CrmProduction({
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((job) => (
+                {visibleJobs.map((job) => (
                   <tr
                     key={job.id}
-                    onClick={() => openJob(job)}
+                    onClick={() => openOrder(job.orderId)}
                     className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                   >
                     <td className="px-4 py-3 text-sm font-bold">{job.orderRef}</td>
@@ -143,10 +209,10 @@ export function CrmProduction({
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {jobs.map((job) => (
+            {visibleJobs.map((job) => (
               <CrmCard
                 key={job.id}
-                onClick={() => openJob(job)}
+                onClick={() => openOrder(job.orderId)}
                 className="p-5 cursor-pointer hover:shadow-md transition"
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -252,11 +318,16 @@ export function CrmProduction({
 
       <CrmOrderDetailsDrawer
         order={selectedOrder}
-        isOpen={Boolean(selectedJobId)}
-        onClose={() => setSelectedJobId(undefined)}
+        isOpen={Boolean(selectedOrderId)}
+        onClose={() => setSelectedOrderId(undefined)}
         onToast={onToast}
         onCreateParcel={onCreateParcel}
         onSyncParcel={onSyncParcel}
+        userRoles={userRoles}
+        currentUserId={currentUserId}
+        onOrderUpdated={onOrderUpdated}
+        onMove={onMove}
+        showStatusSelect
       >
         {selectedJob && (
           <div className="space-y-3">
@@ -284,7 +355,7 @@ export function CrmProduction({
               disabled={selectedJob.status !== "en_cours" || !canEdit}
               onClick={() => {
                 onFinish(selectedJob);
-                setSelectedJobId(undefined);
+                setSelectedOrderId(undefined);
               }}
             >
               Terminer
