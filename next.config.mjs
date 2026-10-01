@@ -11,7 +11,7 @@ const nextConfig = {
   env: {
     // Client components cannot read a non-NEXT_PUBLIC key directly.
     NEXT_PUBLIC_ECOMMERCE_MICHKET_URL: (
-      process.env["e-commerce-michket_url"] || ""
+      process.env.E_COMMERCE_MICHKET_URL || ""
     ).replace(/\/$/, ""),
   },
 
