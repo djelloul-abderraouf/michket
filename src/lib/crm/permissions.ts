@@ -99,6 +99,10 @@ export function canManageUsers(userRoles: CrmRole[]) {
   return hasAnyRole(userRoles, ["admin"]);
 }
 
+export function canManageStock(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "fabrication"]);
+}
+
 export function canEditClientPhone(userRoles: CrmRole[]) {
   return hasAnyRole(userRoles, ["admin", "commercial"]);
 }

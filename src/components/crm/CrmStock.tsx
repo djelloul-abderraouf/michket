@@ -102,6 +102,71 @@ function formatQty(value: number) {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(value);
 }
 
+export function StockAlertBar({
+  alerts,
+  onOpen,
+}: {
+  alerts: StockItem[];
+  onOpen: () => void;
+}) {
+  if (alerts.length === 0) return null;
+  const out = alerts
+    .filter((item) => item.stockStatus === "out")
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  const low = alerts
+    .filter((item) => item.stockStatus === "low")
+    .sort((a, b) => a.currentQuantity - b.currentQuantity || a.name.localeCompare(b.name, "fr"));
+
+  return (
+    <section className="mb-4 overflow-hidden rounded-xl border border-black/10 bg-white">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <p className="text-sm font-bold">Alertes stock</p>
+        <button type="button" onClick={onOpen} className="text-xs font-semibold underline">
+          Voir les articles
+        </button>
+      </div>
+      <div className="grid border-t border-black/10 md:grid-cols-2">
+        <AlertGroup title="Rupture" items={out} tone="rose" />
+        <AlertGroup title="Stock bas" items={low} tone="amber" />
+      </div>
+    </section>
+  );
+}
+
+function AlertGroup({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: StockItem[];
+  tone: "rose" | "amber";
+}) {
+  const titleClass = tone === "rose" ? "text-rose-800" : "text-amber-900";
+  const chipClass = tone === "rose" ? "bg-rose-50 text-rose-900" : "bg-amber-50 text-amber-950";
+  return (
+    <div className="min-w-0 px-4 py-3 md:border-r md:border-black/10 md:last:border-r-0">
+      <p className={`text-xs font-semibold uppercase tracking-wide ${titleClass}`}>
+        {title} · {items.length}
+      </p>
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs text-black/40">Aucun</p>
+      ) : (
+        <ul className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+          {items.map((item) => (
+            <li key={item.id} className={`rounded-full px-2.5 py-1 text-xs font-medium ${chipClass}`}>
+              {item.name}
+              <span className="ml-1 font-semibold tabular-nums">
+                {formatQty(item.currentQuantity)} {item.unit}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Action impossible.";
 }
@@ -198,26 +263,6 @@ export function CrmStock({
           </span>
         </div>
       </div>
-
-      {section !== "dashboard" && alerts.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm font-semibold text-amber-950">Alertes stock, avant la rupture</p>
-          <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-            {alerts
-              .slice()
-              .sort((a, b) => (a.stockStatus === b.stockStatus ? a.name.localeCompare(b.name) : a.stockStatus === "out" ? -1 : 1))
-              .map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="flex items-center gap-2">
-                    <span className="text-black/60">{formatQty(item.currentQuantity)} / min {formatQty(item.minQuantity > 0 ? item.minQuantity : 1)}</span>
-                    <ColorChip label={statusLabels[item.stockStatus]} tone={statusTones[item.stockStatus]} />
-                  </span>
-                </li>
-              ))}
-          </ul>
-        </div>
-      )}
 
       {loading ? <p className="text-sm text-black/50">Chargement du stock…</p> : null}
 
@@ -352,11 +397,13 @@ function StockPanel({
   const [initialQuantity, setInitialQuantity] = useState("");
   const [catalogProductId, setCatalogProductId] = useState("");
   const [active, setActive] = useState(true);
+  const [extraQuantity, setExtraQuantity] = useState("");
   const [saving, setSaving] = useState(false);
-  const [restockId, setRestockId] = useState<string | null>(null);
-  const [restockQty, setRestockQty] = useState("");
+  const [adding, setAdding] = useState<StockItem | null>(null);
+  const [addQuantity, setAddQuantity] = useState("");
 
   function startCreate() {
+    setAdding(null);
     setEditing(null);
     setName("");
     setCategory("");
@@ -364,21 +411,30 @@ function StockPanel({
     setUnit("pcs");
     setMinQuantity("0");
     setInitialQuantity("");
+    setExtraQuantity("");
     setCatalogProductId("");
     setActive(true);
     setOpen(true);
   }
 
   function startEdit(item: StockItem) {
+    setAdding(null);
     setEditing(item);
     setName(item.name);
     setCategory(item.category);
     setItemType(item.itemType);
     setUnit(item.unit);
     setMinQuantity(String(item.minQuantity));
+    setExtraQuantity("");
     setCatalogProductId(item.catalogProductId || "");
     setActive(item.active);
     setOpen(true);
+  }
+
+  function startAdd(item: StockItem) {
+    setOpen(false);
+    setAdding(item);
+    setAddQuantity("");
   }
 
   async function save() {
@@ -395,7 +451,19 @@ function StockPanel({
       };
       if (editing) {
         await crmStockApi.updateItem(editing.id, { ...body, active });
-        await onSaved("Article mis à jour.");
+        const extra = Number(extraQuantity);
+        if (Number.isFinite(extra) && extra > 0) {
+          await crmStockApi.createMovement({
+            itemId: editing.id,
+            movementType: "restock",
+            quantity: extra,
+            note: "Ajout de stock",
+          });
+          const next = editing.currentQuantity + extra;
+          await onSaved(`${formatQty(editing.currentQuantity)} + ${formatQty(extra)} = ${formatQty(next)} ${editing.unit}.`);
+        } else {
+          await onSaved("Article mis à jour.");
+        }
       } else {
         const created = await crmStockApi.createItem(body);
         setOpen(false);
@@ -408,7 +476,7 @@ function StockPanel({
               note: "Quantité initiale",
             });
           } catch (error) {
-            await onSaved("Article créé. La quantité n'a pas été enregistrée : utilisez Ajouter du stock.");
+            await onSaved("Article créé. La quantité n'a pas été enregistrée : utilisez Ajouter une quantité.");
             onError(error);
             return;
           }
@@ -423,10 +491,38 @@ function StockPanel({
     }
   }
 
+  async function addToExisting() {
+    if (!adding) return;
+    const quantity = Number(addQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      onError(new Error("Indiquez une quantité supérieure à 0."));
+      return;
+    }
+    setSaving(true);
+    try {
+      await crmStockApi.createMovement({
+        itemId: adding.id,
+        movementType: "restock",
+        quantity,
+        note: "Ajout de stock",
+      });
+      const next = adding.currentQuantity + quantity;
+      setAdding(null);
+      setAddQuantity("");
+      await onSaved(`${formatQty(adding.currentQuantity)} + ${formatQty(quantity)} = ${formatQty(next)} ${adding.unit}.`);
+    } catch (error) {
+      onError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const addedPreview = Number(addQuantity) > 0 ? Number(addQuantity) : 0;
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-black/55">La quantité en vert, orange ou rouge est le stock réel de chaque article.</p>
+        <p className="text-sm text-black/55">Chaque quantité saisie s'ajoute au stock actuel. Elle ne le remplace pas.</p>
         {canEdit ? (
           <button type="button" onClick={startCreate} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white">
             Nouvel article
@@ -477,8 +573,8 @@ function StockPanel({
             <h2 className="text-sm font-bold">{editing ? `Modifier ${editing.name}` : "Nouvel article"}</h2>
             <p className="mt-1 text-xs text-black/55">
               {editing
-                ? "Le nom, le type et le minimum se modifient ici. La quantité affichée vient des mouvements."
-                : "Indiquez la quantité déjà en stock. Elle est enregistrée comme une entrée, pas comme un chiffre saisi à la main."}
+                ? "Pour augmenter le stock, saisissez seulement la quantité à ajouter."
+                : "La quantité de départ est ajoutée au stock de ce nouvel article."}
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -511,15 +607,27 @@ function StockPanel({
             </label>
             {!editing ? (
               <label className="block text-xs font-semibold text-black/60">
-                Quantité actuelle
+                Quantité de départ
                 <input value={initialQuantity} onChange={(event) => setInitialQuantity(event.target.value)} type="number" min="0" step="0.001" placeholder="0" className={`${fieldClass} mt-1`} />
+                <span className="mt-1 block font-normal text-black/45">
+                  0 + {formatQty(Number(initialQuantity) > 0 ? Number(initialQuantity) : 0)} {unit || "pcs"}
+                </span>
               </label>
             ) : (
-              <div className="rounded-lg bg-black/[0.03] px-3 py-2">
-                <p className="text-xs font-semibold text-black/50">Quantité actuelle</p>
-                <p className={`mt-1 text-2xl font-bold tabular-nums ${editing.stockStatus === "out" ? "text-rose-700" : editing.stockStatus === "low" ? "text-amber-800" : "text-emerald-800"}`}>
-                  {formatQty(editing.currentQuantity)} <span className="text-sm font-medium text-black/45">{editing.unit}</span>
-                </p>
+              <div className="space-y-2">
+                <div className="rounded-lg bg-black/[0.03] px-3 py-2">
+                  <p className="text-xs font-semibold text-black/50">Stock actuel</p>
+                  <p className={`mt-1 text-2xl font-bold tabular-nums ${editing.stockStatus === "out" ? "text-rose-700" : editing.stockStatus === "low" ? "text-amber-800" : "text-emerald-800"}`}>
+                    {formatQty(editing.currentQuantity)} <span className="text-sm font-medium text-black/45">{editing.unit}</span>
+                  </p>
+                </div>
+                <label className="block text-xs font-semibold text-black/60">
+                  Quantité à ajouter
+                  <input value={extraQuantity} onChange={(event) => setExtraQuantity(event.target.value)} type="number" min="0" step="0.001" placeholder="0" className={`${fieldClass} mt-1`} />
+                  <span className="mt-1 block font-normal text-emerald-800">
+                    {formatQty(editing.currentQuantity)} + {formatQty(Number(extraQuantity) > 0 ? Number(extraQuantity) : 0)} = {formatQty(editing.currentQuantity + (Number(extraQuantity) > 0 ? Number(extraQuantity) : 0))} {editing.unit}
+                  </span>
+                </label>
               </div>
             )}
             <label className="block text-xs font-semibold text-black/60">
@@ -547,6 +655,45 @@ function StockPanel({
               {saving ? "Enregistrement…" : editing ? "Enregistrer" : "Créer l'article"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-lg border border-black/15 px-4 text-sm">
+              Annuler
+            </button>
+          </div>
+        </form>
+      )}
+
+      {adding && canEdit && (
+        <form
+          className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void addToExisting();
+          }}
+        >
+          <div>
+            <h2 className="text-sm font-bold">Ajouter une quantité · {adding.name}</h2>
+            <p className="mt-1 text-xs text-black/55">Cette quantité s'ajoute au stock actuel.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg bg-white px-3 py-2">
+              <p className="text-xs font-semibold text-black/50">Stock actuel</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{formatQty(adding.currentQuantity)} {adding.unit}</p>
+            </div>
+            <label className="block text-xs font-semibold text-black/60">
+              Quantité à ajouter
+              <input value={addQuantity} onChange={(event) => setAddQuantity(event.target.value)} type="number" min="0.001" step="0.001" placeholder="0" className={`${fieldClass} mt-1`} />
+            </label>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <p className="text-xs font-semibold text-black/50">Nouveau stock</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-emerald-800">
+                {formatQty(adding.currentQuantity)} + {formatQty(addedPreview)} = {formatQty(adding.currentQuantity + addedPreview)} {adding.unit}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-40">
+              {saving ? "Ajout…" : "Ajouter au stock"}
+            </button>
+            <button type="button" onClick={() => setAdding(null)} className="h-10 rounded-lg border border-black/15 bg-white px-4 text-sm">
               Annuler
             </button>
           </div>
@@ -591,31 +738,7 @@ function StockPanel({
                 <td className="px-3 py-2 text-right">
                   {canEdit ? (
                     <div className="flex flex-col items-end gap-1">
-                      {restockId === item.id ? (
-                        <form
-                          className="flex items-center gap-1"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            const quantity = Number(restockQty);
-                            if (!Number.isFinite(quantity) || quantity <= 0) {
-                              onError(new Error("Indiquez une quantité supérieure à 0."));
-                              return;
-                            }
-                            void crmStockApi.createMovement({ itemId: item.id, movementType: "restock", quantity })
-                              .then(() => onSaved(`+${formatQty(quantity)} ${item.unit} ajoutés à ${item.name}.`))
-                              .then(() => {
-                                setRestockId(null);
-                                setRestockQty("");
-                              })
-                              .catch(onError);
-                          }}
-                        >
-                          <input value={restockQty} onChange={(event) => setRestockQty(event.target.value)} type="number" min="0.001" step="0.001" placeholder="+ qté" className="h-8 w-20 rounded-lg border border-black/15 px-2 text-sm" />
-                          <button type="submit" className="h-8 rounded-lg bg-black px-2 text-xs font-semibold text-white">OK</button>
-                        </form>
-                      ) : (
-                        <button type="button" onClick={() => { setRestockId(item.id); setRestockQty(""); }} className="text-xs font-semibold text-emerald-800 underline">Ajouter du stock</button>
-                      )}
+                      <button type="button" onClick={() => startAdd(item)} className="text-xs font-semibold text-emerald-800 underline">Ajouter une quantité</button>
                       <button type="button" onClick={() => startEdit(item)} className="text-xs font-semibold underline">Modifier</button>
                     </div>
                   ) : null}

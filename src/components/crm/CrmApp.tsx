@@ -9,6 +9,7 @@ import {
   canCreateOrder,
   canManageCatalog,
   canManageContacts,
+  canManageStock,
   canManageUsers,
   expandStaffRoles,
 } from "@/lib/crm/permissions";
@@ -45,7 +46,7 @@ import { CrmConfirmedOrders } from "./CrmConfirmedOrders";
 import { CrmProposals } from "./CrmProposals";
 import { CrmSales } from "./CrmSales";
 import { CrmSettings } from "./CrmSettings";
-import { CrmStock, type StockSection } from "./CrmStock";
+import { CrmStock, StockAlertBar, type StockSection } from "./CrmStock";
 import { CrmSidebar } from "./CrmSidebar";
 import { CrmTasks } from "./CrmTasks";
 import { CrmUsers } from "./CrmUsers";
@@ -998,20 +999,11 @@ export function CrmApp() {
             </div>
           </div>
 
-          {canSeeStock && !activePage.startsWith("stock") && stockAlerts.length > 0 && (
-            <button
-              type="button"
-              onClick={() => router.push(crmPagePaths.stock_dashboard)}
-              className="mb-4 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left"
-            >
-              <p className="text-sm font-semibold text-amber-950">
-                {stockAlerts.filter((item) => item.stockStatus === "out").length} en rupture, {stockAlerts.filter((item) => item.stockStatus === "low").length} proche de la rupture
-              </p>
-              <p className="mt-1 text-xs text-amber-900">
-                {stockAlerts.slice(0, 8).map((item) => item.name).join(", ")}
-                {stockAlerts.length > 8 ? "…" : ""}
-              </p>
-            </button>
+          {canSeeStock && (
+            <StockAlertBar
+              alerts={stockAlerts}
+              onOpen={() => router.push(crmPagePaths.stock)}
+            />
           )}
 
           {!canSeeActivePage && (
@@ -1261,7 +1253,7 @@ export function CrmApp() {
                 stock_sales: "sales-recipes",
               } as Record<string, StockSection>)[activePage]}
               products={products}
-              canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
+              canEdit={canManageStock(userRoles)}
               onToast={setToast}
               onChanged={refreshStockAlerts}
             />
