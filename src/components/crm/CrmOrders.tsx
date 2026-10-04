@@ -31,6 +31,7 @@ import {
   sourceTones,
 } from "@/lib/crm/option-colors";
 import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { OrderListTable } from "./OrderListTable";
 import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { clientPhoneError, normalizeClientPhoneInput } from "@/lib/crm/phone";
@@ -479,79 +480,20 @@ export function CrmOrders(props: {
               </span>
             }
           >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px]">
-                <thead>
-                  <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
-                    <th className="px-2 py-2">Référence</th>
-                    <th className="px-2 py-2">Client</th>
-                    <th className="px-2 py-2">Statut</th>
-                    <th className="px-2 py-2">Doublon</th>
-                    <th className="px-2 py-2">Produit</th>
-                    <th className="px-2 py-2">Total</th>
-                    <th className="px-2 py-2">Date</th>
-                    <th className="px-2 py-2">Bordereau</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOrders.map((order) => (
-                    <tr
-                      key={order.id}
-                      onClick={() => {
-                        props.onSelect(order.id);
-                        setIsDrawerOpen(true);
-                      }}
-                      className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
-                    >
-                      <td className="px-2 py-2 text-xs font-semibold whitespace-nowrap">{orderRef(order)}</td>
-                      <td className="px-2 py-2">
-                        <p className="text-xs font-medium">{order.clientName}</p>
-                        <p className="text-[11px] text-black/50">
-                          {order.phone}
-                          {order.wilaya ? ` · ${order.wilaya}` : ""}
-                          {order.commune ? ` · ${order.commune}` : ""}
-                        </p>
-                        <p className="text-[11px] text-black/40">
-                          {orderSourceLabels[order.source] || "Site e-com"}
-                          {" · "}
-                          {clientTypeLabel(order.clientType)}
-                          {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
-                          {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
-                        </p>
-                      </td>
-                      <td className="px-2 py-2">
-                        <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
-                      </td>
-                      <td className="px-2 py-2">
-                        <ColorChip
-                          label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
-                          tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-[11px] text-black/70">
-                        <p className="line-clamp-2 max-w-[220px]">{productSummary(order)}</p>
-                        {order.trackingNumber ? (
-                          <p className="mt-0.5 text-[11px] text-black/40">
-                            {order.trackingNumber}
-                            {order.yalidineStatus ? ` · ${order.yalidineStatus}` : ""}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="px-2 py-2 text-xs font-semibold whitespace-nowrap">{dzd.format(order.total)}</td>
-                      <td className="px-2 py-2 text-[11px] text-black/50 whitespace-nowrap">{formatDate(order.createdAt)}</td>
-                      <td className="px-2 py-2">
-                        <BordereauButtons order={order} compact />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {visibleOrders.length === 0 && (
-                <div className="py-12 text-center">
-                  <p className="text-lg font-semibold text-black/40">Aucune commande</p>
-                </div>
-              )}
-            </div>
+            <OrderListTable
+              orders={visibleOrders}
+              onOpen={(order) => {
+                props.onSelect(order.id);
+                setIsDrawerOpen(true);
+              }}
+              trailingHeader="Bordereau"
+              trailing={(order) => <BordereauButtons order={order} compact />}
+            />
+            {visibleOrders.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-lg font-semibold text-black/40">Aucune commande</p>
+              </div>
+            )}
           </CrmPanel>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-4">
@@ -587,7 +529,7 @@ export function CrmOrders(props: {
                           )}
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="font-bold text-xs truncate">{orderRef(order)}</p>
+                            <p className="max-w-[88px] truncate font-bold text-xs" title={orderRef(order)}>{orderRef(order)}</p>
                             <p className="text-xs font-bold shrink-0">{dzd.format(order.total)}</p>
                           </div>
                           <p className="text-sm font-semibold truncate">{order.clientName}</p>
@@ -604,7 +546,8 @@ export function CrmOrders(props: {
                             {orderSourceLabels[order.source] || "Site e-com"} · {clientTypeLabel(order.clientType)}
                             {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
                           </p>
-                          <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
+                          <p className="mt-1 text-[11px] text-black/60">{order.wilaya || "—"}</p>
+                          <p className="text-[11px] text-black/60">{order.commune || "—"}</p>
                           <p className="text-xs text-black/60 truncate">{order.phone}</p>
                           <p className="mt-2 text-xs text-black/50 line-clamp-2 break-words">{productSummary(order)}</p>
                           {order.trackingNumber && (

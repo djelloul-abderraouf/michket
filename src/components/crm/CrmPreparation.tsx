@@ -3,6 +3,7 @@ import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { orderStatusLabels } from "@/lib/crm/types";
 import { orderStatusTones } from "@/lib/crm/option-colors";
 import { ColorChip } from "./CrmColorSelect";
+import { OrderListTable } from "./OrderListTable";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
@@ -139,40 +140,7 @@ export function CrmPreparation({
             </p>
           </div>
         ) : view === "list" ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
-                  <th className="px-2 py-2">Référence</th>
-                  <th className="px-2 py-2">Client</th>
-                  <th className="px-2 py-2">Wilaya</th>
-                  <th className="px-2 py-2">Contenu</th>
-                  <th className="px-2 py-2">Statut</th>
-                  <th className="px-2 py-2">Total</th>
-                  <th className="px-2 py-2">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    onClick={() => openDetails(order)}
-                    className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
-                  >
-                    <td className="px-2 py-2 text-xs font-semibold">{orderRef(order)}</td>
-                    <td className="px-2 py-2 text-xs text-black/70">{order.clientName}</td>
-                    <td className="px-2 py-2 text-xs text-black/60">{order.wilaya}</td>
-                    <td className="px-2 py-2 text-[11px] text-black/60">{productSummary(order)}</td>
-                    <td className="px-2 py-2">
-                      <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
-                    </td>
-                    <td className="px-2 py-2 text-xs font-semibold">{dzd.format(order.total)}</td>
-                    <td className="px-2 py-2 text-[11px] text-black/50">{formatDate(order.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OrderListTable orders={visibleOrders} onOpen={openDetails} />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleOrders.map((order) => (
@@ -184,7 +152,7 @@ export function CrmPreparation({
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base">{orderRef(order)}</h3>
+                      <h3 className="max-w-[110px] truncate text-sm font-bold" title={orderRef(order)}>{orderRef(order)}</h3>
                       <CrmBadge variant="info">En préparation</CrmBadge>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-black/70">{order.clientName}</p>
@@ -197,7 +165,8 @@ export function CrmPreparation({
 
                 <div className="space-y-2 text-sm mb-4">
                   <div className="flex items-center gap-2 text-black/70">
-                    <span className="font-medium">{order.wilaya}</span>
+                    <span className="font-medium">{order.wilaya || "—"}</span>
+                    <span className="text-black/45">· {order.commune || "—"}</span>
                   </div>
                   <div className="rounded-lg border border-black/10 bg-black/[0.02] p-3">
                     <p className="text-xs font-medium text-black/60 mb-1">Contenu</p>

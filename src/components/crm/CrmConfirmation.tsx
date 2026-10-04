@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmPopup, OrderSearchField } from "./CrmUi";
+import { CrmPanel, CrmButton, dzd, productSummary, orderRef, CrmPopup, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
-import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
-import { bucketTones, duplicateStatusTones, neutralTone } from "@/lib/crm/option-colors";
-import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
-import { duplicateStatusLabels } from "@/lib/crm/types";
+import { unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
+import { bucketTones, neutralTone } from "@/lib/crm/option-colors";
+import { CrmColorSelect } from "./CrmColorSelect";
+import { OrderListTable } from "./OrderListTable";
 
 export function CrmConfirmation({
   orders,
@@ -110,70 +110,35 @@ export function CrmConfirmation({
             <p className="text-lg font-semibold text-black/40">Aucune commande à confirmer</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleOrders.map((order) => (
-              <CrmCard
-                key={order.id}
-                onClick={() => openDetails(order)}
-                className="p-5 overflow-hidden cursor-pointer hover:shadow-md transition"
-              >
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base truncate">{orderRef(order)}</h3>
-                      <CrmBadge variant="warning">Pas confirmé</CrmBadge>
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-black/70 truncate">{order.clientName}</p>
-                    <div className="mt-2">
-                      <ColorChip
-                        label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
-                        tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
-                      />
-                    </div>
-                    <p className="text-xs text-black/50">{followUpHint(order.createdAt)}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-bold text-black">{dzd.format(order.total)}</p>
-                    <p className="text-xs text-black/50">{formatDate(order.createdAt)}</p>
-                  </div>
-                </div>
-                <div className="space-y-1 text-sm mb-4">
-                  <p>{order.phone}</p>
-                  <p>{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
-                  <p className="text-xs text-black/50">{order.deliveryType === "office" ? "Stop desk" : "Domicile"} · {(order.paymentMethod || "cod").toUpperCase()}</p>
-                  <div className="rounded-lg border border-black/10 bg-black/[0.02] p-3">
-                    <p className="text-xs font-medium text-black/60 mb-1">Commande</p>
-                    <p className="text-sm font-semibold break-words">{productSummary(order)}</p>
-                  </div>
-                </div>
+          <OrderListTable
+            orders={visibleOrders}
+            onOpen={openDetails}
+            trailingHeader=""
+            trailing={(order) => (
+              <div className="flex max-w-[220px] flex-wrap gap-1">
                 <CrmButton
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPendingOrder(order);
-                  }}
+                  size="sm"
                   variant="success"
+                  onClick={() => setPendingOrder(order)}
                 >
-                  Confirmer la commande
+                  Confirmer
                 </CrmButton>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {(["injoignable", "refus", "a_rappeler"] as const).map((reason) => (
-                    <CrmButton
-                      key={reason}
-                      variant="ghost"
-                      size="sm"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onReason(order, reason);
-                        if (reason === "refus") setSelectedId(undefined);
-                      }}
-                    >
-                      {reason.replace("_", " ")}
-                    </CrmButton>
-                  ))}
-                </div>
-              </CrmCard>
-            ))}
-          </div>
+                {(["injoignable", "refus", "a_rappeler"] as const).map((reason) => (
+                  <CrmButton
+                    key={reason}
+                    variant={reason === "refus" ? "danger" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      onReason(order, reason);
+                      if (reason === "refus") setSelectedId(undefined);
+                    }}
+                  >
+                    {reason === "injoignable" ? "Injoignable" : reason === "a_rappeler" ? "À rappeler" : "Refus"}
+                  </CrmButton>
+                ))}
+              </div>
+            )}
+          />
         )}
       </CrmPanel>
 

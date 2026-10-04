@@ -4,6 +4,7 @@ import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderStatusLabels } from "@/lib/crm/types";
 import { orderStatusTones, neutralTone } from "@/lib/crm/option-colors";
 import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { OrderListTable } from "./OrderListTable";
 import { CrmPanel, CrmCard, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
@@ -99,89 +100,46 @@ export function CrmDelivery({
             <p className="mt-2 text-sm text-black/30">Les commandes confirmées apparaissent ici automatiquement.</p>
           </div>
         ) : view === "list" ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
-              <thead>
-                <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
-                  <th className="px-3 py-3">Référence</th>
-                  <th className="px-3 py-3">Client</th>
-                  <th className="px-3 py-3">Destination</th>
-                  <th className="px-3 py-3">Type</th>
-                  <th className="px-3 py-3">Suivi</th>
-                  <th className="px-3 py-3">Statut</th>
-                  <th className="px-3 py-3">Total</th>
-                  <th className="px-3 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-black/5">
-                    <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{orderRef(order)}</td>
-                    <td className="px-3 py-3 text-sm">
-                      <p>{order.clientName}</p>
-                      <p className="text-xs text-black/50">{order.phone}</p>
-                    </td>
-                    <td className="px-3 py-3 text-sm">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</td>
-                    <td className="px-3 py-3 text-sm">{order.deliveryType === "office" ? "Bureau" : "Domicile"}</td>
-                    <td className="px-3 py-3 text-sm">
-                      <p>{order.trackingNumber || "À créer"}</p>
-                      {order.yalidineStatus && (
-                        <p className="text-xs text-black/50">{order.yalidineStatus}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
-                    </td>
-                    <td className="px-3 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <CrmButton size="sm" variant="ghost" onClick={() => setSelectedId(order.id)}>
-                          Details
-                        </CrmButton>
-                        <CrmButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void printYalidineBordereau(order.id).catch(() => undefined);
-                          }}
-                        >
-                          Imprimer
-                        </CrmButton>
-                        <CrmButton
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void downloadYalidineBordereau(order.id, orderRef(order));
-                          }}
-                        >
-                          Telecharger
-                        </CrmButton>
-                        {!order.trackingNumber && (
-                          <CrmButton size="sm" onClick={() => onCreateParcel(order)}>Yalidine</CrmButton>
-                        )}
-                        {order.trackingNumber && onSyncParcel && (
-                          <CrmButton size="sm" variant="ghost" onClick={() => onSyncParcel(order)}>Sync</CrmButton>
-                        )}
-                        {order.status === "en_livraison" && (
-                          <>
-                            <CrmButton size="sm" variant="success" onClick={() => onDelivered(order)}>Livré</CrmButton>
-                            <CrmButton size="sm" variant="danger" onClick={() => onReturned(order)}>Retour</CrmButton>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OrderListTable
+            orders={visibleOrders}
+            onOpen={(order) => setSelectedId(order.id)}
+            trailingHeader="Actions"
+            trailing={(order) => (
+              <div className="flex max-w-[280px] flex-wrap gap-1">
+                <CrmButton size="sm" variant="ghost" onClick={() => setSelectedId(order.id)}>
+                  Détails
+                </CrmButton>
+                <CrmButton
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    void printYalidineBordereau(order.id).catch(() => undefined);
+                  }}
+                >
+                  Imprimer
+                </CrmButton>
+                {!order.trackingNumber && (
+                  <CrmButton size="sm" onClick={() => onCreateParcel(order)}>Yalidine</CrmButton>
+                )}
+                {order.trackingNumber && onSyncParcel && (
+                  <CrmButton size="sm" variant="ghost" onClick={() => onSyncParcel(order)}>Sync</CrmButton>
+                )}
+                {order.status === "en_livraison" && (
+                  <>
+                    <CrmButton size="sm" variant="success" onClick={() => onDelivered(order)}>Livré</CrmButton>
+                    <CrmButton size="sm" variant="danger" onClick={() => onReturned(order)}>Retour</CrmButton>
+                  </>
+                )}
+              </div>
+            )}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleOrders.map((order) => (
               <CrmCard key={order.id} className="p-5 overflow-hidden">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
-                    <h3 className="font-bold truncate">{orderRef(order)}</h3>
+                    <h3 className="max-w-[110px] truncate text-sm font-bold" title={orderRef(order)}>{orderRef(order)}</h3>
                     <p className="text-sm truncate">{order.clientName}</p>
                   </div>
                   <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />

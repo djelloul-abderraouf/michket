@@ -393,8 +393,8 @@ export const crmPlanchesApi = {
     apiClient.post<Planche>('/crm/production/planches', { capacity }),
   updateCapacity: (id: string, capacity: number) =>
     apiClient.put<Planche>(`/crm/production/planches/${id}/capacity`, { capacity }),
-  addOrders: (id: string, orderIds: string[]) =>
-    apiClient.post<Planche>(`/crm/production/planches/${id}/orders`, { orderIds }),
+  addOrders: (id: string, orderIds: string[], readOrderIds: string[] = []) =>
+    apiClient.post<Planche>(`/crm/production/planches/${id}/orders`, { orderIds, readOrderIds }),
   removeOrder: (id: string, orderId: string) =>
     apiClient.delete<Planche>(`/crm/production/planches/${id}/orders/${orderId}`),
   updateStatus: (id: string, status: Exclude<PlancheStatus, "en_attente">) =>

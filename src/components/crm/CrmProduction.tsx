@@ -6,6 +6,7 @@ import { crmPlanchesApi } from "@/lib/api-client";
 import {
   plancheStatusLabels,
   plancheStatuses,
+  orderKindLabels,
   type CrmRole,
   type Order,
   type OrderStatus,
@@ -13,7 +14,8 @@ import {
   type PlancheEvent,
   type PlancheStatus,
 } from "@/lib/crm/types";
-import { neutralTone, plancheEventTones, plancheStatusTones } from "@/lib/crm/option-colors";
+import { neutralTone, orderKindTones, plancheEventTones, plancheStatusTones } from "@/lib/crm/option-colors";
+import { confirmationRemarks } from "@/lib/crm/order-people";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { ColorChip, CrmColorSelect, PersonChip } from "./CrmColorSelect";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
@@ -76,6 +78,7 @@ export function CrmProduction({
   const [openPlancheId, setOpenPlancheId] = useState<string | undefined>();
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | undefined>();
 
   const openPlanche = planches.find((planche) => planche.id === openPlancheId);
@@ -178,9 +181,15 @@ export function CrmProduction({
   const remaining = openPlanche ? openPlanche.capacity - openPlanche.orders.length : 0;
 
   function togglePick(orderId: string) {
+    const order = orders.find((item) => item.id === orderId);
+    const remarks = order ? confirmationRemarks(order) : [];
     setPickedIds((current) => {
       if (current.includes(orderId)) {
         return current.filter((id) => id !== orderId);
+      }
+      if (remarks.length > 0 && !readIds.includes(orderId)) {
+        onToast?.("Confirmez avoir lu les remarques de confirmation avant d'ajouter cette commande.");
+        return current;
       }
       if (current.length >= remaining) {
         onToast?.(`Il reste ${remaining} place${remaining > 1 ? "s" : ""} sur cette planche.`);
@@ -621,9 +630,9 @@ export function CrmProduction({
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/50">
                   Ajouter des commandes confirmées
                 </h4>
-                <p className="text-sm text-black/55">
+                <p className="text-xs text-black/55">
                   {remaining > 0
-                    ? `${remaining} place${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}. Les commandes déjà choisies ne sont plus proposées.`
+                    ? `${remaining} place${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}. Lisez les remarques de confirmation avant d'ajouter une commande.`
                     : "Cette planche est complète."}
                 </p>
                 {remaining > 0 ? (
@@ -635,26 +644,66 @@ export function CrmProduction({
                       ) : (
                         availableOrders.map((order) => {
                           const checked = pickedIds.includes(order.id);
+                          const remarks = confirmationRemarks(order);
+                          const read = readIds.includes(order.id);
                           return (
-                            <label
+                            <div
                               key={order.id}
-                              className="flex cursor-pointer items-start gap-3 rounded-lg border border-black/10 bg-white p-3"
+                              className="rounded-lg border border-black/10 bg-white p-3"
                             >
-                              <input
-                                type="checkbox"
-                                className="mt-1"
-                                checked={checked}
-                                onChange={() => togglePick(order.id)}
-                              />
-                              <span className="min-w-0">
-                                <span className="block font-bold">{orderRef(order)}</span>
-                                <span className="block text-sm">{order.clientName}</span>
-                                <span className="block text-xs text-black/50">
-                                  {order.phone} · {order.wilaya}
+                              <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1"
+                                  checked={checked}
+                                  onChange={() => togglePick(order.id)}
+                                />
+                                <span className="min-w-0">
+                                  <span className="flex flex-wrap items-center gap-1.5">
+                                    <span className="max-w-[88px] truncate text-xs font-semibold" title={orderRef(order)}>
+                                      {orderRef(order)}
+                                    </span>
+                                    {order.orderKind ? (
+                                      <ColorChip label={orderKindLabels[order.orderKind]} tone={orderKindTones[order.orderKind]} />
+                                    ) : null}
+                                  </span>
+                                  <span className="mt-1 block text-xs">{order.clientName}</span>
+                                  <span className="block text-[11px] text-black/50">
+                                    {order.wilaya || "—"} · {order.commune || "—"}
+                                  </span>
+                                  <span className="mt-1 block text-[11px] text-black/60">{productSummary(order)}</span>
                                 </span>
-                                <span className="mt-1 block text-xs text-black/60">{productSummary(order)}</span>
-                              </span>
-                            </label>
+                              </label>
+                              {remarks.length > 0 ? (
+                                <div className="mt-2 space-y-1.5 border-t border-black/5 pt-2">
+                                  {remarks.map((remark) => (
+                                    <p key={remark.id} className="text-[11px] leading-relaxed text-black/70">
+                                      <span className="font-semibold">{remark.authorName} : </span>
+                                      {remark.body}
+                                    </p>
+                                  ))}
+                                  <label className="flex items-center gap-2 text-[11px] font-semibold text-black/70">
+                                    <input
+                                      type="checkbox"
+                                      checked={read}
+                                      onChange={() => {
+                                        setReadIds((current) =>
+                                          current.includes(order.id)
+                                            ? current.filter((id) => id !== order.id)
+                                            : [...current, order.id],
+                                        );
+                                        if (read) {
+                                          setPickedIds((current) => current.filter((id) => id !== order.id));
+                                        }
+                                      }}
+                                    />
+                                    J&apos;ai lu les remarques
+                                  </label>
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-[11px] text-black/40">Aucune remarque de confirmation.</p>
+                              )}
+                            </div>
                           );
                         })
                       )}
@@ -665,7 +714,7 @@ export function CrmProduction({
                       onClick={() => {
                         void run(
                           "add",
-                          () => crmPlanchesApi.addOrders(openPlanche.id, pickedIds),
+                          () => crmPlanchesApi.addOrders(openPlanche.id, pickedIds, readIds),
                           "Commandes ajoutées. Elles passent en fabrication.",
                           true,
                         ).then((updated) => {

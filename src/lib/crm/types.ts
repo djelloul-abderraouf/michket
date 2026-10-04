@@ -285,6 +285,7 @@ export interface OrderRemark {
   body: string;
   authorId: string;
   authorName: string;
+  authorRoles?: string[];
   createdAt: string;
 }
 

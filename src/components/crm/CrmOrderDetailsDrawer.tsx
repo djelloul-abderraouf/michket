@@ -28,6 +28,7 @@ import {
   orderStatusTones,
   sourceTones,
 } from "@/lib/crm/option-colors";
+import { confirmationRemarks, namesForStatus } from "@/lib/crm/order-people";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 import { crmDeliveryApi, crmOrdersApi } from "@/lib/api-client";
 import { ColorChip, CrmColorSelect, PersonChip } from "./CrmColorSelect";
@@ -80,6 +81,19 @@ function otherOrdersLabel(count: number) {
     return "1 autre commande avec ce numéro.";
   }
   return `${count} autres commandes avec ce numéro.`;
+}
+
+function PeopleLine({ label, names }: { label: string; names: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-28 shrink-0 text-[11px] text-black/45">{label}</span>
+      {names.length === 0 ? (
+        <span className="text-[11px] text-black/30">—</span>
+      ) : (
+        names.map((name) => <PersonChip key={`${label}-${name}`} name={name} />)
+      )}
+    </div>
+  );
 }
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -239,19 +253,10 @@ export function CrmOrderDetailsDrawer({
 
           <nav className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-white/95 py-1">
             {[
-              { id: "order-statut", label: "Statut" },
-              { id: "order-doublon", label: "Doublon" },
-              { id: "order-type", label: "Type" },
-              ...(order.campaignSlug || productLinks.length > 0 ? [{ id: "order-liens", label: "Liens" }] : []),
-              { id: "order-client", label: "Client" },
-              { id: "order-livraison", label: "Livraison" },
-              ...(canExportBordereau(order) || order.trackingNumber ? [{ id: "order-colis", label: "Colis" }] : []),
-              { id: "order-produits", label: "Produits" },
-              { id: "order-paiement", label: "Paiement" },
-              ...(order.notes || order.cancelReason ? [{ id: "order-notes", label: "Notes" }] : []),
-              { id: "order-tentatives", label: "Tentatives" },
-              { id: "order-remarques", label: "Remarques" },
-              { id: "order-historique", label: "Historique" },
+              { id: "order-commande", label: "Commande" },
+              { id: "order-client-block", label: "Client" },
+              { id: "order-articles", label: "Articles" },
+              { id: "order-suivi", label: "Suivi" },
             ].map((section) => (
               <button
                 key={section.id}
@@ -263,6 +268,8 @@ export function CrmOrderDetailsDrawer({
               </button>
             ))}
           </nav>
+
+          <div id="order-commande" className="scroll-mt-12 space-y-3">
 
           <Section id="order-statut" title="Statut de la commande">
             {showStatusSelect && onMove ? (
@@ -391,7 +398,9 @@ export function CrmOrderDetailsDrawer({
               </div>
             </Section>
           )}
+          </div>
 
+          <div id="order-client-block" className="scroll-mt-12 space-y-3">
           <div className="grid gap-4 md:grid-cols-2">
             <Section id="order-client" title="Client">
               <DetailRow label="Nom">
@@ -531,7 +540,9 @@ export function CrmOrderDetailsDrawer({
               )}
             </Section>
           ) : null}
+          </div>
 
+          <div id="order-articles" className="scroll-mt-12 space-y-3">
           <Section id="order-produits" title="Produits">
             {order.items.length === 0 ? (
               <p className="text-sm text-black/40">Aucun article.</p>
@@ -583,6 +594,30 @@ export function CrmOrderDetailsDrawer({
               {order.cancelReason ? <p className="text-sm text-rose-700">Motif : {order.cancelReason}</p> : null}
             </Section>
           )}
+          </div>
+
+          <div id="order-suivi" className="scroll-mt-12 space-y-3">
+          <Section id="order-equipe" title="Équipe">
+            <PeopleLine label="Confirmée par" names={namesForStatus(order, "confirme")} />
+            {confirmationRemarks(order).length === 0 ? (
+              <p className="text-[11px] text-black/40">Aucune remarque de confirmation.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {confirmationRemarks(order).map((item) => (
+                  <div key={item.id} className="rounded-lg bg-stone-50 px-2.5 py-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <PersonChip name={item.authorName} />
+                      <span className="text-[11px] text-black/40">{formatDate(item.createdAt)}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-black/70">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <PeopleLine label="Fabriquée par" names={namesForStatus(order, "en_fabrication")} />
+            <PeopleLine label="Préparée par" names={namesForStatus(order, "en_preparation")} />
+            <PeopleLine label="Envoyée par" names={namesForStatus(order, "en_livraison")} />
+          </Section>
 
           <Section id="order-tentatives" title="Tentatives de contact">
             <p className="text-xs font-semibold text-black/45">{attempts.length} / 5 tentatives</p>
@@ -727,6 +762,7 @@ export function CrmOrderDetailsDrawer({
               </div>
             )}
           </Section>
+          </div>
 
           {children}
         </div>
