@@ -965,12 +965,12 @@ export function CrmApp() {
       />
       <div
         className={cx(
-          "transition-all duration-300 min-h-screen flex-1 overflow-auto",
+          "min-w-0 max-w-full overflow-x-hidden transition-all duration-300 min-h-screen flex-1 overflow-y-auto",
           sidebarCollapsed ? "ml-16" : "ml-64",
         )}
         id="main-content"
       >
-        <div className="p-6 lg:p-8">
+        <div className="min-w-0 max-w-full p-6 lg:p-8">
           <div className="mb-6 rounded-lg border border-black/10 bg-white px-5 py-4 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1241,7 +1241,6 @@ export function CrmApp() {
 
           {canSeeActivePage && activePage === "stock" && (
             <CrmStock
-              products={products}
               canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
               onToast={setToast}
               onChanged={refreshStockAlerts}

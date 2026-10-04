@@ -38,6 +38,8 @@ import {
   productSummary,
 } from "./CrmUi";
 
+const PLANCHE_MAX = 100;
+
 const plancheEventLabels: Record<PlancheEvent["action"], string> = {
   created: "Création",
   status: "Statut",
@@ -77,8 +79,6 @@ export function CrmProduction({
   const [view, setView] = useState<"list" | "grid">("list");
   const [statusFilter, setStatusFilter] = useState<PlancheStatus | "all">("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [capacity, setCapacity] = useState("10");
-  const [capacityDraft, setCapacityDraft] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [openPlancheId, setOpenPlancheId] = useState<string | undefined>();
   const [pickerQuery, setPickerQuery] = useState("");
@@ -201,7 +201,7 @@ export function CrmProduction({
     }
   }
 
-  const remaining = openPlanche ? openPlanche.capacity - openPlanche.orders.length : 0;
+  const remaining = openPlanche ? Math.max(0, PLANCHE_MAX - openPlanche.orders.length) : 0;
 
   function togglePick(orderId: string) {
     const order = confirmedOrders.find((item) => item.id === orderId);
@@ -299,7 +299,7 @@ export function CrmProduction({
                 <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
                   <th className="px-2 py-2">Planche</th>
                   <th className="px-2 py-2">Statut</th>
-                  <th className="px-2 py-2">Places</th>
+                  <th className="px-2 py-2">Nombre</th>
                   <th className="px-2 py-2">Commandes</th>
                   <th className="px-2 py-2">Créée par</th>
                   <th className="px-2 py-2">Dernier suivi</th>
@@ -316,7 +316,6 @@ export function CrmProduction({
                         setOpenPlancheId(planche.id);
                         setPickedIds([]);
                         setPickerQuery("");
-                        setCapacityDraft(String(planche.capacity));
                       }}
                       className="cursor-pointer border-b border-black/5 hover:bg-black/[0.02]"
                     >
@@ -325,7 +324,7 @@ export function CrmProduction({
                         <ColorChip label={plancheStatusLabels[planche.status]} tone={plancheStatusTones[planche.status]} />
                       </td>
                       <td className="px-2 py-2 text-xs text-black/70">
-                        {planche.orders.length} / {planche.capacity}
+                        {planche.orders.length}
                       </td>
                       <td className="px-2 py-2 text-[11px] text-black/60">
                         <p className="line-clamp-2 max-w-[240px]">
@@ -361,7 +360,7 @@ export function CrmProduction({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visiblePlanches.map((planche) => {
               const filled = planche.orders.length;
-              const ratio = Math.min(100, Math.round((filled / planche.capacity) * 100));
+              const ratio = Math.min(100, Math.round((filled / PLANCHE_MAX) * 100));
               return (
                 <CrmCard
                   key={planche.id}
@@ -369,7 +368,6 @@ export function CrmProduction({
                     setOpenPlancheId(planche.id);
                     setPickedIds([]);
                     setPickerQuery("");
-                    setCapacityDraft(String(planche.capacity));
                   }}
                   className="cursor-pointer p-5 hover:shadow-md"
                 >
@@ -381,10 +379,7 @@ export function CrmProduction({
                     <ColorChip label={plancheStatusLabels[planche.status]} tone={plancheStatusTones[planche.status]} />
                   </div>
                   <div className="mt-4 flex items-center justify-between text-sm">
-                    <span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-semibold text-black/70">
-                      Capacité {planche.capacity}
-                    </span>
-                    <span className="font-semibold">{filled} / {planche.capacity}</span>
+                    <span className="font-semibold">{filled} commande{filled > 1 ? "s" : ""}</span>
                   </div>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10">
                     <div className={`h-full ${plancheStatusTones[planche.status].dot}`} style={{ width: `${ratio}%` }} />
@@ -417,35 +412,18 @@ export function CrmProduction({
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            const nextCapacity = Number(capacity);
-            if (!Number.isInteger(nextCapacity) || nextCapacity < 1 || nextCapacity > 100) {
-              onToast?.("Choisissez une capacité entre 1 et 100.");
-              return;
-            }
-            void run("create", () => crmPlanchesApi.create(nextCapacity), "Planche créée.").then((created) => {
+            void run("create", () => crmPlanchesApi.create(), "Planche créée.").then((created) => {
               if (created) {
                 setIsCreateOpen(false);
                 setOpenPlancheId(created.id);
-                setCapacityDraft(String(created.capacity));
                 setPickedIds([]);
               }
             });
           }}
         >
           <p className="text-sm text-black/60">
-            Indiquez combien de commandes cette planche peut recevoir. Vous pourrez encore ajuster ce nombre tant qu&apos;elle est en attente.
+            La planche reçoit les commandes confirmées au fur et à mesure, jusqu&apos;à {PLANCHE_MAX}. Aucun nombre à fixer.
           </p>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-black/50">
-            Capacité
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={capacity}
-            onChange={(event) => setCapacity(event.target.value)}
-            className="h-11 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
-          />
           <div className="flex gap-3">
             <CrmButton type="button" variant="ghost" className="flex-1" onClick={() => setIsCreateOpen(false)}>
               Annuler
@@ -470,12 +448,9 @@ export function CrmProduction({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-black/45">Taille</p>
                   <p className="mt-1 text-lg font-bold">
-                    {openPlanche.orders.length} / {openPlanche.capacity} commandes
+                    {openPlanche.orders.length} commande{openPlanche.orders.length > 1 ? "s" : ""}
                   </p>
                 </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-black/70">
-                  Capacité {openPlanche.capacity}
-                </span>
               </div>
               {openPlanche.createdByName ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-black/60">
@@ -520,49 +495,6 @@ export function CrmProduction({
                 {openPlanche.status === "terminee" && "Les commandes sont envoyées en préparation."}
               </p>
             </section>
-
-            {openPlanche.status === "en_attente" && canEdit ? (
-              <section className="space-y-3 rounded-xl border border-black/10 p-4">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/50">
-                  Capacité
-                </h4>
-                <p className="text-sm text-black/55">
-                  Ajustez le nombre de places. Il doit rester au moins égal aux commandes déjà posées.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min={openPlanche.orders.length || 1}
-                    max={100}
-                    value={capacityDraft}
-                    onChange={(event) => setCapacityDraft(event.target.value)}
-                    className="h-11 w-28 rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold"
-                  />
-                  <CrmButton
-                    type="button"
-                    disabled={busy === "capacity"}
-                    onClick={() => {
-                      const nextCapacity = Number(capacityDraft);
-                      if (!Number.isInteger(nextCapacity) || nextCapacity < 1 || nextCapacity > 100) {
-                        onToast?.("Choisissez une capacité entre 1 et 100.");
-                        return;
-                      }
-                      if (nextCapacity < openPlanche.orders.length) {
-                        onToast?.(`La planche contient déjà ${openPlanche.orders.length} commandes.`);
-                        return;
-                      }
-                      void run(
-                        "capacity",
-                        () => crmPlanchesApi.updateCapacity(openPlanche.id, nextCapacity),
-                        "Capacité mise à jour.",
-                      );
-                    }}
-                  >
-                    Enregistrer
-                  </CrmButton>
-                </div>
-              </section>
-            ) : null}
 
             <section className="space-y-3 rounded-xl border border-black/10 p-4">
               <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/50">Suivi</h4>
@@ -655,8 +587,8 @@ export function CrmProduction({
                 </h4>
                 <p className="text-xs text-black/55">
                   {remaining > 0
-                    ? `${remaining} place${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}. Les commandes confirmées apparaissent ici. Lisez la remarque du commercial avant d'ajouter.`
-                    : "Cette planche est complète."}
+                    ? "Les commandes déjà posées sur une planche n'apparaissent pas. Lisez la remarque du commercial avant d'ajouter."
+                    : `Cette planche a atteint ${PLANCHE_MAX} commandes.`}
                 </p>
                 {remaining > 0 ? (
                   <>

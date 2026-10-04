@@ -105,7 +105,7 @@ export function CrmDelivery({
             onOpen={(order) => setSelectedId(order.id)}
             trailingHeader="Actions"
             trailing={(order) => (
-              <div className="flex max-w-[280px] flex-wrap gap-1">
+              <div className="flex w-[220px] max-w-[220px] flex-wrap gap-1">
                 <CrmButton size="sm" variant="ghost" onClick={() => setSelectedId(order.id)}>
                   Détails
                 </CrmButton>

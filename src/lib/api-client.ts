@@ -389,8 +389,8 @@ export const crmProductionApi = {
 
 export const crmPlanchesApi = {
   getAll: () => apiClient.get<Planche[]>('/crm/production/planches'),
-  create: (capacity: number) =>
-    apiClient.post<Planche>('/crm/production/planches', { capacity }),
+  create: () =>
+    apiClient.post<Planche>('/crm/production/planches', {}),
   updateCapacity: (id: string, capacity: number) =>
     apiClient.put<Planche>(`/crm/production/planches/${id}/capacity`, { capacity }),
   addOrders: (id: string, orderIds: string[], readOrderIds: string[] = []) =>

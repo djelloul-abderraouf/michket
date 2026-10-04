@@ -113,7 +113,7 @@ export function CrmPanel({
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 max-w-full p-5">{children}</div>
     </section>
   );
 }

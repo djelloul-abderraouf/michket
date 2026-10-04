@@ -17,8 +17,8 @@ export function OrderListTable({
   trailing?: (order: Order) => ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[880px]">
+    <div className="max-w-full overflow-x-auto">
+      <table className="w-full min-w-[760px]">
         <thead>
           <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
             <th className="w-20 px-2 py-2">Réf.</th>
