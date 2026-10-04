@@ -67,6 +67,7 @@ export function CrmSidebar({
   activePage,
   onPageChange,
   followUpCounts,
+  stockAlertCount = 0,
   isCollapsed: externalCollapsed,
   onToggleCollapse,
 }: {
@@ -74,6 +75,7 @@ export function CrmSidebar({
   activePage: CrmPage;
   onPageChange?: (page: CrmPage) => void;
   followUpCounts?: Partial<Record<UnconfirmedBucket, number>>;
+  stockAlertCount?: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
@@ -158,7 +160,7 @@ export function CrmSidebar({
                       key={page.id}
                       onClick={() => onPageChange?.(page.id)}
                       className={cx(
-                        "flex items-center gap-3 rounded-lg text-sm font-semibold tracking-[0] transition-all",
+                        "relative flex items-center gap-3 rounded-lg text-sm font-semibold tracking-[0] transition-all",
                         activePage === page.id
                           ? "bg-black text-white shadow-md"
                           : "text-black/70 hover:bg-black/5 hover:text-black",
@@ -178,6 +180,12 @@ export function CrmSidebar({
                       )}
                       {!isCollapsed && page.id === "orders_archive" && followUpCounts?.archive != null && (
                         <span className={cx("rounded-full px-2 py-0.5 text-[10px]", activePage === page.id ? "bg-white/20" : "bg-black/10")}>{followUpCounts.archive}</span>
+                      )}
+                      {page.id === "stock" && stockAlertCount > 0 && (
+                        <span className={cx(
+                          "rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white",
+                          isCollapsed && "absolute -right-1 -top-1",
+                        )}>{stockAlertCount}</span>
                       )}
                     </button>
                   );

@@ -68,9 +68,11 @@ import {
   crmProductionApi,
   crmProductsApi,
   crmProposalsApi,
+  crmStockApi,
   crmTasksApi,
   crmUsersApi,
   mapApiUserToCrmUser,
+  type StockItem,
 } from "@/lib/api-client";
 
 function pageFromPath(pathname: string): CrmPage {
@@ -125,6 +127,7 @@ export function CrmApp() {
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [stockAlerts, setStockAlerts] = useState<StockItem[]>([]);
 
   const crmUser: CrmUser = useMemo(() => {
     if (!profile) {
@@ -318,6 +321,21 @@ export function CrmApp() {
 
   const userRoles = crmUser.roles;
   const canSeeActivePage = canAccessPage(userRoles, activePage);
+  const canSeeStock = canAccessPage(userRoles, "stock");
+
+  function refreshStockAlerts() {
+    if (!canSeeStock) {
+      setStockAlerts([]);
+      return;
+    }
+    void crmStockApi.listItems()
+      .then((items) => setStockAlerts(items.filter((item) => item.active && item.stockStatus !== "ok")))
+      .catch(() => undefined);
+  }
+
+  useEffect(() => {
+    refreshStockAlerts();
+  }, [canSeeStock, crmUser.id]);
   const selectedOrder =
     orders.find((order) => order.id === selectedOrderId) ||
     (orders.length > 0 ? orders[0] : undefined);
@@ -378,9 +396,27 @@ export function CrmApp() {
       .updateStatus(order.id, to, note)
       .then((updatedOrder) => {
         const mapped = normalizeOrder(updatedOrder);
+        const notice = (updatedOrder as {
+          stockNotice?: {
+            deducted: Array<{ name: string; quantity: number }>;
+            unmatched: string[];
+            alerts: Array<{ name: string; currentQuantity: number; stockStatus: "low" | "out" }>;
+          };
+        }).stockNotice;
         setOrders((current) => upsertOrder(current, mapped));
         setSelectedOrderId(order.id);
-        setToast(`Commande ${mapped.clientName}: ${orderStatusLabels[mapped.status]}`);
+        const parts = [`Commande ${mapped.clientName}: ${orderStatusLabels[mapped.status]}`];
+        if (notice?.deducted.length) {
+          parts.push(`Stock déduit: ${notice.deducted.map((row) => `${row.name} −${row.quantity}`).join(", ")}`);
+        }
+        if (notice?.alerts.length) {
+          parts.push(`Alerte: ${notice.alerts.map((row) => `${row.name} ${row.stockStatus === "out" ? "en rupture" : "proche de la rupture"} (${row.currentQuantity})`).join(", ")}`);
+        }
+        if (notice?.unmatched.length) {
+          parts.push(`Sans article de stock: ${notice.unmatched.join(", ")}`);
+        }
+        setToast(parts.join(". "));
+        refreshStockAlerts();
         void crmProductionApi.getAll().then(setProductionJobs).catch(() => undefined);
       })
       .catch((error) => {
@@ -923,6 +959,7 @@ export function CrmApp() {
           router.push(crmPagePaths[page]);
         }}
         followUpCounts={followUpCounts}
+        stockAlertCount={stockAlerts.length}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
@@ -956,6 +993,22 @@ export function CrmApp() {
               </div>
             </div>
           </div>
+
+          {canSeeStock && activePage !== "stock" && stockAlerts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => router.push(crmPagePaths.stock)}
+              className="mb-4 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left"
+            >
+              <p className="text-sm font-semibold text-amber-950">
+                {stockAlerts.filter((item) => item.stockStatus === "out").length} en rupture, {stockAlerts.filter((item) => item.stockStatus === "low").length} proche de la rupture
+              </p>
+              <p className="mt-1 text-xs text-amber-900">
+                {stockAlerts.slice(0, 8).map((item) => item.name).join(", ")}
+                {stockAlerts.length > 8 ? "…" : ""}
+              </p>
+            </button>
+          )}
 
           {!canSeeActivePage && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-800">
@@ -1191,6 +1244,7 @@ export function CrmApp() {
               products={products}
               canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
               onToast={setToast}
+              onChanged={refreshStockAlerts}
             />
           )}
 

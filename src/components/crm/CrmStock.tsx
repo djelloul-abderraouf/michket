@@ -34,7 +34,7 @@ const itemTypeTones: Record<StockItemType, OptionTone> = {
 
 const statusLabels: Record<StockStatus, string> = {
   ok: "OK",
-  low: "Stock bas",
+  low: "Proche de la rupture",
   out: "Rupture",
 };
 
@@ -90,10 +90,12 @@ export function CrmStock({
   products,
   canEdit,
   onToast,
+  onChanged,
 }: {
   products: Product[];
   canEdit: boolean;
   onToast: (message: string) => void;
+  onChanged?: () => void;
 }) {
   const [tab, setTab] = useState<TabId>("stock");
   const [items, setItems] = useState<StockItem[]>([]);
@@ -120,6 +122,7 @@ export function CrmStock({
     setManufacturingRecipes(nextManufacturing);
     setSalesRecipes(nextSales);
     setJobs(nextJobs);
+    onChanged?.();
   }
 
   useEffect(() => {
@@ -169,13 +172,33 @@ export function CrmStock({
         </div>
         <div className="flex gap-2 text-xs font-semibold">
           <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
-            {alerts.filter((item) => item.stockStatus === "low").length} stock bas
+            {alerts.filter((item) => item.stockStatus === "low").length} proche de la rupture
           </span>
           <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-800">
             {alerts.filter((item) => item.stockStatus === "out").length} rupture
           </span>
         </div>
       </div>
+
+      {alerts.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-amber-950">Alertes stock, avant la rupture</p>
+          <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+            {alerts
+              .slice()
+              .sort((a, b) => (a.stockStatus === b.stockStatus ? a.name.localeCompare(b.name) : a.stockStatus === "out" ? -1 : 1))
+              .map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-black/60">{formatQty(item.currentQuantity)} / min {formatQty(item.minQuantity > 0 ? item.minQuantity : 1)}</span>
+                    <ColorChip label={statusLabels[item.stockStatus]} tone={statusTones[item.stockStatus]} />
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1 rounded-xl border border-black/10 bg-white p-1">
         {tabs.map((item) => (
@@ -441,7 +464,7 @@ function StockPanel({
               Fermer
             </button>
           </div>
-          <p className="text-xs text-black/45 md:col-span-3">La quantité actuelle n'est pas saisie ici. Elle vient uniquement des mouvements.</p>
+          <p className="text-xs text-black/45 md:col-span-3">La quantité actuelle n'est pas saisie ici. Elle vient uniquement des mouvements. Le minimum déclenche l'alerte avant la rupture. S'il reste à 0, l'alerte part dès qu'il reste 1 pièce.</p>
         </div>
       )}
 
