@@ -400,6 +400,7 @@ export function CrmApp() {
           stockNotice?: {
             deducted: Array<{ name: string; quantity: number }>;
             unmatched: string[];
+            withoutRecipe?: string[];
             alerts: Array<{ name: string; currentQuantity: number; stockStatus: "low" | "out" }>;
           };
         }).stockNotice;
@@ -414,6 +415,9 @@ export function CrmApp() {
         }
         if (notice?.unmatched.length) {
           parts.push(`Sans article de stock: ${notice.unmatched.join(", ")}`);
+        }
+        if (notice?.withoutRecipe?.length) {
+          parts.push(`Pas de recette de vente: ${notice.withoutRecipe.join(", ")}`);
         }
         setToast(parts.join(". "));
         refreshStockAlerts();
@@ -1241,6 +1245,7 @@ export function CrmApp() {
 
           {canSeeActivePage && activePage === "stock" && (
             <CrmStock
+              products={products}
               canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
               onToast={setToast}
               onChanged={refreshStockAlerts}

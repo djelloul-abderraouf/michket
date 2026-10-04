@@ -13,6 +13,7 @@ import {
   type StockRecipe,
   type StockStatus,
 } from "@/lib/api-client";
+import type { Product } from "@/lib/crm/types";
 import type { OptionTone } from "@/lib/crm/option-colors";
 import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
 import { cx, formatDate } from "./CrmUi";
@@ -33,7 +34,7 @@ const itemTypeTones: Record<StockItemType, OptionTone> = {
 
 const statusLabels: Record<StockStatus, string> = {
   ok: "OK",
-  low: "Proche de la rupture",
+  low: "Stock bas",
   out: "Rupture",
 };
 
@@ -86,10 +87,12 @@ function errorMessage(error: unknown) {
 }
 
 export function CrmStock({
+  products,
   canEdit,
   onToast,
   onChanged,
 }: {
+  products: Product[];
   canEdit: boolean;
   onToast: (message: string) => void;
   onChanged?: () => void;
@@ -164,12 +167,12 @@ export function CrmStock({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Stock</h1>
           <p className="mt-1 text-sm text-black/55">
-            Chaque produit du catalogue est un article de stock. La quantité vient des mouvements. Une commande confirmée déduit le produit, ou les composants de sa recette de vente.
+            Matières, composants, semi-finis et produits finis. La quantité vient uniquement des mouvements. Une commande confirmée déduit la recette de vente, pas les matières déjà consommées à la fabrication.
           </p>
         </div>
         <div className="flex gap-2 text-xs font-semibold">
           <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
-            {alerts.filter((item) => item.stockStatus === "low").length} proche de la rupture
+            {alerts.filter((item) => item.stockStatus === "low").length} stock bas
           </span>
           <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-800">
             {alerts.filter((item) => item.stockStatus === "out").length} rupture
@@ -218,6 +221,7 @@ export function CrmStock({
       {!loading && tab === "stock" && (
         <StockPanel
           items={visibleItems}
+          products={products}
           canEdit={canEdit}
           search={search}
           setSearch={setSearch}
@@ -302,6 +306,7 @@ export function CrmStock({
 
 function StockPanel({
   items,
+  products,
   canEdit,
   search,
   setSearch,
@@ -313,6 +318,7 @@ function StockPanel({
   onError,
 }: {
   items: StockItem[];
+  products: Product[];
   canEdit: boolean;
   search: string;
   setSearch: (value: string) => void;
@@ -325,32 +331,58 @@ function StockPanel({
 }) {
   const [editing, setEditing] = useState<StockItem | null>(null);
   const [open, setOpen] = useState(false);
-  const [itemType, setItemType] = useState<StockItemType>("produit_fini");
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [itemType, setItemType] = useState<StockItemType>("composant");
   const [unit, setUnit] = useState("pcs");
   const [minQuantity, setMinQuantity] = useState("0");
+  const [catalogProductId, setCatalogProductId] = useState("");
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  function startCreate() {
+    setEditing(null);
+    setName("");
+    setCategory("");
+    setItemType("composant");
+    setUnit("pcs");
+    setMinQuantity("0");
+    setCatalogProductId("");
+    setActive(true);
+    setOpen(true);
+  }
+
   function startEdit(item: StockItem) {
     setEditing(item);
+    setName(item.name);
+    setCategory(item.category);
     setItemType(item.itemType);
     setUnit(item.unit);
     setMinQuantity(String(item.minQuantity));
+    setCatalogProductId(item.catalogProductId || "");
     setActive(item.active);
     setOpen(true);
   }
 
   async function save() {
-    if (!editing) return;
     setSaving(true);
     try {
-      await crmStockApi.updateItem(editing.id, {
+      const body = {
+        name: name.trim(),
+        category: category.trim(),
         itemType,
         unit: unit.trim() || "pcs",
         minQuantity: Number(minQuantity) || 0,
+        catalogProductId: catalogProductId || null,
         active,
-      });
-      await onSaved("Produit mis à jour.");
+      };
+      if (editing) {
+        await crmStockApi.updateItem(editing.id, body);
+        await onSaved("Article mis à jour.");
+      } else {
+        await crmStockApi.createItem(body);
+        await onSaved("Article ajouté. La quantité reste à 0 jusqu'au premier mouvement.");
+      }
       setOpen(false);
     } catch (error) {
       onError(error);
@@ -362,7 +394,7 @@ function StockPanel({
   return (
     <section className="space-y-3">
       <div className="grid gap-2 md:grid-cols-[1fr_180px_180px_auto]">
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" className={fieldClass} />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un article" className={fieldClass} />
         <CrmColorSelect
           ariaLabel="Filtrer par type d'article"
           value={typeFilter}
@@ -389,12 +421,17 @@ function StockPanel({
             })),
           ]}
         />
-        <span />
+        {canEdit ? (
+          <button type="button" onClick={startCreate} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white">
+            Ajouter un article
+          </button>
+        ) : <span />}
       </div>
 
-      {open && editing && canEdit && (
+      {open && canEdit && (
         <div className="grid gap-2 rounded-xl border border-black/10 bg-white p-3 md:grid-cols-3">
-          <p className="text-sm font-semibold md:col-span-3">{editing.name}</p>
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nom" className={fieldClass} />
+          <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Catégorie" className={fieldClass} />
           <CrmColorSelect
             ariaLabel="Type d'article"
             value={itemType}
@@ -407,19 +444,27 @@ function StockPanel({
           />
           <input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="Unité" className={fieldClass} />
           <input value={minQuantity} onChange={(event) => setMinQuantity(event.target.value)} type="number" min="0" step="0.001" placeholder="Stock minimum" className={fieldClass} />
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-            Actif
-          </label>
+          <select value={catalogProductId} onChange={(event) => setCatalogProductId(event.target.value)} className={fieldClass}>
+            <option value="">Pas lié à un produit du catalogue</option>
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>{product.name}</option>
+            ))}
+          </select>
+          {editing ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
+              Actif
+            </label>
+          ) : null}
           <div className="flex gap-2 md:col-span-3">
-            <button type="button" disabled={saving} onClick={() => void save()} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-40">
+            <button type="button" disabled={saving || !name.trim()} onClick={() => void save()} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-40">
               Enregistrer
             </button>
             <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-lg border border-black/15 px-4 text-sm">
               Fermer
             </button>
           </div>
-          <p className="text-xs text-black/45 md:col-span-3">Le nom et la catégorie viennent du produit. La quantité vient des mouvements. Le minimum déclenche l'alerte avant la rupture.</p>
+          <p className="text-xs text-black/45 md:col-span-3">Un article peut être une matière, un composant ou un produit. La quantité n'est pas saisie ici : elle vient des mouvements. Le lien catalogue sert seulement à retrouver l'article quand une commande est confirmée.</p>
         </div>
       )}
 
@@ -427,7 +472,7 @@ function StockPanel({
         <table className="w-full min-w-[860px] text-sm">
           <thead>
             <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
-              <th className="px-3 py-2">Produit</th>
+              <th className="px-3 py-2">Article</th>
               <th className="px-3 py-2">Catégorie</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Quantité</th>
@@ -438,7 +483,7 @@ function StockPanel({
           </thead>
           <tbody>
             {items.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-black/40">Aucun produit</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-black/40">Aucun article</td></tr>
             ) : items.map((item) => (
               <tr key={item.id} className="border-b border-black/5">
                 <td className="px-3 py-2">
@@ -527,7 +572,7 @@ function MovementsPanel({
       {canEdit && (
         <div className="grid gap-2 rounded-xl border border-black/10 bg-white p-3 md:grid-cols-5">
           <select value={itemId} onChange={(event) => setItemId(event.target.value)} className={fieldClass}>
-            <option value="">Produit</option>
+            <option value="">Article</option>
             {activeItems.map((item) => (
               <option key={item.id} value={item.id}>{item.name}</option>
             ))}
@@ -679,7 +724,7 @@ function RecipePanel({
         <h2 className="text-sm font-bold">{title}</h2>
         <p className="text-xs leading-5 text-black/55">{hint}</p>
         <select value={outputItemId} onChange={(event) => loadOutput(event.target.value)} className={fieldClass} disabled={!canEdit}>
-          <option value="">Produit</option>
+          <option value="">Article fabriqué ou vendu</option>
           {activeItems.map((item) => (
             <option key={item.id} value={item.id}>{item.name}</option>
           ))}
@@ -808,7 +853,7 @@ function ManufacturingPanel({
     <section className="space-y-3">
       <div className="grid gap-2 rounded-xl border border-black/10 bg-white p-3 md:grid-cols-4">
         <select value={outputItemId} onChange={(event) => { setOutputItemId(event.target.value); setPreview(null); }} className={fieldClass} disabled={!canEdit}>
-          <option value="">Produit à fabriquer</option>
+          <option value="">Article à fabriquer</option>
           {outputs.map((item) => (
             <option key={item.id} value={item.id}>{item.name}</option>
           ))}
@@ -844,7 +889,7 @@ function ManufacturingPanel({
           <thead>
             <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
               <th className="px-3 py-2">Référence</th>
-              <th className="px-3 py-2">Produit</th>
+              <th className="px-3 py-2">Article</th>
               <th className="px-3 py-2">Quantité</th>
               <th className="px-3 py-2">Statut</th>
               <th className="px-3 py-2">Par</th>
