@@ -25,6 +25,7 @@ import {
   CrmPopup,
   CrmSideDrawer,
   OrderSearchField,
+  ViewToggle,
   formatDate,
   orderRef,
   productSummary,
@@ -66,6 +67,7 @@ export function CrmProduction({
   const [planches, setPlanches] = useState<Planche[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<"list" | "grid">("list");
   const [statusFilter, setStatusFilter] = useState<PlancheStatus | "all">("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [capacity, setCapacity] = useState("10");
@@ -130,6 +132,7 @@ export function CrmProduction({
       .then((rows) => {
         if (active) {
           setPlanches(rows || []);
+          onOrdersRefresh?.();
         }
       })
       .catch((error) => {
@@ -237,15 +240,18 @@ export function CrmProduction({
       <CrmPanel
         title={`Planches (${visiblePlanches.length})`}
         actions={
-          <CrmAddButton
-            onClick={() => setIsCreateOpen(true)}
-            label="Nouvelle planche"
-            disabled={!canEdit}
-          />
+          <div className="flex items-center gap-2">
+            <ViewToggle view={view} onViewChange={setView} type="grid" />
+            <CrmAddButton
+              onClick={() => setIsCreateOpen(true)}
+              label="Nouvelle planche"
+              disabled={!canEdit}
+            />
+          </div>
         }
       >
-        <p className="mb-4 text-sm text-black/60">
-          La fabrication se fait par planche. La personne en fabrication choisit combien de commandes elle y met. Une commande choisie disparaît de la liste.
+        <p className="mb-4 text-xs text-black/55">
+          Seules les commandes confirmées entrent sur une planche. Dès qu&apos;une commande est ajoutée, elle passe en fabrication. Quand la planche est terminée, ses commandes partent en préparation.
         </p>
         {loading ? (
           <p className="py-8 text-center text-sm text-black/40">Chargement des planches...</p>
@@ -253,6 +259,71 @@ export function CrmProduction({
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune planche</p>
             <p className="mt-2 text-sm text-black/30">Créez une planche, puis ajoutez les commandes confirmées.</p>
+          </div>
+        ) : view === "list" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px]">
+              <thead>
+                <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
+                  <th className="px-2 py-2">Planche</th>
+                  <th className="px-2 py-2">Statut</th>
+                  <th className="px-2 py-2">Places</th>
+                  <th className="px-2 py-2">Commandes</th>
+                  <th className="px-2 py-2">Créée par</th>
+                  <th className="px-2 py-2">Dernier suivi</th>
+                  <th className="px-2 py-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiblePlanches.map((planche) => {
+                  const latest = planche.events?.[0];
+                  return (
+                    <tr
+                      key={planche.id}
+                      onClick={() => {
+                        setOpenPlancheId(planche.id);
+                        setPickedIds([]);
+                        setPickerQuery("");
+                        setCapacityDraft(String(planche.capacity));
+                      }}
+                      className="cursor-pointer border-b border-black/5 hover:bg-black/[0.02]"
+                    >
+                      <td className="px-2 py-2 text-xs font-semibold">{planche.reference}</td>
+                      <td className="px-2 py-2">
+                        <ColorChip label={plancheStatusLabels[planche.status]} tone={plancheStatusTones[planche.status]} />
+                      </td>
+                      <td className="px-2 py-2 text-xs text-black/70">
+                        {planche.orders.length} / {planche.capacity}
+                      </td>
+                      <td className="px-2 py-2 text-[11px] text-black/60">
+                        <p className="line-clamp-2 max-w-[240px]">
+                          {planche.orders.length
+                            ? planche.orders.map((order) => order.reference).join(", ")
+                            : "Aucune"}
+                        </p>
+                      </td>
+                      <td className="px-2 py-2">
+                        {planche.createdByName ? <PersonChip name={planche.createdByName} /> : <span className="text-[11px] text-black/40">—</span>}
+                      </td>
+                      <td className="px-2 py-2">
+                        {latest ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <ColorChip
+                              label={plancheEventLabels[latest.action] ?? latest.action}
+                              tone={plancheEventTones[latest.action] ?? neutralTone}
+                            />
+                            <PersonChip name={latest.actorName} />
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-black/40">—</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-[11px] text-black/50 whitespace-nowrap">{formatDate(planche.createdAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -397,7 +468,7 @@ export function CrmProduction({
                   void run(
                     "status",
                     () => crmPlanchesApi.updateStatus(openPlanche.id, next),
-                    next === "lancee" ? "Planche lancée." : "Planche terminée.",
+                    next === "lancee" ? "Planche lancée." : "Planche terminée. Les commandes sont en préparation.",
                     true,
                   );
                 }}
@@ -411,10 +482,10 @@ export function CrmProduction({
                     (status === "terminee" && openPlanche.status === "en_attente"),
                 }))}
               />
-              <p className="text-sm text-black/55">
-                {openPlanche.status === "en_attente" && "Ajoutez les commandes, puis lancez toute la planche."}
+              <p className="text-xs text-black/55">
+                {openPlanche.status === "en_attente" && "Les commandes ajoutées passent en fabrication. Lancez la planche quand l'atelier commence."}
                 {openPlanche.status === "lancee" && "Les commandes de cette planche sont en fabrication."}
-                {openPlanche.status === "terminee" && "Les commandes passent ensemble en préparation."}
+                {openPlanche.status === "terminee" && "Les commandes sont envoyées en préparation."}
               </p>
             </section>
 
@@ -531,7 +602,8 @@ export function CrmProduction({
                             void run(
                               `remove:${order.orderId}`,
                               () => crmPlanchesApi.removeOrder(openPlanche.id, order.orderId),
-                              "Commande retirée de la planche.",
+                              "Commande retirée. Elle revient en confirmé.",
+                              true,
                             )
                           }
                         >
@@ -547,7 +619,7 @@ export function CrmProduction({
             {openPlanche.status === "en_attente" && canEdit ? (
               <section className="space-y-3 rounded-xl border border-black/10 p-4">
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/50">
-                  Ajouter des commandes
+                  Ajouter des commandes confirmées
                 </h4>
                 <p className="text-sm text-black/55">
                   {remaining > 0
@@ -559,7 +631,7 @@ export function CrmProduction({
                     <OrderSearchField value={pickerQuery} onChange={setPickerQuery} placeholder="Rechercher une commande disponible..." />
                     <div className="max-h-72 space-y-2 overflow-auto">
                       {availableOrders.length === 0 ? (
-                        <p className="text-sm text-black/40">Aucune commande disponible.</p>
+                        <p className="text-xs text-black/40">Aucune commande confirmée disponible.</p>
                       ) : (
                         availableOrders.map((order) => {
                           const checked = pickedIds.includes(order.id);
@@ -594,7 +666,8 @@ export function CrmProduction({
                         void run(
                           "add",
                           () => crmPlanchesApi.addOrders(openPlanche.id, pickedIds),
-                          "Commandes ajoutées à la planche.",
+                          "Commandes ajoutées. Elles passent en fabrication.",
+                          true,
                         ).then((updated) => {
                           if (updated) {
                             setPickedIds([]);

@@ -82,20 +82,20 @@ function otherOrdersLabel(count: number) {
   return `${count} autres commandes avec ce numéro.`;
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-black/10 bg-white">
-      <div className="border-b border-black/8 bg-stone-50 px-4 py-2.5">
-        <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/50">{title}</h4>
+    <section id={id} className="scroll-mt-12 overflow-hidden rounded-xl border border-black/10 bg-white">
+      <div className="border-b border-black/8 bg-stone-50 px-3 py-2">
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.12em] text-black/45">{title}</h4>
       </div>
-      <div className="space-y-3 p-4">{children}</div>
+      <div className="space-y-2 p-3 text-xs">{children}</div>
     </section>
   );
 }
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-black/5 py-2 text-sm last:border-0 last:pb-0 first:pt-0">
+    <div className="flex items-start justify-between gap-3 border-b border-black/5 py-1.5 text-xs last:border-0 last:pb-0 first:pt-0">
       <span className="shrink-0 text-black/45">{label}</span>
       <div className="min-w-0 text-right font-medium text-black">{children}</div>
     </div>
@@ -208,36 +208,63 @@ export function CrmOrderDetailsDrawer({
       width="min(760px, 100vw)"
     >
       {order ? (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-black/10 bg-stone-50 p-4">
-            <div className="flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <div className="rounded-xl border border-black/10 bg-stone-50 p-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/40">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
                   {order.reference || orderRef(order)}
                 </p>
-                <h3 className="mt-1 text-2xl font-bold leading-tight">{order.clientName}</h3>
-                <p className="mt-1 text-sm text-black/55">{formatDate(order.createdAt)}</p>
+                <h3 className="mt-0.5 text-lg font-bold leading-tight">{order.clientName}</h3>
+                <p className="mt-0.5 text-[11px] text-black/50">{formatDate(order.createdAt)}</p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-black/40">Total</p>
-                <p className="text-2xl font-bold">{dzd.format(order.total)}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">Total</p>
+                <p className="text-lg font-bold">{dzd.format(order.total)}</p>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
+              <ColorChip label={duplicateStatusLabels[duplicateStatus]} tone={duplicateStatusTones[duplicateStatus]} />
               <ColorChip label={orderSourceLabels[order.source] || "Site e-com"} tone={sourceTones[order.source] || neutralTone} />
               <ColorChip
                 label={clientTypeLabel(order.clientType)}
                 tone={order.clientType ? clientTypeTones[order.clientType] : neutralTone}
               />
-              <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
-              <ColorChip label={duplicateStatusLabels[duplicateStatus]} tone={duplicateStatusTones[duplicateStatus]} />
               {order.orderKind ? (
                 <ColorChip label={orderKindLabels[order.orderKind]} tone={orderKindTones[order.orderKind]} />
               ) : null}
             </div>
           </div>
 
-          <Section title="Statut de la commande">
+          <nav className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-white/95 py-1">
+            {[
+              { id: "order-statut", label: "Statut" },
+              { id: "order-doublon", label: "Doublon" },
+              { id: "order-type", label: "Type" },
+              ...(order.campaignSlug || productLinks.length > 0 ? [{ id: "order-liens", label: "Liens" }] : []),
+              { id: "order-client", label: "Client" },
+              { id: "order-livraison", label: "Livraison" },
+              ...(canExportBordereau(order) || order.trackingNumber ? [{ id: "order-colis", label: "Colis" }] : []),
+              { id: "order-produits", label: "Produits" },
+              { id: "order-paiement", label: "Paiement" },
+              ...(order.notes || order.cancelReason ? [{ id: "order-notes", label: "Notes" }] : []),
+              { id: "order-tentatives", label: "Tentatives" },
+              { id: "order-remarques", label: "Remarques" },
+              { id: "order-historique", label: "Historique" },
+            ].map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="shrink-0 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-semibold text-black/70 hover:bg-michket-gold/40"
+              >
+                {section.label}
+              </button>
+            ))}
+          </nav>
+
+          <Section id="order-statut" title="Statut de la commande">
             {showStatusSelect && onMove ? (
               <CrmColorSelect
                 ariaLabel="Statut de la commande"
@@ -259,7 +286,7 @@ export function CrmOrderDetailsDrawer({
             )}
           </Section>
 
-          <Section title="Doublon">
+          <Section id="order-doublon" title="Doublon">
             <p className="text-sm text-black/70">{otherOrdersLabel(otherOrders)}</p>
             {canReviewDuplicate(roles) ? (
               <CrmColorSelect
@@ -306,7 +333,7 @@ export function CrmOrderDetailsDrawer({
             )}
           </Section>
 
-          <Section title="Type de commande">
+          <Section id="order-type" title="Type de commande">
             {canSetOrderKind(roles) ? (
               <CrmColorSelect
                 ariaLabel="Type de commande"
@@ -336,7 +363,7 @@ export function CrmOrderDetailsDrawer({
           </Section>
 
           {(order.campaignSlug || productLinks.length > 0) && (
-            <Section title="Liens">
+            <Section id="order-liens" title="Liens">
               {order.campaignSlug ? (
                 <a
                   href={storefrontHref(`/campagne/${encodeURIComponent(order.campaignSlug)}`)}
@@ -366,7 +393,7 @@ export function CrmOrderDetailsDrawer({
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Section title="Client">
+            <Section id="order-client" title="Client">
               <DetailRow label="Nom">
                 <span className="inline-flex items-center gap-1.5">
                   <User className="h-4 w-4 text-black/40" />
@@ -424,7 +451,7 @@ export function CrmOrderDetailsDrawer({
               )}
             </Section>
 
-            <Section title="Livraison">
+            <Section id="order-livraison" title="Livraison">
               <DetailRow label="Wilaya">
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 text-black/40" />
@@ -457,7 +484,7 @@ export function CrmOrderDetailsDrawer({
           </div>
 
           {canExportBordereau(order) || order.trackingNumber ? (
-            <Section title="Colis Yalidine">
+            <Section id="order-colis" title="Colis Yalidine">
               {canExportBordereau(order) && (
                 <div className="grid grid-cols-2 gap-2">
                   <CrmButton
@@ -505,7 +532,7 @@ export function CrmOrderDetailsDrawer({
             </Section>
           ) : null}
 
-          <Section title="Produits">
+          <Section id="order-produits" title="Produits">
             {order.items.length === 0 ? (
               <p className="text-sm text-black/40">Aucun article.</p>
             ) : (
@@ -536,7 +563,7 @@ export function CrmOrderDetailsDrawer({
             )}
           </Section>
 
-          <Section title="Paiement">
+          <Section id="order-paiement" title="Paiement">
             <DetailRow label="Méthode">
               {paymentMethodLabels[order.paymentMethod || "cod"] || (order.paymentMethod || "cod").toUpperCase()}
             </DetailRow>
@@ -551,13 +578,13 @@ export function CrmOrderDetailsDrawer({
           </Section>
 
           {(order.notes || order.cancelReason) && (
-            <Section title="Notes de commande">
+            <Section id="order-notes" title="Notes de commande">
               {order.notes ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{order.notes}</p> : null}
               {order.cancelReason ? <p className="text-sm text-rose-700">Motif : {order.cancelReason}</p> : null}
             </Section>
           )}
 
-          <Section title="Tentatives de contact">
+          <Section id="order-tentatives" title="Tentatives de contact">
             <p className="text-xs font-semibold text-black/45">{attempts.length} / 5 tentatives</p>
             {attempts.length === 0 ? (
               <p className="text-sm text-black/40">Aucune tentative enregistrée.</p>
@@ -605,7 +632,7 @@ export function CrmOrderDetailsDrawer({
             )}
           </Section>
 
-          <Section title="Remarques">
+          <Section id="order-remarques" title="Remarques">
             {remarks.length === 0 ? (
               <p className="text-sm text-black/40">Aucune remarque.</p>
             ) : (
@@ -667,7 +694,7 @@ export function CrmOrderDetailsDrawer({
             )}
           </Section>
 
-          <Section title="Historique">
+          <Section id="order-historique" title="Historique">
             {order.history.length === 0 ? (
               <p className="text-sm text-black/40">Aucun historique pour le moment.</p>
             ) : (
@@ -676,17 +703,24 @@ export function CrmOrderDetailsDrawer({
                   .slice()
                   .reverse()
                   .map((event) => (
-                    <div key={event.id} className="rounded-lg border border-black/8 bg-stone-50 p-3">
-                      <div className="flex items-center justify-between gap-2">
+                    <div key={event.id} className="rounded-lg border border-black/8 bg-stone-50 p-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {event.from ? (
+                          <ColorChip
+                            label={orderStatusLabels[event.from] || event.from}
+                            tone={orderStatusTones[event.from] || neutralTone}
+                          />
+                        ) : null}
+                        {event.from ? <span className="text-[11px] text-black/35">→</span> : null}
                         <ColorChip
                           label={orderStatusLabels[event.to] || event.to}
                           tone={orderStatusTones[event.to] || neutralTone}
                         />
-                        <p className="text-xs text-black/45">{formatDate(event.createdAt)}</p>
+                        <p className="ml-auto text-[11px] text-black/40">{formatDate(event.createdAt)}</p>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <PersonChip name={event.authorName} />
-                        {event.note ? <span className="text-xs text-black/55">{event.note}</span> : null}
+                        {event.note ? <span className="text-[11px] text-black/50">{event.note}</span> : null}
                       </div>
                     </div>
                   ))}

@@ -1136,11 +1136,11 @@ export function CrmApp() {
 
           {canSeeActivePage && activePage === "preparation" && (
             <CrmPreparation
-              orders={orders.filter((order) => order.status === "en_preparation" || order.status === "confirme")}
+              orders={orders.filter((order) => order.status === "en_preparation")}
               qualityChecked={qualityChecked}
               setQualityChecked={setQualityChecked}
               onValidate={validatePreparation}
-              canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison") || canChangeOrderStatus(userRoles, "confirme", "en_fabrication")}
+              canEdit={canChangeOrderStatus(userRoles, "en_preparation", "en_livraison")}
               onLoadOrder={loadOrderDetails}
               onToast={setToast}
               onCreateParcel={createParcel}

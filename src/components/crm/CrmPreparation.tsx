@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { orderStatusLabels } from "@/lib/crm/types";
-import { neutralTone, orderStatusTones } from "@/lib/crm/option-colors";
-import { CrmColorSelect } from "./CrmColorSelect";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmAddButton, CrmPopup, ViewToggle, OrderSearchField } from "./CrmUi";
+import { orderStatusTones } from "@/lib/crm/option-colors";
+import { ColorChip } from "./CrmColorSelect";
+import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 
@@ -36,12 +36,10 @@ export function CrmPreparation({
   onOrderUpdated?: (order: Order) => void;
   onMove?: (order: Order, to: OrderStatus, note?: string) => void;
 }) {
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [query, setQuery] = useState("");
   const [wilaya, setWilaya] = useState("all");
-  const [onlyConfirmed, setOnlyConfirmed] = useState<"all" | "confirme" | "en_preparation">("all");
   const wilayas = useMemo(
     () => Array.from(new Set(orders.map((order) => order.wilaya).filter(Boolean))).sort(),
     [orders],
@@ -49,11 +47,10 @@ export function CrmPreparation({
   const visibleOrders = useMemo(
     () =>
       orders.filter((order) => {
-        if (onlyConfirmed !== "all" && order.status !== onlyConfirmed) return false;
         if (wilaya !== "all" && order.wilaya !== wilaya) return false;
         return orderMatchesQuery(order, query);
       }),
-    [orders, query, wilaya, onlyConfirmed],
+    [orders, query, wilaya],
   );
   const selectedOrder = orders.find((order) => order.id === selectedId);
 
@@ -108,18 +105,20 @@ export function CrmPreparation({
       </div>
 
       <CrmPanel
-        title={`Preparation et confirmees (${visibleOrders.length})`}
+        title={`Préparation (${visibleOrders.length})`}
         actions={
           <div className="flex items-center gap-3">
             <CrmBadge variant="info">
               {orders.length} en attente
             </CrmBadge>
             <ViewToggle view={view} onViewChange={setView} type="grid" />
-            <CrmAddButton onClick={() => setIsPopupOpen(true)} label="Nouvelle préparation" />
           </div>
         }
       >
-        <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px_200px]">
+        <p className="mb-3 text-xs text-black/55">
+          Les commandes arrivent ici quand leur planche de fabrication est terminée.
+        </p>
+        <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px]">
           <OrderSearchField value={query} onChange={setQuery} />
           <select
             value={wilaya}
@@ -131,35 +130,26 @@ export function CrmPreparation({
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
-          <CrmColorSelect
-            ariaLabel="Filtrer par statut de préparation"
-            value={onlyConfirmed}
-            onChange={(value) => setOnlyConfirmed(value as "all" | "confirme" | "en_preparation")}
-            options={[
-              { value: "all", label: "Confirmées et en préparation", tone: neutralTone },
-              { value: "confirme", label: orderStatusLabels.confirme, tone: orderStatusTones.confirme },
-              { value: "en_preparation", label: orderStatusLabels.en_preparation, tone: orderStatusTones.en_preparation },
-            ]}
-          />
         </div>
         {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-lg font-semibold text-black/40">Aucune commande en préparation</p>
-            <p className="mt-2 text-sm text-black/30">
-              Les commandes terminées en fabrication apparaîtront ici
+            <p className="mt-2 text-xs text-black/30">
+              Terminez une planche en fabrication pour envoyer ses commandes ici.
             </p>
           </div>
         ) : view === "list" ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
-                  <th className="px-4 py-3">Référence</th>
-                  <th className="px-4 py-3">Client</th>
-                  <th className="px-4 py-3">Wilaya</th>
-                  <th className="px-4 py-3">Contenu</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Date</th>
+                <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
+                  <th className="px-2 py-2">Référence</th>
+                  <th className="px-2 py-2">Client</th>
+                  <th className="px-2 py-2">Wilaya</th>
+                  <th className="px-2 py-2">Contenu</th>
+                  <th className="px-2 py-2">Statut</th>
+                  <th className="px-2 py-2">Total</th>
+                  <th className="px-2 py-2">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,12 +159,15 @@ export function CrmPreparation({
                     onClick={() => openDetails(order)}
                     className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                   >
-                    <td className="px-4 py-3 text-sm font-bold">{orderRef(order)}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{order.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{order.wilaya}</td>
-                    <td className="px-4 py-3 text-sm text-black/70">{productSummary(order)}</td>
-                    <td className="px-4 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
-                    <td className="px-4 py-3 text-sm text-black/60">{formatDate(order.createdAt)}</td>
+                    <td className="px-2 py-2 text-xs font-semibold">{orderRef(order)}</td>
+                    <td className="px-2 py-2 text-xs text-black/70">{order.clientName}</td>
+                    <td className="px-2 py-2 text-xs text-black/60">{order.wilaya}</td>
+                    <td className="px-2 py-2 text-[11px] text-black/60">{productSummary(order)}</td>
+                    <td className="px-2 py-2">
+                      <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
+                    </td>
+                    <td className="px-2 py-2 text-xs font-semibold">{dzd.format(order.total)}</td>
+                    <td className="px-2 py-2 text-[11px] text-black/50">{formatDate(order.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -257,46 +250,6 @@ export function CrmPreparation({
           </CrmButton>
         )}
       </CrmOrderDetailsDrawer>
-
-      <CrmPopup
-        isOpen={isPopupOpen}
-        onClose={() => setIsPopupOpen(false)}
-        title="Nouvelle préparation"
-      >
-        <form className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Référence commande
-            </label>
-            <input
-              placeholder="CMD-XXX"
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
-              Notes de préparation
-            </label>
-            <textarea
-              placeholder="Instructions spéciales..."
-              className="h-24 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold resize-none"
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <CrmButton
-              type="button"
-              variant="ghost"
-              onClick={() => setIsPopupOpen(false)}
-              className="flex-1"
-            >
-              Annuler
-            </CrmButton>
-            <CrmButton type="submit" className="flex-1">
-              Ajouter à préparation
-            </CrmButton>
-          </div>
-        </form>
-      </CrmPopup>
     </div>
   );
 }

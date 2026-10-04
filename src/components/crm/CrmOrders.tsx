@@ -4,8 +4,6 @@ import { crmDeliveryApi, crmOrdersApi } from "@/lib/api-client";
 import { canCreateOrder } from "@/lib/crm/permissions";
 import {
   clientTypeLabel,
-  deliveryLabel,
-  itemPersonalization,
   orderSourceLabels,
   orderSources,
 } from "@/lib/crm/order-display";
@@ -482,23 +480,17 @@ export function CrmOrders(props: {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[2100px]">
+              <table className="w-full min-w-[920px]">
                 <thead>
-                  <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
-                    <th className="px-3 py-3">Référence</th>
-                    <th className="px-3 py-3">Origine</th>
-                    <th className="px-3 py-3">Client</th>
-                    <th className="px-3 py-3">Téléphone</th>
-                    <th className="px-3 py-3">Type</th>
-                    <th className="px-3 py-3">Wilaya / commune</th>
-                    <th className="px-3 py-3">Livraison</th>
-                    <th className="px-3 py-3">Produit</th>
-                    <th className="px-3 py-3">Suivi Yalidine</th>
-                    <th className="px-3 py-3">Statut</th>
-                    <th className="px-3 py-3">Doublon</th>
-                    <th className="px-3 py-3">Total</th>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Bordereau</th>
+                  <tr className="border-b border-black/10 text-left text-[10px] font-semibold uppercase tracking-wider text-black/45">
+                    <th className="px-2 py-2">Référence</th>
+                    <th className="px-2 py-2">Client</th>
+                    <th className="px-2 py-2">Statut</th>
+                    <th className="px-2 py-2">Doublon</th>
+                    <th className="px-2 py-2">Produit</th>
+                    <th className="px-2 py-2">Total</th>
+                    <th className="px-2 py-2">Date</th>
+                    <th className="px-2 py-2">Bordereau</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -511,61 +503,43 @@ export function CrmOrders(props: {
                       }}
                       className="border-b border-black/5 cursor-pointer transition hover:bg-black/[0.02]"
                     >
-                      <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{orderRef(order)}</td>
-                      <td className="px-3 py-3 text-sm whitespace-nowrap">
-                        {orderSourceLabels[order.source] || "Site e-com"}
-                      </td>
-                      <td className="px-3 py-3 text-sm">
-                        <p className="font-medium">{order.clientName}</p>
-                        <p className="text-xs text-black/50">
-                          {order.isExistingClient ? "Client existant" : "Nouveau client"}
+                      <td className="px-2 py-2 text-xs font-semibold whitespace-nowrap">{orderRef(order)}</td>
+                      <td className="px-2 py-2">
+                        <p className="text-xs font-medium">{order.clientName}</p>
+                        <p className="text-[11px] text-black/50">
+                          {order.phone}
+                          {order.wilaya ? ` · ${order.wilaya}` : ""}
+                          {order.commune ? ` · ${order.commune}` : ""}
+                        </p>
+                        <p className="text-[11px] text-black/40">
+                          {orderSourceLabels[order.source] || "Site e-com"}
+                          {" · "}
+                          {clientTypeLabel(order.clientType)}
                           {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
                           {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
                         </p>
                       </td>
-                      <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">{order.phone}</td>
-                      <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">
-                        {clientTypeLabel(order.clientType)}
-                      </td>
-                      <td className="px-3 py-3 text-sm text-black/70">
-                        {order.wilaya}
-                        {order.commune ? ` · ${order.commune}` : ""}
-                      </td>
-                      <td className="px-3 py-3 text-sm text-black/70">
-                        <p>{deliveryLabel(order)}</p>
-                        {order.deliveryType !== "office" && order.addressLine1 && (
-                          <p className="text-xs text-black/50 truncate max-w-[180px]">{order.addressLine1}</p>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-sm text-black/70">
-                        <p className="truncate max-w-[220px]">{productSummary(order)}</p>
-                        {order.items.some((item) => item.colorName || itemPersonalization(item)) && (
-                          <p className="text-xs text-black/50 truncate max-w-[220px]">
-                            {order.items
-                              .map((item) => [item.colorName, itemPersonalization(item)].filter(Boolean).join(" · "))
-                              .filter(Boolean)
-                              .join(" | ")}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-sm text-black/70">
-                        <p className="font-medium truncate max-w-[160px]">{order.trackingNumber || "—"}</p>
-                        {order.yalidineStatus && (
-                          <p className="text-xs text-black/50 truncate max-w-[160px]">{order.yalidineStatus}</p>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
+                      <td className="px-2 py-2">
                         <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-2 py-2">
                         <ColorChip
                           label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
                           tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
                         />
                       </td>
-                      <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{dzd.format(order.total)}</td>
-                      <td className="px-3 py-3 text-sm text-black/60 whitespace-nowrap">{formatDate(order.createdAt)}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-2 py-2 text-[11px] text-black/70">
+                        <p className="line-clamp-2 max-w-[220px]">{productSummary(order)}</p>
+                        {order.trackingNumber ? (
+                          <p className="mt-0.5 text-[11px] text-black/40">
+                            {order.trackingNumber}
+                            {order.yalidineStatus ? ` · ${order.yalidineStatus}` : ""}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-2 py-2 text-xs font-semibold whitespace-nowrap">{dzd.format(order.total)}</td>
+                      <td className="px-2 py-2 text-[11px] text-black/50 whitespace-nowrap">{formatDate(order.createdAt)}</td>
+                      <td className="px-2 py-2">
                         <BordereauButtons order={order} compact />
                       </td>
                     </tr>
@@ -586,10 +560,10 @@ export function CrmOrders(props: {
               const columnValue = columnOrders.reduce((sum, order) => sum + order.total, 0);
               return (
                 <div key={status} className="w-[260px] shrink-0 rounded-xl border border-black/10 bg-white shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between border-b border-black/10 px-3 py-3">
+                  <div className="flex items-center justify-between border-b border-black/10 px-2.5 py-2">
                     <div className="min-w-0">
-                      <h2 className="text-sm font-bold truncate">{orderStatusLabels[status]}</h2>
-                      <p className="text-xs text-black/55">{dzd.format(columnValue)}</p>
+                      <ColorChip label={orderStatusLabels[status]} tone={orderStatusTones[status]} />
+                      <p className="mt-1 text-[11px] text-black/45">{dzd.format(columnValue)}</p>
                     </div>
                     <span className="ml-2 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-black px-2 text-xs font-bold text-white">
                       {columnOrders.length}
