@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { orderStatusLabels } from "@/lib/crm/types";
+import { neutralTone, orderStatusTones } from "@/lib/crm/option-colors";
+import { CrmColorSelect } from "./CrmColorSelect";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, CrmAddButton, CrmPopup, ViewToggle, OrderSearchField } from "./CrmUi";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
@@ -129,15 +131,16 @@ export function CrmPreparation({
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
-          <select
+          <CrmColorSelect
+            ariaLabel="Filtrer par statut de préparation"
             value={onlyConfirmed}
-            onChange={(event) => setOnlyConfirmed(event.target.value as "all" | "confirme" | "en_preparation")}
-            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
-          >
-            <option value="all">Confirmees et en preparation</option>
-            <option value="confirme">Confirmees</option>
-            <option value="en_preparation">En preparation</option>
-          </select>
+            onChange={(value) => setOnlyConfirmed(value as "all" | "confirme" | "en_preparation")}
+            options={[
+              { value: "all", label: "Confirmées et en préparation", tone: neutralTone },
+              { value: "confirme", label: orderStatusLabels.confirme, tone: orderStatusTones.confirme },
+              { value: "en_preparation", label: orderStatusLabels.en_preparation, tone: orderStatusTones.en_preparation },
+            ]}
+          />
         </div>
         {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">

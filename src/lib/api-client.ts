@@ -13,6 +13,8 @@ import type {
   Order,
   OrderKind,
   OrderStatus,
+  Planche,
+  PlancheStatus,
   Product,
   ProductionJob,
   ProductionStatus,
@@ -301,6 +303,8 @@ export const crmOrdersApi = {
     apiClient.put<Order>(`/crm/orders/${id}/phone`, { phone }),
   updateKind: (id: string, orderKind: OrderKind) =>
     apiClient.put<Order>(`/crm/orders/${id}/kind`, { orderKind }),
+  updateDuplicate: (id: string, review: 'unique' | 'verifie' | 'auto') =>
+    apiClient.put<Order>(`/crm/orders/${id}/duplicate`, { review }),
   addRemark: (id: string, body: string) =>
     apiClient.post<Order>(`/crm/orders/${id}/remarks`, { body }),
   deleteRemark: (id: string, remarkId: string) =>
@@ -381,6 +385,20 @@ export const crmProductionApi = {
   }) => apiClient.post<ProductionJob>('/crm/production', data),
   update: (id: string, data: Partial<ProductionJob>) =>
     apiClient.put<ProductionJob>(`/crm/production/${id}`, data),
+};
+
+export const crmPlanchesApi = {
+  getAll: () => apiClient.get<Planche[]>('/crm/production/planches'),
+  create: (capacity: number) =>
+    apiClient.post<Planche>('/crm/production/planches', { capacity }),
+  updateCapacity: (id: string, capacity: number) =>
+    apiClient.put<Planche>(`/crm/production/planches/${id}/capacity`, { capacity }),
+  addOrders: (id: string, orderIds: string[]) =>
+    apiClient.post<Planche>(`/crm/production/planches/${id}/orders`, { orderIds }),
+  removeOrder: (id: string, orderId: string) =>
+    apiClient.delete<Planche>(`/crm/production/planches/${id}/orders/${orderId}`),
+  updateStatus: (id: string, status: Exclude<PlancheStatus, "en_attente">) =>
+    apiClient.put<Planche>(`/crm/production/planches/${id}/status`, { status }),
 };
 
 export const crmTasksApi = {

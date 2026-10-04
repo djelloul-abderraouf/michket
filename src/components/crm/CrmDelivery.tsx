@@ -2,16 +2,11 @@ import { useMemo, useState } from "react";
 import type { CrmRole, Order, OrderStatus } from "@/lib/crm/types";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderStatusLabels } from "@/lib/crm/types";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
+import { orderStatusTones, neutralTone } from "@/lib/crm/option-colors";
+import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { CrmPanel, CrmCard, CrmButton, dzd, formatDate, productSummary, orderRef, ViewToggle, OrderSearchField } from "./CrmUi";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
-
-function statusVariant(order: Order) {
-  if (order.status === "livre") return "success" as const;
-  if (order.status === "retour_echec") return "danger" as const;
-  if (order.status === "confirme") return "warning" as const;
-  return "info" as const;
-}
 
 export function CrmDelivery({
   orders,
@@ -79,17 +74,18 @@ export function CrmDelivery({
       <CrmPanel className="!p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_220px]">
           <OrderSearchField value={query} onChange={setQuery} placeholder="Rechercher client, telephone, suivi, remarque..." />
-          <select
+          <CrmColorSelect
+            ariaLabel="Filtrer par statut de livraison"
             value={status}
-            onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)}
-            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="confirme">Confirme</option>
-            <option value="en_livraison">En livraison</option>
-            <option value="livre">Livre</option>
-            <option value="retour_echec">Retour</option>
-          </select>
+            onChange={(value) => setStatus(value as "all" | OrderStatus)}
+            options={[
+              { value: "all", label: "Tous les statuts", tone: neutralTone },
+              { value: "confirme", label: orderStatusLabels.confirme, tone: orderStatusTones.confirme },
+              { value: "en_livraison", label: orderStatusLabels.en_livraison, tone: orderStatusTones.en_livraison },
+              { value: "livre", label: orderStatusLabels.livre, tone: orderStatusTones.livre },
+              { value: "retour_echec", label: orderStatusLabels.retour_echec, tone: orderStatusTones.retour_echec },
+            ]}
+          />
         </div>
       </CrmPanel>
 
@@ -134,7 +130,7 @@ export function CrmDelivery({
                       )}
                     </td>
                     <td className="px-3 py-3">
-                      <CrmBadge variant={statusVariant(order)}>{orderStatusLabels[order.status]}</CrmBadge>
+                      <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
                     </td>
                     <td className="px-3 py-3 text-sm font-bold">{dzd.format(order.total)}</td>
                     <td className="px-3 py-3">
@@ -188,7 +184,7 @@ export function CrmDelivery({
                     <h3 className="font-bold truncate">{orderRef(order)}</h3>
                     <p className="text-sm truncate">{order.clientName}</p>
                   </div>
-                  <CrmBadge variant={statusVariant(order)}>{orderStatusLabels[order.status]}</CrmBadge>
+                  <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
                 </div>
                 <p className="text-sm text-black/70">{order.phone}</p>
                 <p className="text-sm text-black/70">{order.wilaya} · {order.commune || "-"}</p>

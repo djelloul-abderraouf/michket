@@ -389,38 +389,6 @@ export function CrmApp() {
     return true;
   }
 
-  function startProduction(job: ProductionJob) {
-    crmProductionApi
-      .update(job.id, { status: "en_cours" })
-      .then((updated) => {
-        setProductionJobs((current) =>
-          current.map((item) => (item.id === job.id ? updated : item)),
-        );
-        setToast(`${job.orderRef}: production demarree`);
-      })
-      .catch((error) => {
-        setToast(error instanceof Error ? error.message : "Erreur production");
-      });
-  }
-
-  function finishProduction(job: ProductionJob) {
-    crmProductionApi
-      .update(job.id, { status: "termine" })
-      .then((updated) => {
-        setProductionJobs((current) =>
-          current.map((item) => (item.id === job.id ? updated : item)),
-        );
-        const relatedOrder = orders.find((order) => order.id === job.orderId);
-        if (relatedOrder) {
-          moveOrder(relatedOrder, "en_preparation", "Production terminee");
-        }
-        setToast(`${job.orderRef}: production terminee`);
-      })
-      .catch((error) => {
-        setToast(error instanceof Error ? error.message : "Erreur production");
-      });
-  }
-
   function validatePreparation(order: Order) {
     if (!qualityChecked) {
       setToast("Controle qualite obligatoire avant expedition.");
@@ -1148,11 +1116,8 @@ export function CrmApp() {
 
           {canSeeActivePage && activePage === "production" && (
             <CrmProduction
-              jobs={productionJobs}
               orders={orders}
               canEdit={canChangeOrderStatus(userRoles, "confirme", "en_fabrication")}
-              onStart={startProduction}
-              onFinish={finishProduction}
               onLoadOrder={loadOrderDetails}
               onToast={setToast}
               onCreateParcel={createParcel}
@@ -1161,6 +1126,11 @@ export function CrmApp() {
               currentUserId={crmUser.id}
               onOrderUpdated={applyOrderUpdate}
               onMove={moveOrder}
+              onOrdersRefresh={() => {
+                void crmOrdersApi.getAll({ limit: 100 }).then((page) => {
+                  setOrders((page.data || []).map(normalizeOrder));
+                });
+              }}
             />
           )}
 

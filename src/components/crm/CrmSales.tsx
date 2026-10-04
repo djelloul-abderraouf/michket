@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { dealStageLabels, dealStages, type Company, type Contact, type Deal } from "@/lib/crm/types";
+import { dealStageTones, neutralTone, personTone } from "@/lib/crm/option-colors";
+import { CrmColorSelect } from "./CrmColorSelect";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, CrmAddButton, CrmPopup, ViewToggle, CrmSideDrawer } from "./CrmUi";
 
 const stageColors: Record<Deal["stage"], string> = {
@@ -222,19 +224,16 @@ export function CrmSales({
                         </div>
 
                         <div className="mt-3 pt-3 border-t border-black/10">
-                          <select
+                          <CrmColorSelect
+                            ariaLabel="Étape de l'affaire"
                             value={deal.stage}
-                            onChange={(event) =>
-                              onStage(deal, event.target.value as Deal["stage"])
-                            }
-                            className="h-9 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold bg-white"
-                          >
-                            {dealStages.map((item) => (
-                              <option key={item} value={item}>
-                                {dealStageLabels[item]}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(value) => onStage(deal, value as Deal["stage"])}
+                            options={dealStages.map((item) => ({
+                              value: item,
+                              label: dealStageLabels[item],
+                              tone: dealStageTones[item],
+                            }))}
+                          />
                         </div>
 
                         <div className="mt-2 space-y-2">
@@ -310,35 +309,37 @@ export function CrmSales({
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Contact
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Contact"
               value={newDealContactId}
-              onChange={(event) => setNewDealContactId(event.target.value)}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            >
-              <option value="">Aucun contact</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                </option>
-              ))}
-            </select>
+              onChange={setNewDealContactId}
+              options={[
+                { value: "", label: "Aucun contact", tone: neutralTone },
+                ...contacts.map((contact) => ({
+                  value: contact.id,
+                  label: `${contact.firstName} ${contact.lastName}`,
+                  tone: personTone(contact.id),
+                })),
+              ]}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Entreprise
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Entreprise"
               value={newDealCompanyId}
-              onChange={(event) => setNewDealCompanyId(event.target.value)}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            >
-              <option value="">Aucune entreprise</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
+              onChange={setNewDealCompanyId}
+              options={[
+                { value: "", label: "Aucune entreprise", tone: neutralTone },
+                ...companies.map((company) => ({
+                  value: company.id,
+                  label: company.name,
+                  tone: personTone(company.id),
+                })),
+              ]}
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <CrmButton
@@ -394,19 +395,16 @@ export function CrmSales({
               <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-black/60">
                 Changer d'étape
               </h4>
-              <select
+              <CrmColorSelect
+                ariaLabel="Changer d'étape"
                 value={selectedDeal.stage}
-                onChange={(event) =>
-                  onStage(selectedDeal, event.target.value as Deal["stage"])
-                }
-                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-              >
-                {dealStages.map((item) => (
-                  <option key={item} value={item}>
-                    {dealStageLabels[item]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => onStage(selectedDeal, value as Deal["stage"])}
+                options={dealStages.map((item) => ({
+                  value: item,
+                  label: dealStageLabels[item],
+                  tone: dealStageTones[item],
+                }))}
+              />
             </div>
 
             <div>

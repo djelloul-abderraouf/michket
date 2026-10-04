@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Phone, MessageSquare, MapPin } from "lucide-react";
 import type { Activity } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup } from "./CrmUi";
+import { activityTones } from "@/lib/crm/option-colors";
+import { CrmColorSelect } from "./CrmColorSelect";
 
 const activityIcons: Record<Activity["type"], React.ComponentType<{ className?: string }>> = {
   appel: Phone,
@@ -155,15 +157,16 @@ export function CrmActivities(props: {
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Type d'activité
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Type d'activité"
               value={newActivity.type}
-              onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value as Activity["type"] })}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            >
-              <option value="appel">Appel téléphonique</option>
-              <option value="message">Message</option>
-              <option value="visite">Visite</option>
-            </select>
+              onChange={(value) => setNewActivity({ ...newActivity, type: value as Activity["type"] })}
+              options={[
+                { value: "appel", label: "Appel téléphonique", tone: activityTones.appel },
+                { value: "message", label: "Message", tone: activityTones.message },
+                { value: "visite", label: "Visite", tone: activityTones.visite },
+              ]}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">

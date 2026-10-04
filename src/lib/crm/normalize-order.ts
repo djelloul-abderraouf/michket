@@ -1,4 +1,4 @@
-import { orderKinds, orderStatuses, type Order, type OrderKind, type OrderSource, type OrderStatus } from "@/lib/crm/types";
+import { duplicateStatuses, orderKinds, orderStatuses, type DuplicateStatus, type Order, type OrderKind, type OrderSource, type OrderStatus } from "@/lib/crm/types";
 import { personalizationText } from "@/lib/crm/order-display";
 
 function normalizeSource(value: unknown): OrderSource {
@@ -26,6 +26,19 @@ function normalizeStatus(status: unknown): OrderStatus {
   return fromDb[String(status || "")] || "pas_confirme";
 }
 
+function normalizeDuplicate(order: any): DuplicateStatus {
+  if (typeof order.duplicateStatus === "string" && duplicateStatuses.includes(order.duplicateStatus as DuplicateStatus)) {
+    return order.duplicateStatus as DuplicateStatus;
+  }
+  if (order.duplicateReview === "verifie") {
+    return "verifie";
+  }
+  if (order.duplicateReview === "unique") {
+    return "unique";
+  }
+  return Number(order.previousOrderCount ?? 0) > 0 ? "a_verifier" : "unique";
+}
+
 export function normalizeOrder(order: any): Order {
   return {
     id: order.id,
@@ -44,6 +57,13 @@ export function normalizeOrder(order: any): Order {
       : null,
     isExistingClient: Boolean(order.isExistingClient),
     previousOrderCount: Number(order.previousOrderCount ?? 0),
+    duplicateStatus: normalizeDuplicate(order),
+    duplicateReview: order.duplicateReview === "unique" || order.duplicateReview === "verifie"
+      ? order.duplicateReview
+      : null,
+    duplicateReviewedById: order.duplicateReviewedById || null,
+    duplicateReviewedByName: order.duplicateReviewedByName || null,
+    duplicateReviewedAt: order.duplicateReviewedAt || null,
     contactId: order.contactId,
     wilaya: order.wilaya || order.wilayaName || "",
     wilayaCode: order.wilayaCode,

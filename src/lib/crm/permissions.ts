@@ -100,6 +100,10 @@ export function canSetOrderKind(userRoles: CrmRole[]) {
   return hasAnyRole(userRoles, ["admin", "commercial"]);
 }
 
+export function canReviewDuplicate(userRoles: CrmRole[]) {
+  return hasAnyRole(userRoles, ["admin", "commercial", "confirmation"]);
+}
+
 export function canManageRemarks(userRoles: CrmRole[]) {
   return hasAnyRole(userRoles, ["admin", "commercial", "livraison", "confirmation", "fabrication", "preparation"]);
 }

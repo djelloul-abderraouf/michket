@@ -1,13 +1,15 @@
 import { useState } from "react";
 import type { CrmTask, CrmUser } from "@/lib/crm/types";
 import { User, Calendar, Check, Square } from "lucide-react";
-import { CrmPanel, CrmCard, CrmBadge, CrmButton, formatDate, CrmAddButton, CrmPopup, CrmSideDrawer } from "./CrmUi";
+import { priorityTones } from "@/lib/crm/option-colors";
+import { ColorChip, CrmColorSelect, PersonChip } from "./CrmColorSelect";
+import { CrmPanel, CrmCard, CrmButton, formatDate, CrmAddButton, CrmPopup, CrmSideDrawer } from "./CrmUi";
 
-const priorityConfig: Record<CrmTask["priority"], { variant: any; color: string }> = {
-  basse: { variant: "default" as const, color: "bg-gray-400" },
-  normale: { variant: "info" as const, color: "bg-blue-500" },
-  haute: { variant: "warning" as const, color: "bg-amber-500" },
-  urgente: { variant: "danger" as const, color: "bg-rose-600" },
+const priorityLabels: Record<CrmTask["priority"], string> = {
+  basse: "Basse",
+  normale: "Normale",
+  haute: "Haute",
+  urgente: "Urgente",
 };
 
 export function CrmTasks({
@@ -104,17 +106,15 @@ export function CrmTasks({
                       <h3 className={`font-bold text-base ${task.done ? "line-through text-black/50" : ""}`}>
                         {task.title}
                       </h3>
-                      <CrmBadge variant={priorityConfig[task.priority].variant}>
-                        {task.priority}
-                      </CrmBadge>
+                      <ColorChip label={priorityLabels[task.priority]} tone={priorityTones[task.priority]} />
                       {task.done && (
-                        <CrmBadge variant="success">Terminée</CrmBadge>
+                        <ColorChip label="Terminée" tone={{ dot: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-800" }} />
                       )}
                     </div>
                     <div className="space-y-1 text-sm">
                       <div className="flex items-center gap-2 text-black/70">
                         <User className="h-4 w-4" />
-                        <span className="font-medium">{task.assigneeName}</span>
+                        <PersonChip name={task.assigneeName} />
                       </div>
                       <div className="flex items-center gap-2 text-black/60">
                         <Calendar className="h-4 w-4" />
@@ -185,16 +185,17 @@ export function CrmTasks({
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Priorité
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Priorité"
               value={taskPriority}
-              onChange={(event) => setTaskPriority(event.target.value as CrmTask["priority"])}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-            >
-              <option value="basse">Basse</option>
-              <option value="normale">Normale</option>
-              <option value="haute">Haute</option>
-              <option value="urgente">Urgente</option>
-            </select>
+              onChange={(value) => setTaskPriority(value as CrmTask["priority"])}
+              options={[
+                { value: "basse", label: "Basse", tone: priorityTones.basse },
+                { value: "normale", label: "Normale", tone: priorityTones.normale },
+                { value: "haute", label: "Haute", tone: priorityTones.haute },
+                { value: "urgente", label: "Urgente", tone: priorityTones.urgente },
+              ]}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
@@ -235,11 +236,9 @@ export function CrmTasks({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-bold tracking-[0]">{selectedTask.title}</h3>
-                  <CrmBadge variant={priorityConfig[selectedTask.priority].variant}>
-                    {selectedTask.priority}
-                  </CrmBadge>
+                  <ColorChip label={priorityLabels[selectedTask.priority]} tone={priorityTones[selectedTask.priority]} />
                   {selectedTask.done && (
-                    <CrmBadge variant="success">Terminée</CrmBadge>
+                    <ColorChip label="Terminée" tone={{ dot: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-800" }} />
                   )}
                 </div>
               </div>
@@ -252,7 +251,7 @@ export function CrmTasks({
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-black/60" />
-                  <span className="font-medium">{selectedTask.assigneeName}</span>
+                  <PersonChip name={selectedTask.assigneeName} />
                 </div>
                 <div className="flex items-center gap-3">
                   <Calendar className="h-5 w-5 text-black/60" />
@@ -303,16 +302,17 @@ export function CrmTasks({
                   onChange={(event) => setTaskTitle(event.target.value)}
                   className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
                 />
-                <select
+                <CrmColorSelect
+                  ariaLabel="Priorité"
                   value={taskPriority}
-                  onChange={(event) => setTaskPriority(event.target.value as CrmTask["priority"])}
-                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-michket-gold focus:ring-1 focus:ring-michket-gold"
-                >
-                  <option value="basse">Basse</option>
-                  <option value="normale">Normale</option>
-                  <option value="haute">Haute</option>
-                  <option value="urgente">Urgente</option>
-                </select>
+                  onChange={(value) => setTaskPriority(value as CrmTask["priority"])}
+                  options={[
+                    { value: "basse", label: "Basse", tone: priorityTones.basse },
+                    { value: "normale", label: "Normale", tone: priorityTones.normale },
+                    { value: "haute", label: "Haute", tone: priorityTones.haute },
+                    { value: "urgente", label: "Urgente", tone: priorityTones.urgente },
+                  ]}
+                />
                 <input
                   type="date"
                   value={taskDueAt}

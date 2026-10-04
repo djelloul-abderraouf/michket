@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Search, Phone, MapPin, Calendar, Mail } from "lucide-react";
 import type { Company, Contact } from "@/lib/crm/types";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
+import { clientTypeTones, neutralTone, personTone } from "@/lib/crm/option-colors";
+import { CrmColorSelect } from "./CrmColorSelect";
 import { CrmButton, CrmPanel, CrmCard, CrmBadge, formatDate, CrmAddButton, CrmPopup, CrmSideDrawer, ViewToggle } from "./CrmUi";
 
 const inputClass =
@@ -353,31 +355,33 @@ export function CrmContacts(props: {
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Type
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Type de contact"
               value={form.type}
-              onChange={(event) => setForm({ ...form, type: event.target.value as Contact["type"] })}
-              className={inputClass}
-            >
-              <option value="particulier">Particulier</option>
-              <option value="professionnel">Professionnel</option>
-            </select>
+              onChange={(value) => setForm({ ...form, type: value as Contact["type"] })}
+              options={[
+                { value: "particulier", label: "Particulier", tone: clientTypeTones.particulier },
+                { value: "professionnel", label: "Professionnel", tone: clientTypeTones.professionnel },
+              ]}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">
               Entreprise
             </label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Entreprise"
               value={form.companyId}
-              onChange={(event) => setForm({ ...form, companyId: event.target.value })}
-              className={inputClass}
-            >
-              <option value="">Aucune</option>
-              {(props.companies || []).map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setForm({ ...form, companyId: value })}
+              options={[
+                { value: "", label: "Aucune", tone: neutralTone },
+                ...(props.companies || []).map((company) => ({
+                  value: company.id,
+                  label: company.name,
+                  tone: personTone(company.id),
+                })),
+              ]}
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <CrmButton
@@ -501,26 +505,28 @@ export function CrmContacts(props: {
                     </option>
                   ))}
                 </select>
-                <select
+                <CrmColorSelect
+                  ariaLabel="Type de contact"
                   value={form.type}
-                  onChange={(event) => setForm({ ...form, type: event.target.value as Contact["type"] })}
-                  className={inputClass}
-                >
-                  <option value="particulier">Particulier</option>
-                  <option value="professionnel">Professionnel</option>
-                </select>
-                <select
+                  onChange={(value) => setForm({ ...form, type: value as Contact["type"] })}
+                  options={[
+                    { value: "particulier", label: "Particulier", tone: clientTypeTones.particulier },
+                    { value: "professionnel", label: "Professionnel", tone: clientTypeTones.professionnel },
+                  ]}
+                />
+                <CrmColorSelect
+                  ariaLabel="Entreprise"
                   value={form.companyId}
-                  onChange={(event) => setForm({ ...form, companyId: event.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Aucune entreprise</option>
-                  {(props.companies || []).map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setForm({ ...form, companyId: value })}
+                  options={[
+                    { value: "", label: "Aucune entreprise", tone: neutralTone },
+                    ...(props.companies || []).map((company) => ({
+                      value: company.id,
+                      label: company.name,
+                      tone: personTone(company.id),
+                    })),
+                  ]}
+                />
                 <div className="flex gap-3">
                   <CrmButton type="button" variant="ghost" className="flex-1" onClick={() => setIsEditing(false)}>
                     Annuler

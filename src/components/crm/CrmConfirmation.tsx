@@ -4,6 +4,9 @@ import { CrmPanel, CrmCard, CrmBadge, CrmButton, dzd, formatDate, productSummary
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
+import { bucketTones, duplicateStatusTones, neutralTone } from "@/lib/crm/option-colors";
+import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { duplicateStatusLabels } from "@/lib/crm/types";
 
 export function CrmConfirmation({
   orders,
@@ -90,16 +93,17 @@ export function CrmConfirmation({
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
-          <select
+          <CrmColorSelect
+            ariaLabel="Filtrer par suivi"
             value={bucket}
-            onChange={(event) => setBucket(event.target.value as UnconfirmedBucket | "all")}
-            className="h-11 rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold"
-          >
-            <option value="all">Prospection, prioritaire, archive</option>
-            <option value="prospection">{unconfirmedBucketLabels.prospection}</option>
-            <option value="prioritaire">{unconfirmedBucketLabels.prioritaire}</option>
-            <option value="archive">{unconfirmedBucketLabels.archive}</option>
-          </select>
+            onChange={(value) => setBucket(value as UnconfirmedBucket | "all")}
+            options={[
+              { value: "all", label: "Prospection, prioritaire, archive", tone: neutralTone },
+              { value: "prospection", label: unconfirmedBucketLabels.prospection, tone: bucketTones.prospection },
+              { value: "prioritaire", label: unconfirmedBucketLabels.prioritaire, tone: bucketTones.prioritaire },
+              { value: "archive", label: unconfirmedBucketLabels.archive, tone: bucketTones.archive },
+            ]}
+          />
         </div>
         {visibleOrders.length === 0 ? (
           <div className="py-12 text-center">
@@ -120,6 +124,12 @@ export function CrmConfirmation({
                       <CrmBadge variant="warning">Pas confirmé</CrmBadge>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-black/70 truncate">{order.clientName}</p>
+                    <div className="mt-2">
+                      <ColorChip
+                        label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
+                        tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
+                      />
+                    </div>
                     <p className="text-xs text-black/50">{followUpHint(order.createdAt)}</p>
                   </div>
                   <div className="text-right shrink-0">

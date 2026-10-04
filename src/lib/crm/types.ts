@@ -34,14 +34,14 @@ export const orderStatuses = [
 export type OrderStatus = (typeof orderStatuses)[number];
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-  pas_confirme: "Pas confirme",
-  confirme: "Confirme",
+  pas_confirme: "Pas confirmé",
+  confirme: "Confirmé",
   en_fabrication: "En fabrication",
-  en_preparation: "En preparation",
+  en_preparation: "En préparation",
   en_livraison: "En livraison",
-  livre: "Livre",
-  retour_echec: "Retour / echec",
-  annulee: "Annulee",
+  livre: "Livré",
+  retour_echec: "Retour / échec",
+  annulee: "Annulée",
 };
 
 export const dealStages = [
@@ -58,9 +58,9 @@ export type DealStage = (typeof dealStages)[number];
 export const dealStageLabels: Record<DealStage, string> = {
   prospection: "Prospection",
   qualification: "Qualification",
-  devis_envoye: "Devis envoye",
-  negociation: "Negociation",
-  gagnee: "Gagnee",
+  devis_envoye: "Devis envoyé",
+  negociation: "Négociation",
+  gagnee: "Gagnée",
   perdue: "Perdue",
 };
 
@@ -71,7 +71,17 @@ export type ProductionStatus = (typeof productionStatuses)[number];
 export const productionStatusLabels: Record<ProductionStatus, string> = {
   en_attente: "En attente",
   en_cours: "En cours",
-  termine: "Termine",
+  termine: "Terminé",
+};
+
+export const plancheStatuses = ["en_attente", "lancee", "terminee"] as const;
+
+export type PlancheStatus = (typeof plancheStatuses)[number];
+
+export const plancheStatusLabels: Record<PlancheStatus, string> = {
+  en_attente: "En attente",
+  lancee: "Lancée",
+  terminee: "Terminée",
 };
 
 export type CrmPage =
@@ -111,7 +121,17 @@ export const orderKindLabels: Record<OrderKind, string> = {
   propre: "Propre",
   refabrication_0: "Refabrication 0 DA",
   correction_interne: "Correction interne",
-  recupe: "Recupe",
+  recupe: "Récupé",
+};
+
+export const duplicateStatuses = ["unique", "a_verifier", "verifie"] as const;
+
+export type DuplicateStatus = (typeof duplicateStatuses)[number];
+
+export const duplicateStatusLabels: Record<DuplicateStatus, string> = {
+  unique: "Unique",
+  a_verifier: "Doublant à vérifier",
+  verifie: "Doublant vérifié",
 };
 
 export function staffRoleLabel(role: string) {
@@ -334,6 +354,11 @@ export interface Order {
   clientType?: ClientType | null;
   isExistingClient?: boolean;
   previousOrderCount?: number;
+  duplicateStatus?: DuplicateStatus;
+  duplicateReview?: "unique" | "verifie" | null;
+  duplicateReviewedById?: string | null;
+  duplicateReviewedByName?: string | null;
+  duplicateReviewedAt?: string | null;
   contactId?: string | null;
   wilaya: string;
   wilayaCode?: number;
@@ -384,6 +409,38 @@ export interface ProductionJob {
   status: ProductionStatus;
   startedAt?: string;
   finishedAt?: string;
+}
+
+export interface PlancheOrder {
+  orderId: string;
+  reference: string;
+  clientName: string;
+  phone: string;
+  wilaya: string;
+  productSummary: string;
+}
+
+export interface PlancheEvent {
+  id: string;
+  action: "created" | "status" | "orders_added" | "orders_removed" | "capacity";
+  fromStatus?: PlancheStatus | null;
+  toStatus?: PlancheStatus | null;
+  note?: string | null;
+  actorName: string;
+  createdAt: string;
+}
+
+export interface Planche {
+  id: string;
+  reference: string;
+  capacity: number;
+  status: PlancheStatus;
+  createdByName?: string | null;
+  launchedAt?: string | null;
+  finishedAt?: string | null;
+  createdAt: string;
+  orders: PlancheOrder[];
+  events: PlancheEvent[];
 }
 
 export interface Activity {

@@ -9,14 +9,13 @@ import {
   orderSourceLabels,
   orderSources,
 } from "@/lib/crm/order-display";
-import { orderKindLabels, orderKinds, orderStatusLabels, orderStatuses } from "@/lib/crm/types";
-import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
-import { orderMatchesQuery } from "@/lib/crm/order-search";
+import { duplicateStatusLabels, duplicateStatuses, orderKindLabels, orderKinds, orderStatusLabels, orderStatuses } from "@/lib/crm/types";
 import type {
   ClientType,
   Contact,
   CreateCrmOrderPayload,
   CrmRole,
+  DuplicateStatus,
   Order,
   OrderKind,
   OrderSource,
@@ -24,6 +23,18 @@ import type {
   Product,
   YalidineCenter,
 } from "@/lib/crm/types";
+import {
+  clientTypeTones,
+  deliveryTones,
+  duplicateStatusTones,
+  neutralTone,
+  orderKindTones,
+  orderStatusTones,
+  sourceTones,
+} from "@/lib/crm/option-colors";
+import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { followUpHint, unconfirmedBucket, unconfirmedBucketLabels, type UnconfirmedBucket } from "@/lib/crm/order-followup";
+import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { clientPhoneError, normalizeClientPhoneInput } from "@/lib/crm/phone";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
@@ -31,7 +42,6 @@ import {
   CrmButton,
   CrmPanel,
   CrmCard,
-  CrmBadge,
   cx,
   dzd,
   formatDate,
@@ -86,6 +96,7 @@ export function CrmOrders(props: {
   const [kindFilter, setKindFilter] = useState<OrderKind | "all">("all");
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientType | "all">("all");
   const [deliveryFilter, setDeliveryFilter] = useState<"all" | "home" | "office">("all");
+  const [duplicateFilter, setDuplicateFilter] = useState<DuplicateStatus | "all">("all");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [newOrderName, setNewOrderName] = useState("");
   const [newOrderPhone, setNewOrderPhone] = useState("");
@@ -197,12 +208,13 @@ export function CrmOrders(props: {
         if (kindFilter !== "all" && order.orderKind !== kindFilter) return false;
         if (clientTypeFilter !== "all" && order.clientType !== clientTypeFilter) return false;
         if (deliveryFilter !== "all" && order.deliveryType !== deliveryFilter) return false;
+        if (duplicateFilter !== "all" && (order.duplicateStatus || "unique") !== duplicateFilter) return false;
         if (props.presetBucket && unconfirmedBucket(order.createdAt, order.status) !== props.presetBucket) {
           return false;
         }
         return true;
       }),
-    [props.orders, props.query, props.presetBucket, sourceFilter, kindFilter, clientTypeFilter, deliveryFilter],
+    [props.orders, props.query, props.presetBucket, sourceFilter, kindFilter, clientTypeFilter, deliveryFilter, duplicateFilter],
   );
 
   useEffect(() => {
@@ -374,16 +386,19 @@ export function CrmOrders(props: {
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {!props.presetBucket && (
-              <select
+              <CrmColorSelect
+                ariaLabel="Filtrer par statut"
                 value={props.statusFilter}
-                onChange={(event) => props.onStatusFilter(event.target.value as OrderStatus | "all")}
-                className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
-              >
-                <option value="all">Tous statuts</option>
-                {orderStatuses.map((status) => (
-                  <option key={status} value={status}>{orderStatusLabels[status]}</option>
-                ))}
-              </select>
+                onChange={(value) => props.onStatusFilter(value as OrderStatus | "all")}
+                options={[
+                  { value: "all", label: "Tous les statuts", tone: neutralTone },
+                  ...orderStatuses.map((status) => ({
+                    value: status,
+                    label: orderStatusLabels[status],
+                    tone: orderStatusTones[status],
+                  })),
+                ]}
+              />
             )}
             <select
               value={props.wilayaFilter}
@@ -395,44 +410,65 @@ export function CrmOrders(props: {
                 <option key={wilaya} value={wilaya}>{wilaya}</option>
               ))}
             </select>
-            <select
+            <CrmColorSelect
+              ariaLabel="Filtrer par origine"
               value={sourceFilter}
-              onChange={(event) => setSourceFilter(event.target.value as OrderSource | "all")}
-              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
-            >
-              <option value="all">Toutes origines</option>
-              {orderSources.map((source) => (
-                <option key={source} value={source}>{orderSourceLabels[source]}</option>
-              ))}
-            </select>
-            <select
+              onChange={(value) => setSourceFilter(value as OrderSource | "all")}
+              options={[
+                { value: "all", label: "Toutes les origines", tone: neutralTone },
+                ...orderSources.map((source) => ({
+                  value: source,
+                  label: orderSourceLabels[source],
+                  tone: sourceTones[source],
+                })),
+              ]}
+            />
+            <CrmColorSelect
+              ariaLabel="Filtrer par type"
               value={kindFilter}
-              onChange={(event) => setKindFilter(event.target.value as OrderKind | "all")}
-              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
-            >
-              <option value="all">Tous types</option>
-              {orderKinds.map((kind) => (
-                <option key={kind} value={kind}>{orderKindLabels[kind]}</option>
-              ))}
-            </select>
-            <select
+              onChange={(value) => setKindFilter(value as OrderKind | "all")}
+              options={[
+                { value: "all", label: "Tous les types", tone: neutralTone },
+                ...orderKinds.map((kind) => ({
+                  value: kind,
+                  label: orderKindLabels[kind],
+                  tone: orderKindTones[kind],
+                })),
+              ]}
+            />
+            <CrmColorSelect
+              ariaLabel="Filtrer par doublon"
+              value={duplicateFilter}
+              onChange={(value) => setDuplicateFilter(value as DuplicateStatus | "all")}
+              options={[
+                { value: "all", label: "Tous les doublons", tone: neutralTone },
+                ...duplicateStatuses.map((status) => ({
+                  value: status,
+                  label: duplicateStatusLabels[status],
+                  tone: duplicateStatusTones[status],
+                })),
+              ]}
+            />
+            <CrmColorSelect
+              ariaLabel="Filtrer par type de client"
               value={clientTypeFilter}
-              onChange={(event) => setClientTypeFilter(event.target.value as ClientType | "all")}
-              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
-            >
-              <option value="all">Tous clients</option>
-              <option value="particulier">Particulier</option>
-              <option value="professionnel">Professionnel</option>
-            </select>
-            <select
+              onChange={(value) => setClientTypeFilter(value as ClientType | "all")}
+              options={[
+                { value: "all", label: "Tous les clients", tone: neutralTone },
+                { value: "particulier", label: "Particulier", tone: clientTypeTones.particulier },
+                { value: "professionnel", label: "Professionnel", tone: clientTypeTones.professionnel },
+              ]}
+            />
+            <CrmColorSelect
+              ariaLabel="Filtrer par livraison"
               value={deliveryFilter}
-              onChange={(event) => setDeliveryFilter(event.target.value as "all" | "home" | "office")}
-              className="h-11 w-full rounded-lg border border-black/15 bg-white px-4 text-sm outline-none focus:border-michket-gold"
-            >
-              <option value="all">Toute livraison</option>
-              <option value="home">Domicile</option>
-              <option value="office">Bureau</option>
-            </select>
+              onChange={(value) => setDeliveryFilter(value as "all" | "home" | "office")}
+              options={[
+                { value: "all", label: "Toute livraison", tone: neutralTone },
+                { value: "home", label: "Domicile", tone: deliveryTones.home },
+                { value: "office", label: "Bureau", tone: deliveryTones.office },
+              ]}
+            />
           </div>
         </CrmPanel>
 
@@ -446,7 +482,7 @@ export function CrmOrders(props: {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1860px]">
+              <table className="w-full min-w-[2100px]">
                 <thead>
                   <tr className="border-b border-black/10 text-left text-xs font-semibold uppercase tracking-wider text-black/60">
                     <th className="px-3 py-3">Référence</th>
@@ -459,6 +495,7 @@ export function CrmOrders(props: {
                     <th className="px-3 py-3">Produit</th>
                     <th className="px-3 py-3">Suivi Yalidine</th>
                     <th className="px-3 py-3">Statut</th>
+                    <th className="px-3 py-3">Doublon</th>
                     <th className="px-3 py-3">Total</th>
                     <th className="px-3 py-3">Date</th>
                     <th className="px-3 py-3">Bordereau</th>
@@ -518,9 +555,13 @@ export function CrmOrders(props: {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <CrmBadge variant={statusTone[order.status].badge as any}>
-                          {orderStatusLabels[order.status]}
-                        </CrmBadge>
+                        <ColorChip label={orderStatusLabels[order.status]} tone={orderStatusTones[order.status]} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <ColorChip
+                          label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
+                          tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
+                        />
                       </td>
                       <td className="px-3 py-3 text-sm font-bold whitespace-nowrap">{dzd.format(order.total)}</td>
                       <td className="px-3 py-3 text-sm text-black/60 whitespace-nowrap">{formatDate(order.createdAt)}</td>
@@ -576,9 +617,17 @@ export function CrmOrders(props: {
                             <p className="text-xs font-bold shrink-0">{dzd.format(order.total)}</p>
                           </div>
                           <p className="text-sm font-semibold truncate">{order.clientName}</p>
-                          <p className="text-xs text-black/55">
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            <ColorChip
+                              label={duplicateStatusLabels[order.duplicateStatus || "unique"]}
+                              tone={duplicateStatusTones[order.duplicateStatus || "unique"]}
+                            />
+                            {order.orderKind ? (
+                              <ColorChip label={orderKindLabels[order.orderKind]} tone={orderKindTones[order.orderKind]} />
+                            ) : null}
+                          </div>
+                          <p className="mt-2 text-xs text-black/55">
                             {orderSourceLabels[order.source] || "Site e-com"} · {clientTypeLabel(order.clientType)}
-                            {order.orderKind ? ` · ${orderKindLabels[order.orderKind]}` : ""}
                             {order.status === "pas_confirme" ? ` · ${followUpHint(order.createdAt)}` : ""}
                           </p>
                           <p className="mt-1 text-xs text-black/60 truncate">{order.wilaya}{order.commune ? ` · ${order.commune}` : ""}</p>
@@ -625,29 +674,29 @@ export function CrmOrders(props: {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Origine</label>
-                <select
+                <CrmColorSelect
+                  ariaLabel="Origine de la commande"
                   value={newOrderSource}
-                  onChange={(event) => setNewOrderSource(event.target.value as OrderSource)}
-                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-                >
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="facebook">Facebook</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="ecom">Site e-com</option>
-                </select>
+                  onChange={(value) => setNewOrderSource(value as OrderSource)}
+                  options={orderSources.map((source) => ({
+                    value: source,
+                    label: orderSourceLabels[source],
+                    tone: sourceTones[source],
+                  }))}
+                />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Type de commande</label>
-                <select
+                <CrmColorSelect
+                  ariaLabel="Type de commande"
                   value={newOrderKind}
-                  onChange={(event) => setNewOrderKind(event.target.value as OrderKind)}
-                  required
-                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-                >
-                  {orderKinds.map((kind) => (
-                    <option key={kind} value={kind}>{orderKindLabels[kind]}</option>
-                  ))}
-                </select>
+                  onChange={(value) => setNewOrderKind(value as OrderKind)}
+                  options={orderKinds.map((kind) => ({
+                    value: kind,
+                    label: orderKindLabels[kind],
+                    tone: orderKindTones[kind],
+                  }))}
+                />
               </div>
             </div>
           </section>
@@ -710,21 +759,22 @@ export function CrmOrders(props: {
           {clientLookup && (
             <p className={`rounded-lg px-3 py-2 text-sm ${clientLookup.exists ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
               {clientLookup.exists
-                ? `Client existant${clientLookup.contact ? ` · ${clientTypeLabel(clientLookup.contact.type)}` : ""} · ${clientLookup.previousOrderCount} commande(s)`
-                : "Nouveau client — ce numero n'a pas encore commande"}
+                ? `Client existant${clientLookup.contact ? ` · ${clientTypeLabel(clientLookup.contact.type)}` : ""} · ${clientLookup.previousOrderCount} commande${clientLookup.previousOrderCount > 1 ? "s" : ""}. La commande sera marquée doublant à vérifier.`
+                : "Nouveau client. Ce numéro n'a pas encore de commande."}
             </p>
           )}
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Type client</label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Type de client"
               value={newOrderClientType}
-              onChange={(event) => setNewOrderClientType(event.target.value as ClientType)}
               disabled={Boolean(clientLookup?.contact)}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-            >
-              <option value="particulier">Particulier</option>
-              <option value="professionnel">Professionnel</option>
-            </select>
+              onChange={(value) => setNewOrderClientType(value as ClientType)}
+              options={[
+                { value: "particulier", label: "Particulier", tone: clientTypeTones.particulier },
+                { value: "professionnel", label: "Professionnel", tone: clientTypeTones.professionnel },
+              ]}
+            />
           </div>
           </section>
           <section className="space-y-3 rounded-lg border border-black/10 p-4">
@@ -737,21 +787,22 @@ export function CrmOrders(props: {
           <input value={newOrderCommune} onChange={(event) => setNewOrderCommune(event.target.value)} placeholder="Commune" className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm" />
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Livraison</label>
-            <select
+            <CrmColorSelect
+              ariaLabel="Mode de livraison"
               value={newOrderDelivery}
-              onChange={(event) => {
-                const next = event.target.value as "home" | "office";
+              onChange={(value) => {
+                const next = value as "home" | "office";
                 setNewOrderDelivery(next);
                 if (next === "home") {
                   setNewOrderOffice("");
                   setNewOrderOfficeId("");
                 }
               }}
-              className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-            >
-              <option value="home">Domicile</option>
-              <option value="office">Bureau</option>
-            </select>
+              options={[
+                { value: "home", label: "Domicile", tone: deliveryTones.home },
+                { value: "office", label: "Bureau", tone: deliveryTones.office },
+              ]}
+            />
           </div>
           {newOrderDelivery === "home" ? (
             <input
@@ -799,23 +850,23 @@ export function CrmOrders(props: {
           {productVariants.length > 0 && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-black/60">Couleur</label>
-              <select
+              <CrmColorSelect
+                ariaLabel="Couleur"
                 value={newOrderVariant}
-                onChange={(event) => setNewOrderVariant(event.target.value)}
-                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm"
-              >
-                {productVariants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.colorName || variant.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setNewOrderVariant}
+                options={productVariants.map((variant) => ({
+                  value: variant.id,
+                  label: variant.colorName || variant.name,
+                  tone: neutralTone,
+                  dotColor: variant.colorHex || undefined,
+                }))}
+              />
             </div>
           )}
           <textarea
             value={newOrderText}
             onChange={(event) => setNewOrderText(event.target.value)}
-            placeholder="Texte a graver sur le trophee"
+            placeholder="Texte à graver sur le trophée"
             rows={3}
             className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
           />

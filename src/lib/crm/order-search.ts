@@ -1,4 +1,5 @@
 import type { Order } from "./types";
+import { duplicateStatusLabels } from "./types";
 
 export function orderSearchText(order: Order) {
   return [
@@ -23,6 +24,8 @@ export function orderSearchText(order: Order) {
     order.campaignSlug,
     order.campaignTitle,
     order.status,
+    order.duplicateStatus ? duplicateStatusLabels[order.duplicateStatus] : "",
+    order.duplicateReviewedByName,
     ...(order.items || []).flatMap((item) => [
       item.productName,
       item.variantName,
