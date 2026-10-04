@@ -101,7 +101,12 @@ export type CrmPage =
   | "preparation"
   | "delivery"
   | "catalog"
+  | "stock_dashboard"
   | "stock"
+  | "stock_movements"
+  | "stock_recipes"
+  | "stock_manufacturing"
+  | "stock_sales"
   | "tasks"
   | "users"
   | "settings";

@@ -1,15 +1,25 @@
-import { orderStatusLabels, orderStatuses, productionStatusLabels } from "@/lib/crm/types";
-import type { Order, ProductionJob } from "@/lib/crm/types";
+import { orderStatusLabels, orderStatuses, productionStatusLabels, roleLabels } from "@/lib/crm/types";
+import type { CrmRole, Order, ProductionJob } from "@/lib/crm/types";
 import { CrmPanel, CrmCard, CrmBadge, dzd, Metric, formatDate } from "./CrmUi";
+
+function sees(roles: CrmRole[], audience: CrmRole[]) {
+  return roles.includes("admin") || roles.some((role) => audience.includes(role));
+}
 
 export function CrmDashboard({
   orders,
   productionJobs,
   pipelineAmount,
+  userName,
+  roles,
+  stockAlertCount = 0,
 }: {
   orders: Order[];
   productionJobs: ProductionJob[];
   pipelineAmount: number;
+  userName: string;
+  roles: CrmRole[];
+  stockAlertCount?: number;
 }) {
   const confirmed = orders.filter((order) => order.status !== "pas_confirme");
   const delivered = orders.filter((order) => order.status === "livre");
@@ -36,67 +46,39 @@ export function CrmDashboard({
     .slice(0, 5);
 
   // Calculate average order value
-  const avgOrderValue = orders.length > 0 ? revenue / orders.length : 0;
+  const billable = orders.filter((order) => !["annulee", "retour_echec"].includes(order.status));
+  const avgOrderValue = billable.length > 0 ? billable.reduce((sum, order) => sum + order.total, 0) / billable.length : 0;
+  const roleLine = (roles.includes("admin") ? ["admin"] : roles).map((role) => roleLabels[role] || role).join(" · ");
 
   // Recent orders
   const recentOrders = [...orders]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
+  const cards = [
+    sees(roles, ["commercial"]) && { label: "CA livré ou en route", value: dzd.format(revenue), accent: "bg-michket-gold" },
+    sees(roles, ["commercial"]) && { label: "Pipeline ventes", value: dzd.format(pipelineAmount), accent: "bg-cyan-500" },
+    sees(roles, ["commercial", "confirmation"]) && { label: "Taux confirmation", value: `${Math.round((confirmed.length / Math.max(orders.length, 1)) * 100)}%`, accent: "bg-emerald-500" },
+    sees(roles, ["livraison", "commercial"]) && { label: "Taux livraison", value: `${Math.round((delivered.length / Math.max(orders.length, 1)) * 100)}%`, accent: "bg-indigo-500" },
+    sees(roles, ["confirmation", "commercial"]) && { label: "Pas confirmées", value: String(orders.filter((order) => order.status === "pas_confirme").length), accent: "bg-amber-500" },
+    sees(roles, ["fabrication"]) && { label: "En fabrication", value: String(inProduction.length), accent: "bg-orange-500" },
+    sees(roles, ["preparation"]) && { label: "En préparation", value: String(inPreparation.length), accent: "bg-purple-500" },
+    sees(roles, ["livraison"]) && { label: "En livraison", value: String(inDelivery.length), accent: "bg-blue-500" },
+    sees(roles, ["livraison", "confirmation"]) && { label: "Retours / annulées", value: String(returns.length), accent: "bg-rose-500" },
+    sees(roles, ["commercial"]) && { label: "Panier moyen", value: dzd.format(avgOrderValue), accent: "bg-sky-500" },
+    sees(roles, ["commercial", "fabrication", "preparation"]) && stockAlertCount > 0 && { label: "Alertes stock", value: String(stockAlertCount), accent: "bg-rose-600" },
+  ].filter(Boolean) as Array<{ label: string; value: string; accent: string }>;
+
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
+      <p className="text-sm text-black/55">{userName} · {roleLine}. Ces chiffres portent sur les commandes déjà chargées.</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="CA suivi"
-          value={dzd.format(revenue)}
-          accent="bg-michket-gold"
-          trend={{ value: "+12%", positive: true }}
-        />
-        <Metric
-          label="Pipeline ventes"
-          value={dzd.format(pipelineAmount)}
-          accent="bg-cyan-500"
-          trend={{ value: "+8%", positive: true }}
-        />
-        <Metric
-          label="Taux confirmation"
-          value={`${Math.round((confirmed.length / Math.max(orders.length, 1)) * 100)}%`}
-          accent="bg-emerald-500"
-          trend={{ value: "+5%", positive: true }}
-        />
-        <Metric
-          label="Taux livraison"
-          value={`${Math.round((delivered.length / Math.max(orders.length, 1)) * 100)}%`}
-          accent="bg-indigo-500"
-          trend={{ value: "-2%", positive: false }}
-        />
+        {cards.map((card) => (
+          <Metric key={card.label} label={card.label} value={card.value} accent={card.accent} />
+        ))}
       </div>
 
-      {/* Secondary Metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="En fabrication"
-          value={inProduction.length.toString()}
-          accent="bg-amber-500"
-        />
-        <Metric
-          label="En préparation"
-          value={inPreparation.length.toString()}
-          accent="bg-purple-500"
-        />
-        <Metric
-          label="En livraison"
-          value={inDelivery.length.toString()}
-          accent="bg-blue-500"
-        />
-        <Metric
-          label="Retours / annulées"
-          value={returns.length.toString()}
-          accent="bg-rose-500"
-        />
-      </div>
-
+      {sees(roles, ["commercial", "confirmation", "fabrication", "preparation", "livraison"]) && (
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         {/* Orders by Status */}
         <CrmPanel title="Commandes par statut">
@@ -126,7 +108,7 @@ export function CrmDashboard({
           </div>
         </CrmPanel>
 
-        {/* Production Queue */}
+        {sees(roles, ["fabrication"]) && (
         <CrmPanel title="File de production">
           <div className="space-y-3">
             {productionJobs.length === 0 ? (
@@ -157,8 +139,11 @@ export function CrmDashboard({
             )}
           </div>
         </CrmPanel>
+        )}
       </div>
+      )}
 
+      {sees(roles, ["commercial", "confirmation", "livraison"]) && (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top Wilayas */}
         <CrmPanel title="Top wilayas">
@@ -204,8 +189,9 @@ export function CrmDashboard({
           </div>
         </CrmPanel>
       </div>
+      )}
 
-      {/* Average Order Value */}
+      {sees(roles, ["commercial"]) && (
       <CrmPanel title="Panier moyen">
         <div className="flex items-center justify-between">
           <div>
@@ -218,6 +204,7 @@ export function CrmDashboard({
           </div>
         </div>
       </CrmPanel>
+      )}
     </div>
   );
 }

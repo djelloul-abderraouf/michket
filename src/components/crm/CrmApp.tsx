@@ -45,7 +45,7 @@ import { CrmConfirmedOrders } from "./CrmConfirmedOrders";
 import { CrmProposals } from "./CrmProposals";
 import { CrmSales } from "./CrmSales";
 import { CrmSettings } from "./CrmSettings";
-import { CrmStock } from "./CrmStock";
+import { CrmStock, type StockSection } from "./CrmStock";
 import { CrmSidebar } from "./CrmSidebar";
 import { CrmTasks } from "./CrmTasks";
 import { CrmUsers } from "./CrmUsers";
@@ -998,10 +998,10 @@ export function CrmApp() {
             </div>
           </div>
 
-          {canSeeStock && activePage !== "stock" && stockAlerts.length > 0 && (
+          {canSeeStock && !activePage.startsWith("stock") && stockAlerts.length > 0 && (
             <button
               type="button"
-              onClick={() => router.push(crmPagePaths.stock)}
+              onClick={() => router.push(crmPagePaths.stock_dashboard)}
               className="mb-4 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left"
             >
               <p className="text-sm font-semibold text-amber-950">
@@ -1041,12 +1041,19 @@ export function CrmApp() {
               </div>
 
               {useEnhancedDashboard ? (
-                <EnhancedDashboard />
+                <EnhancedDashboard
+                  userName={crmUser.name}
+                  roles={userRoles}
+                  stockAlertCount={stockAlerts.length}
+                />
               ) : (
                 <CrmDashboard
                   orders={orders}
                   productionJobs={productionJobs}
                   pipelineAmount={pipelineAmount}
+                  userName={crmUser.name}
+                  roles={userRoles}
+                  stockAlertCount={stockAlerts.length}
                 />
               )}
             </>
@@ -1243,8 +1250,16 @@ export function CrmApp() {
             />
           )}
 
-          {canSeeActivePage && activePage === "stock" && (
+          {canSeeActivePage && activePage.startsWith("stock") && (
             <CrmStock
+              section={({
+                stock_dashboard: "dashboard",
+                stock: "stock",
+                stock_movements: "movements",
+                stock_recipes: "manufacturing-recipes",
+                stock_manufacturing: "manufacturing",
+                stock_sales: "sales-recipes",
+              } as Record<string, StockSection>)[activePage]}
               products={products}
               canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
               onToast={setToast}

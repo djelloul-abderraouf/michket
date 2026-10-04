@@ -16,6 +16,7 @@ import {
 import type { Product } from "@/lib/crm/types";
 import type { OptionTone } from "@/lib/crm/option-colors";
 import { ColorChip, CrmColorSelect } from "./CrmColorSelect";
+import { CrmStockDashboard } from "./CrmStockDashboard";
 import { cx, formatDate } from "./CrmUi";
 
 const itemTypeLabels: Record<StockItemType, string> = {
@@ -66,15 +67,34 @@ const movementTones: Record<StockMovementType, OptionTone> = {
   reversal: { dot: "bg-zinc-500", chip: "bg-zinc-200 text-zinc-700" },
 };
 
-const tabs = [
-  { id: "stock", label: "Stock" },
-  { id: "movements", label: "Mouvements" },
-  { id: "manufacturing-recipes", label: "Recettes fabrication" },
-  { id: "manufacturing", label: "Fabrication" },
-  { id: "sales-recipes", label: "Recettes vente" },
-] as const;
+export type StockSection = "dashboard" | "stock" | "movements" | "manufacturing-recipes" | "manufacturing" | "sales-recipes";
 
-type TabId = (typeof tabs)[number]["id"];
+const sectionCopy: Record<StockSection, { title: string; text: string }> = {
+  dashboard: {
+    title: "Tableau de bord stock",
+    text: "Quantités, alertes, recettes et derniers mouvements. Le stock se calcule uniquement depuis les mouvements.",
+  },
+  stock: {
+    title: "Articles",
+    text: "Matières, composants, semi-finis et produits finis. La quantité n'est pas saisie à la main.",
+  },
+  movements: {
+    title: "Mouvements",
+    text: "Chaque entrée, sortie, vente, fabrication ou annulation reste dans l'historique.",
+  },
+  "manufacturing-recipes": {
+    title: "Recettes fabrication",
+    text: "Composants et quantité pour fabriquer une unité. Exemple : Socle Rouge = carte PCB, plexy, forex, délophane.",
+  },
+  manufacturing: {
+    title: "Fabrication",
+    text: "Le stock des composants est vérifié avant production. S'il manque une pièce, la fabrication est bloquée.",
+  },
+  "sales-recipes": {
+    title: "Recettes vente",
+    text: "Une commande confirmée déduit ces composants. Les matières déjà utilisées en fabrication ne sont pas déduites une seconde fois.",
+  },
+};
 
 const fieldClass = "h-10 w-full rounded-lg border border-black/15 bg-white px-3 text-sm outline-none focus:border-michket-gold";
 
@@ -87,17 +107,18 @@ function errorMessage(error: unknown) {
 }
 
 export function CrmStock({
+  section,
   products,
   canEdit,
   onToast,
   onChanged,
 }: {
+  section: StockSection;
   products: Product[];
   canEdit: boolean;
   onToast: (message: string) => void;
   onChanged?: () => void;
 }) {
-  const [tab, setTab] = useState<TabId>("stock");
   const [items, setItems] = useState<StockItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [manufacturingRecipes, setManufacturingRecipes] = useState<StockRecipe[]>([]);
@@ -165,10 +186,8 @@ export function CrmStock({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Stock</h1>
-          <p className="mt-1 text-sm text-black/55">
-            Matières, composants, semi-finis et produits finis. La quantité vient uniquement des mouvements. Une commande confirmée déduit la recette de vente, pas les matières déjà consommées à la fabrication.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{sectionCopy[section].title}</h1>
+          <p className="mt-1 max-w-3xl text-sm text-black/55">{sectionCopy[section].text}</p>
         </div>
         <div className="flex gap-2 text-xs font-semibold">
           <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
@@ -180,7 +199,7 @@ export function CrmStock({
         </div>
       </div>
 
-      {alerts.length > 0 && (
+      {section !== "dashboard" && alerts.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm font-semibold text-amber-950">Alertes stock, avant la rupture</p>
           <ul className="mt-2 grid gap-1 sm:grid-cols-2">
@@ -200,25 +219,19 @@ export function CrmStock({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1 rounded-xl border border-black/10 bg-white p-1">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={cx(
-              "rounded-lg px-3 py-2 text-sm font-semibold",
-              tab === item.id ? "bg-black text-white" : "text-black/60 hover:bg-black/5",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
       {loading ? <p className="text-sm text-black/50">Chargement du stock…</p> : null}
 
-      {!loading && tab === "stock" && (
+      {!loading && section === "dashboard" && (
+        <CrmStockDashboard
+          items={items}
+          movements={movements}
+          manufacturingRecipes={manufacturingRecipes}
+          salesRecipes={salesRecipes}
+          jobs={jobs}
+        />
+      )}
+
+      {!loading && section === "stock" && (
         <StockPanel
           items={visibleItems}
           products={products}
@@ -237,7 +250,7 @@ export function CrmStock({
         />
       )}
 
-      {!loading && tab === "movements" && (
+      {!loading && section === "movements" && (
         <MovementsPanel
           items={items}
           movements={visibleMovements}
@@ -255,7 +268,7 @@ export function CrmStock({
         />
       )}
 
-      {!loading && tab === "manufacturing-recipes" && (
+      {!loading && section === "manufacturing-recipes" && (
         <RecipePanel
           kind="manufacturing"
           title="Recette de fabrication"
@@ -271,7 +284,7 @@ export function CrmStock({
         />
       )}
 
-      {!loading && tab === "sales-recipes" && (
+      {!loading && section === "sales-recipes" && (
         <RecipePanel
           kind="sales"
           title="Recette de vente"
@@ -287,7 +300,7 @@ export function CrmStock({
         />
       )}
 
-      {!loading && tab === "manufacturing" && (
+      {!loading && section === "manufacturing" && (
         <ManufacturingPanel
           items={items}
           recipes={manufacturingRecipes}

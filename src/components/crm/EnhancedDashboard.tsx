@@ -19,7 +19,11 @@ import {
 import { CrmPanel, dzd, Metric } from "./CrmUi";
 import { dashboardApi } from "@/lib/api-client";
 import { ALGERIA_WILAYAS } from "@/lib/crm/wilayas";
-import { orderStatusLabels, type OrderStatus } from "@/lib/crm/types";
+import { orderStatusLabels, roleLabels, type CrmRole, type OrderStatus } from "@/lib/crm/types";
+
+function sees(roles: CrmRole[], audience: CrmRole[]) {
+  return roles.includes("admin") || roles.some((role) => audience.includes(role));
+}
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D", "#ef4444"];
 
@@ -40,7 +44,15 @@ function periodRange(period: PeriodKey) {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
-export function EnhancedDashboard() {
+export function EnhancedDashboard({
+  userName,
+  roles,
+  stockAlertCount = 0,
+}: {
+  userName: string;
+  roles: CrmRole[];
+  stockAlertCount?: number;
+}) {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [wilaya, setWilaya] = useState("all");
   const [stats, setStats] = useState<any>(null);
@@ -113,6 +125,94 @@ export function EnhancedDashboard() {
     amount: item.total,
   }));
   const funnel = stats.funnel || {};
+  const roleLine = (roles.includes("admin") ? ["admin"] : roles)
+    .map((role) => roleLabels[role] || role)
+    .join(" · ");
+  const returnRate = kpis.orders.currentMonth
+    ? (Number(kpis.orders.cancelled || 0) / Number(kpis.orders.currentMonth)) * 100
+    : 0;
+  const cards = [
+    sees(roles, ["commercial"]) && {
+      label: "CA livré (mois)",
+      value: dzd.format(kpis.revenue.currentMonth),
+      accent: "bg-michket-gold",
+      trend: {
+        value: `${kpis.revenue.growthRate > 0 ? "+" : ""}${Number(kpis.revenue.growthRate).toFixed(1)}% vs mois dernier`,
+        positive: kpis.revenue.growthRate >= 0,
+      },
+    },
+    sees(roles, ["commercial"]) && {
+      label: "GMV période",
+      value: dzd.format(kpis.revenue.gmv || stats.revenue.gmv || 0),
+      accent: "bg-cyan-500",
+    },
+    sees(roles, ["commercial", "confirmation"]) && {
+      label: "Taux confirmation",
+      value: `${Number(kpis.orders.confirmationRate).toFixed(1)}%`,
+      accent: "bg-emerald-500",
+    },
+    sees(roles, ["livraison", "preparation", "commercial"]) && {
+      label: "Taux livraison",
+      value: `${Number(kpis.orders.deliveryRate).toFixed(1)}%`,
+      accent: "bg-indigo-500",
+    },
+    sees(roles, ["commercial", "confirmation", "fabrication", "preparation", "livraison"]) && {
+      label: "Commandes période",
+      value: String(kpis.orders.currentMonth),
+      accent: "bg-purple-500",
+    },
+    sees(roles, ["confirmation", "commercial"]) && {
+      label: "À confirmer",
+      value: String(kpis.orders.pending || funnel.pending || 0),
+      accent: "bg-amber-500",
+    },
+    sees(roles, ["fabrication"]) && {
+      label: "Confirmées",
+      value: String(kpis.orders.confirmed || funnel.confirmed || 0),
+      accent: "bg-emerald-600",
+    },
+    sees(roles, ["fabrication", "preparation"]) && {
+      label: "En fabrication / préparation",
+      value: String(kpis.orders.processing || funnel.processing || 0),
+      accent: "bg-orange-500",
+    },
+    sees(roles, ["livraison", "preparation"]) && {
+      label: "Expédiées",
+      value: String(kpis.orders.shipped || funnel.shipped || 0),
+      accent: "bg-blue-500",
+    },
+    sees(roles, ["confirmation", "livraison", "commercial"]) && {
+      label: "Annulées / retours",
+      value: String(kpis.orders.cancelled || funnel.cancelled || 0),
+      accent: "bg-rose-500",
+      trend: { value: `${returnRate.toFixed(1)}% de la période`, positive: returnRate < 10 },
+    },
+    sees(roles, ["commercial"]) && {
+      label: "Panier moyen",
+      value: dzd.format(kpis.orders.avgOrderValue || stats.revenue.avgOrderValue),
+      accent: "bg-sky-500",
+    },
+    sees(roles, ["commercial"]) && {
+      label: "Pipeline ventes",
+      value: dzd.format(kpis.sales.pipelineAmount),
+      accent: "bg-teal-500",
+    },
+    sees(roles, ["fabrication"]) && {
+      label: "Jobs en cours",
+      value: String(kpis.production.inProgress),
+      accent: "bg-amber-600",
+    },
+    sees(roles, ["atelier_design", "commercial"]) && {
+      label: "Tâches ouvertes",
+      value: String(kpis.tasks?.open || 0),
+      accent: "bg-slate-500",
+    },
+    sees(roles, ["commercial", "fabrication", "preparation"]) && stockAlertCount > 0 && {
+      label: "Alertes stock",
+      value: String(stockAlertCount),
+      accent: "bg-rose-600",
+    },
+  ].filter(Boolean) as Array<{ label: string; value: string; accent: string; trend?: { value: string; positive: boolean } }>;
 
   return (
     <div className="space-y-6">
@@ -152,35 +252,14 @@ export function EnhancedDashboard() {
         </div>
       </CrmPanel>
 
+      <p className="text-sm text-black/55">{userName} · {roleLine}</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="CA livré (mois)"
-          value={dzd.format(kpis.revenue.currentMonth)}
-          accent="bg-michket-gold"
-          trend={{
-            value: `${kpis.revenue.growthRate > 0 ? "+" : ""}${kpis.revenue.growthRate.toFixed(1)}%`,
-            positive: kpis.revenue.growthRate >= 0,
-          }}
-        />
-        <Metric label="GMV période" value={dzd.format(kpis.revenue.gmv || stats.revenue.gmv || 0)} accent="bg-cyan-500" />
-        <Metric label="Taux confirmation" value={`${kpis.orders.confirmationRate.toFixed(1)}%`} accent="bg-emerald-500" />
-        <Metric label="Taux livraison" value={`${kpis.orders.deliveryRate.toFixed(1)}%`} accent="bg-indigo-500" />
+        {cards.map((card) => (
+          <Metric key={card.label} label={card.label} value={card.value} accent={card.accent} trend={card.trend} />
+        ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Commandes période" value={String(kpis.orders.currentMonth)} accent="bg-purple-500" />
-        <Metric label="À confirmer" value={String(kpis.orders.pending || funnel.pending || 0)} accent="bg-amber-500" />
-        <Metric label="Annulées / retours" value={String(kpis.orders.cancelled || funnel.cancelled || 0)} accent="bg-rose-500" />
-        <Metric label="Panier moyen" value={dzd.format(kpis.orders.avgOrderValue || stats.revenue.avgOrderValue)} accent="bg-blue-500" />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Pipeline ventes" value={dzd.format(kpis.sales.pipelineAmount)} accent="bg-teal-500" />
-        <Metric label="En production" value={String(kpis.production.inProgress)} accent="bg-orange-500" />
-        <Metric label="Tâches ouvertes" value={String(kpis.tasks?.open || 0)} accent="bg-slate-500" />
-        <Metric label="Frais livraison" value={dzd.format(stats.revenue.deliveryFee || 0)} accent="bg-lime-500" />
-      </div>
-
+      {sees(roles, ["commercial"]) && (
       <div className="grid gap-6 lg:grid-cols-2">
         <CrmPanel title="Commandes et GMV">
           <ResponsiveContainer width="100%" height={300}>
@@ -208,7 +287,9 @@ export function EnhancedDashboard() {
           </ResponsiveContainer>
         </CrmPanel>
       </div>
+      )}
 
+      {sees(roles, ["commercial", "confirmation", "livraison"]) && (
       <div className="grid gap-6 lg:grid-cols-2">
         <CrmPanel title="Distribution par statut">
           <ResponsiveContainer width="100%" height={300}>
@@ -234,7 +315,9 @@ export function EnhancedDashboard() {
           </ResponsiveContainer>
         </CrmPanel>
       </div>
+      )}
 
+      {sees(roles, ["commercial", "livraison"]) && (
       <div className="grid gap-6 lg:grid-cols-2">
         <CrmPanel title="Paiement">
           <ResponsiveContainer width="100%" height={260}>
@@ -260,8 +343,11 @@ export function EnhancedDashboard() {
           </ResponsiveContainer>
         </CrmPanel>
       </div>
+      )}
 
+      {(sees(roles, ["fabrication"]) || sees(roles, ["commercial"])) && (
       <div className="grid gap-6 lg:grid-cols-2">
+        {sees(roles, ["fabrication"]) && (
         <CrmPanel title="File de production">
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
@@ -274,6 +360,8 @@ export function EnhancedDashboard() {
             </PieChart>
           </ResponsiveContainer>
         </CrmPanel>
+        )}
+        {sees(roles, ["commercial"]) && (
         <CrmPanel title="Pipeline des ventes">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={dealsData}>
@@ -285,7 +373,9 @@ export function EnhancedDashboard() {
             </BarChart>
           </ResponsiveContainer>
         </CrmPanel>
+        )}
       </div>
+      )}
     </div>
   );
 }

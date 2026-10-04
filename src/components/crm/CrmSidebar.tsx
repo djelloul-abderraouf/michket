@@ -16,7 +16,12 @@ import {
   ClipboardCheck, 
   Truck, 
   Store,
-  Boxes, 
+  Boxes,
+  BarChart3,
+  ArrowLeftRight,
+  ListTree,
+  Factory,
+  ShoppingBag, 
   CheckSquare, 
   UserCog, 
   Settings,
@@ -49,7 +54,12 @@ const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = 
   preparation: ClipboardCheck,
   delivery: Truck,
   catalog: Store,
+  stock_dashboard: BarChart3,
   stock: Boxes,
+  stock_movements: ArrowLeftRight,
+  stock_recipes: ListTree,
+  stock_manufacturing: Factory,
+  stock_sales: ShoppingBag,
   tasks: CheckSquare,
   users: UserCog,
   settings: Settings,
@@ -59,7 +69,8 @@ const pageGroups: Array<{ group: string; pages: CrmPage[] }> = [
   { group: "Principal", pages: ["overview", "orders", "sales", "proposals", "contacts", "companies", "activities"] },
   { group: "Suivi commercial", pages: ["orders_prospection", "orders_prioritaire", "orders_archive"] },
   { group: "Opérations", pages: ["confirmation", "confirmed_orders", "production", "preparation", "delivery"] },
-  { group: "Gestion", pages: ["catalog", "stock", "tasks", "users", "settings"] },
+  { group: "Stock", pages: ["stock_dashboard", "stock", "stock_movements", "stock_recipes", "stock_manufacturing", "stock_sales"] },
+  { group: "Gestion", pages: ["catalog", "tasks", "users", "settings"] },
 ];
 
 export function CrmSidebar({
@@ -181,7 +192,7 @@ export function CrmSidebar({
                       {!isCollapsed && page.id === "orders_archive" && followUpCounts?.archive != null && (
                         <span className={cx("rounded-full px-2 py-0.5 text-[10px]", activePage === page.id ? "bg-white/20" : "bg-black/10")}>{followUpCounts.archive}</span>
                       )}
-                      {page.id === "stock" && stockAlertCount > 0 && (
+                      {(page.id === "stock_dashboard" || page.id === "stock") && stockAlertCount > 0 && (
                         <span className={cx(
                           "rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white",
                           isCollapsed && "absolute -right-1 -top-1",
