@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { crmPlanchesApi } from "@/lib/api-client";
+import { crmOrdersApi, crmPlanchesApi } from "@/lib/api-client";
 import {
   plancheStatusLabels,
   plancheStatuses,
@@ -15,7 +15,12 @@ import {
   type PlancheStatus,
 } from "@/lib/crm/types";
 import { neutralTone, orderKindTones, plancheEventTones, plancheStatusTones } from "@/lib/crm/option-colors";
-import { confirmationRemarks } from "@/lib/crm/order-people";
+import { normalizeOrder } from "@/lib/crm/normalize-order";
+import {
+  commercialRemarks,
+  isCommercialRemarkRead,
+  setCommercialRemarkRead,
+} from "@/lib/crm/order-people";
 import { orderMatchesQuery } from "@/lib/crm/order-search";
 import { ColorChip, CrmColorSelect, PersonChip } from "./CrmColorSelect";
 import { CrmOrderDetailsDrawer } from "./CrmOrderDetailsDrawer";
@@ -78,11 +83,13 @@ export function CrmProduction({
   const [openPlancheId, setOpenPlancheId] = useState<string | undefined>();
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickedIds, setPickedIds] = useState<string[]>([]);
-  const [readIds, setReadIds] = useState<string[]>([]);
+  const [readVersion, setReadVersion] = useState(0);
+  const [confirmedOrders, setConfirmedOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | undefined>();
 
   const openPlanche = planches.find((planche) => planche.id === openPlancheId);
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId);
+  const selectedOrder = orders.find((order) => order.id === selectedOrderId)
+    || confirmedOrders.find((order) => order.id === selectedOrderId);
   const assignedIds = useMemo(
     () => new Set(planches.flatMap((planche) => planche.orders.map((order) => order.orderId))),
     [planches],
@@ -90,13 +97,13 @@ export function CrmProduction({
 
   const availableOrders = useMemo(
     () =>
-      orders.filter(
+      confirmedOrders.filter(
         (order) =>
           order.status === "confirme" &&
           !assignedIds.has(order.id) &&
           orderMatchesQuery(order, pickerQuery),
       ),
-    [assignedIds, orders, pickerQuery],
+    [assignedIds, confirmedOrders, pickerQuery],
   );
 
   const visiblePlanches = useMemo(
@@ -146,8 +153,21 @@ export function CrmProduction({
           setLoading(false);
         }
       });
+    crmOrdersApi
+      .getAll({ status: "confirme", limit: 200 })
+      .then((page) => {
+        if (active) {
+          setConfirmedOrders((page.data || []).map(normalizeOrder));
+        }
+      })
+      .catch((error) => {
+        onToast?.(error instanceof Error ? error.message : "Impossible de charger les commandes confirmées");
+      });
+    const refreshReads = () => setReadVersion((value) => value + 1);
+    window.addEventListener("michket-remark-reads", refreshReads);
     return () => {
       active = false;
+      window.removeEventListener("michket-remark-reads", refreshReads);
     };
   }, [onToast]);
 
@@ -168,6 +188,9 @@ export function CrmProduction({
       onToast?.(success);
       if (refreshOrders) {
         onOrdersRefresh?.();
+        void crmOrdersApi.getAll({ status: "confirme", limit: 200 }).then((page) => {
+          setConfirmedOrders((page.data || []).map(normalizeOrder));
+        });
       }
       return next;
     } catch (error) {
@@ -181,14 +204,14 @@ export function CrmProduction({
   const remaining = openPlanche ? openPlanche.capacity - openPlanche.orders.length : 0;
 
   function togglePick(orderId: string) {
-    const order = orders.find((item) => item.id === orderId);
-    const remarks = order ? confirmationRemarks(order) : [];
+    const order = confirmedOrders.find((item) => item.id === orderId);
+    const remarks = order ? commercialRemarks(order) : [];
     setPickedIds((current) => {
       if (current.includes(orderId)) {
         return current.filter((id) => id !== orderId);
       }
-      if (remarks.length > 0 && !readIds.includes(orderId)) {
-        onToast?.("Confirmez avoir lu les remarques de confirmation avant d'ajouter cette commande.");
+      if (remarks.length > 0 && !isCommercialRemarkRead(order!)) {
+        onToast?.("Confirmez avoir lu les remarques du commercial avant d'ajouter cette commande.");
         return current;
       }
       if (current.length >= remaining) {
@@ -632,7 +655,7 @@ export function CrmProduction({
                 </h4>
                 <p className="text-xs text-black/55">
                   {remaining > 0
-                    ? `${remaining} place${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}. Lisez les remarques de confirmation avant d'ajouter une commande.`
+                    ? `${remaining} place${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}. Les commandes confirmées apparaissent ici. Lisez la remarque du commercial avant d'ajouter.`
                     : "Cette planche est complète."}
                 </p>
                 {remaining > 0 ? (
@@ -644,8 +667,9 @@ export function CrmProduction({
                       ) : (
                         availableOrders.map((order) => {
                           const checked = pickedIds.includes(order.id);
-                          const remarks = confirmationRemarks(order);
-                          const read = readIds.includes(order.id);
+                          const remarks = commercialRemarks(order);
+                          const read = isCommercialRemarkRead(order);
+                          void readVersion;
                           return (
                             <div
                               key={order.id}
@@ -687,21 +711,18 @@ export function CrmProduction({
                                       type="checkbox"
                                       checked={read}
                                       onChange={() => {
-                                        setReadIds((current) =>
-                                          current.includes(order.id)
-                                            ? current.filter((id) => id !== order.id)
-                                            : [...current, order.id],
-                                        );
+                                        setCommercialRemarkRead(order, !read);
+                                        setReadVersion((value) => value + 1);
                                         if (read) {
                                           setPickedIds((current) => current.filter((id) => id !== order.id));
                                         }
                                       }}
                                     />
-                                    J&apos;ai lu les remarques
+                                    J&apos;ai lu les remarques du commercial
                                   </label>
                                 </div>
                               ) : (
-                                <p className="mt-2 text-[11px] text-black/40">Aucune remarque de confirmation.</p>
+                                <p className="mt-2 text-[11px] text-black/40">Aucune remarque du commercial.</p>
                               )}
                             </div>
                           );
@@ -714,7 +735,14 @@ export function CrmProduction({
                       onClick={() => {
                         void run(
                           "add",
-                          () => crmPlanchesApi.addOrders(openPlanche.id, pickedIds, readIds),
+                          () => crmPlanchesApi.addOrders(
+                            openPlanche.id,
+                            pickedIds,
+                            pickedIds.filter((id) => {
+                              const order = confirmedOrders.find((item) => item.id === id);
+                              return Boolean(order && commercialRemarks(order).length > 0 && isCommercialRemarkRead(order));
+                            }),
+                          ),
                           "Commandes ajoutées. Elles passent en fabrication.",
                           true,
                         ).then((updated) => {

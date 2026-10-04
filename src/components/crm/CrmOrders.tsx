@@ -423,11 +423,11 @@ export function CrmOrders(props: {
               ]}
             />
             <CrmColorSelect
-              ariaLabel="Filtrer par type"
+              ariaLabel="Filtrer par type de commande"
               value={kindFilter}
               onChange={(value) => setKindFilter(value as OrderKind | "all")}
               options={[
-                { value: "all", label: "Tous les types", tone: neutralTone },
+                { value: "all", label: "Tous les types de commande", tone: neutralTone },
                 ...orderKinds.map((kind) => ({
                   value: kind,
                   label: orderKindLabels[kind],

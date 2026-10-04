@@ -26,7 +26,7 @@ export function OrderListTable({
             <th className="px-2 py-2">Wilaya</th>
             <th className="px-2 py-2">Commune</th>
             <th className="px-2 py-2">Statut</th>
-            <th className="px-2 py-2">Priorité</th>
+            <th className="px-2 py-2">Type de commande</th>
             <th className="px-2 py-2">Doublon</th>
             <th className="px-2 py-2">Total</th>
             <th className="px-2 py-2">Date</th>

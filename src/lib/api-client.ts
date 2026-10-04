@@ -558,6 +558,138 @@ export const crmUsersApi = {
     }>(`/crm/users/${id}`, data),
 };
 
+export type StockItemType = "matiere" | "composant" | "semi_fini" | "produit_fini";
+export type StockStatus = "ok" | "low" | "out";
+export type StockMovementType =
+  | "restock"
+  | "manufacturing_consumption"
+  | "manufacturing_production"
+  | "sale"
+  | "adjustment"
+  | "return"
+  | "loss"
+  | "reversal";
+export type RecipeKind = "manufacturing" | "sales";
+
+export interface StockItem {
+  id: string;
+  name: string;
+  category: string;
+  itemType: StockItemType;
+  unit: string;
+  minQuantity: number;
+  currentQuantity: number;
+  stockStatus: StockStatus;
+  catalogProductId: string | null;
+  active: boolean;
+}
+
+export interface StockMovement {
+  id: string;
+  itemId: string;
+  itemName: string;
+  movementType: StockMovementType;
+  quantity: number;
+  quantityDelta: number;
+  occurredAt: string;
+  sourceType: string;
+  sourceId: string | null;
+  sourceRef: string | null;
+  note: string | null;
+  reversesMovementId: string | null;
+  createdByName: string;
+}
+
+export interface StockRecipeLine {
+  id: string;
+  componentItemId: string;
+  componentName: string;
+  quantityPerUnit: number;
+}
+
+export interface StockRecipe {
+  id: string;
+  kind: RecipeKind;
+  name: string;
+  outputItemId: string;
+  outputName: string;
+  active: boolean;
+  lines: StockRecipeLine[];
+}
+
+export interface ManufacturingOrder {
+  id: string;
+  reference: string;
+  outputItemId: string;
+  outputName: string;
+  quantity: number;
+  status: "completed" | "cancelled";
+  note: string | null;
+  createdByName: string;
+  createdAt: string;
+  cancelledAt: string | null;
+}
+
+export interface ManufacturingPreview {
+  outputItemId: string;
+  outputName: string;
+  quantity: number;
+  canManufacture: boolean;
+  lines: Array<{
+    componentItemId: string;
+    componentName: string;
+    required: number;
+    available: number;
+    enough: boolean;
+  }>;
+}
+
+export const crmStockApi = {
+  listItems: () => apiClient.get<StockItem[]>("/crm/stock/items"),
+  createItem: (body: {
+    name: string;
+    category?: string;
+    itemType: StockItemType;
+    unit?: string;
+    minQuantity?: number;
+    catalogProductId?: string | null;
+  }) => apiClient.post<StockItem>("/crm/stock/items", body),
+  updateItem: (id: string, body: Partial<{
+    name: string;
+    category: string;
+    itemType: StockItemType;
+    unit: string;
+    minQuantity: number;
+    catalogProductId: string | null;
+    active: boolean;
+  }>) => apiClient.put<StockItem>(`/crm/stock/items/${id}`, body),
+  listMovements: (params?: { itemId?: string; movementType?: string }) =>
+    apiClient.get<StockMovement[]>("/crm/stock/movements", params),
+  createMovement: (body: {
+    itemId: string;
+    movementType: "restock" | "adjustment" | "loss" | "return";
+    quantity: number;
+    note?: string;
+  }) => apiClient.post<StockMovement>("/crm/stock/movements", body),
+  reverseMovement: (id: string) =>
+    apiClient.post<StockMovement>(`/crm/stock/movements/${id}/reverse`, {}),
+  listRecipes: (kind?: RecipeKind) =>
+    apiClient.get<StockRecipe[]>("/crm/stock/recipes", kind ? { kind } : undefined),
+  saveRecipe: (body: {
+    kind: RecipeKind;
+    outputItemId: string;
+    name: string;
+    lines: Array<{ componentItemId: string; quantityPerUnit: number }>;
+  }) => apiClient.post<StockRecipe>("/crm/stock/recipes", body),
+  listManufacturing: () => apiClient.get<ManufacturingOrder[]>("/crm/stock/manufacturing"),
+  previewManufacturing: (body: { outputItemId: string; quantity: number }) =>
+    apiClient.post<ManufacturingPreview>("/crm/stock/manufacturing/preview", body),
+  manufacture: (body: { outputItemId: string; quantity: number; note?: string }) =>
+    apiClient.post<ManufacturingOrder>("/crm/stock/manufacturing", body),
+  cancelManufacturing: (id: string) =>
+    apiClient.post<ManufacturingOrder>(`/crm/stock/manufacturing/${id}/cancel`, {}),
+};
+
 export interface AuthMeProfile {
   id: string;
   email: string;

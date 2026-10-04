@@ -11,10 +11,12 @@ import {
   Users, 
   Building2, 
   Phone, 
+  ClipboardList,
   Wrench, 
   ClipboardCheck, 
   Truck, 
-  Store, 
+  Store,
+  Boxes, 
   CheckSquare, 
   UserCog, 
   Settings,
@@ -43,9 +45,11 @@ const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = 
   companies: Building2,
   activities: Phone,
   production: Wrench,
+  confirmed_orders: ClipboardList,
   preparation: ClipboardCheck,
   delivery: Truck,
   catalog: Store,
+  stock: Boxes,
   tasks: CheckSquare,
   users: UserCog,
   settings: Settings,
@@ -54,8 +58,8 @@ const pageIcons: Record<CrmPage, React.ComponentType<{ className?: string }>> = 
 const pageGroups: Array<{ group: string; pages: CrmPage[] }> = [
   { group: "Principal", pages: ["overview", "orders", "sales", "proposals", "contacts", "companies", "activities"] },
   { group: "Suivi commercial", pages: ["orders_prospection", "orders_prioritaire", "orders_archive"] },
-  { group: "Opérations", pages: ["confirmation", "production", "preparation", "delivery"] },
-  { group: "Gestion", pages: ["catalog", "tasks", "users", "settings"] },
+  { group: "Opérations", pages: ["confirmation", "confirmed_orders", "production", "preparation", "delivery"] },
+  { group: "Gestion", pages: ["catalog", "stock", "tasks", "users", "settings"] },
 ];
 
 export function CrmSidebar({

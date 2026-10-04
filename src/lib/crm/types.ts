@@ -97,9 +97,11 @@ export type CrmPage =
   | "companies"
   | "activities"
   | "production"
+  | "confirmed_orders"
   | "preparation"
   | "delivery"
   | "catalog"
+  | "stock"
   | "tasks"
   | "users"
   | "settings";

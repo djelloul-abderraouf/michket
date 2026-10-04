@@ -1,6 +1,8 @@
-import type { Order, OrderRemark, OrderStatus } from "@/lib/crm/types";
+import type { Order, OrderRemark } from "@/lib/crm/types";
 
-export function namesForStatus(order: Order, status: OrderStatus) {
+const STORAGE_KEY = "michket-commercial-remark-reads";
+
+export function namesForStatus(order: Order, status: Order["status"]) {
   const names: string[] = [];
   const seen = new Set<string>();
   for (const event of order.history || []) {
@@ -17,11 +19,49 @@ export function namesForStatus(order: Order, status: OrderStatus) {
   return names;
 }
 
-export function confirmationRemarks(order: Pick<Order, "remarks">): OrderRemark[] {
-  const remarks = order.remarks || [];
-  const tagged = remarks.some((remark) => (remark.authorRoles || []).length > 0);
-  if (!tagged) {
-    return remarks;
+export function commercialRemarks(order: Pick<Order, "remarks">): OrderRemark[] {
+  return (order.remarks || []).filter((remark) =>
+    (remark.authorRoles || []).includes("commercial"),
+  );
+}
+
+export function remarkReadToken(order: Pick<Order, "id" | "remarks">) {
+  const ids = commercialRemarks(order).map((remark) => remark.id).sort();
+  if (ids.length === 0) {
+    return null;
   }
-  return remarks.filter((remark) => (remark.authorRoles || []).includes("confirmation"));
+  return `${order.id}:${ids.join(",")}`;
+}
+
+export function isCommercialRemarkRead(order: Pick<Order, "id" | "remarks">) {
+  const token = remarkReadToken(order);
+  if (!token || typeof window === "undefined") {
+    return !token;
+  }
+  return loadReadTokens().has(token);
+}
+
+export function setCommercialRemarkRead(order: Pick<Order, "id" | "remarks">, read: boolean) {
+  const token = remarkReadToken(order);
+  if (!token || typeof window === "undefined") {
+    return;
+  }
+  const tokens = loadReadTokens();
+  if (read) {
+    tokens.add(token);
+  } else {
+    tokens.delete(token);
+  }
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...tokens]));
+  window.dispatchEvent(new Event("michket-remark-reads"));
+}
+
+function loadReadTokens() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set<string>(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set<string>();
+  }
 }

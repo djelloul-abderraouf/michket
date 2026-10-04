@@ -28,7 +28,7 @@ import {
   orderStatusTones,
   sourceTones,
 } from "@/lib/crm/option-colors";
-import { confirmationRemarks, namesForStatus } from "@/lib/crm/order-people";
+import { commercialRemarks, namesForStatus } from "@/lib/crm/order-people";
 import { printYalidineBordereau, downloadYalidineBordereau } from "@/lib/crm/bordereau";
 import { crmDeliveryApi, crmOrdersApi } from "@/lib/api-client";
 import { ColorChip, CrmColorSelect, PersonChip } from "./CrmColorSelect";
@@ -599,11 +599,11 @@ export function CrmOrderDetailsDrawer({
           <div id="order-suivi" className="scroll-mt-12 space-y-3">
           <Section id="order-equipe" title="Équipe">
             <PeopleLine label="Confirmée par" names={namesForStatus(order, "confirme")} />
-            {confirmationRemarks(order).length === 0 ? (
-              <p className="text-[11px] text-black/40">Aucune remarque de confirmation.</p>
+            {commercialRemarks(order).length === 0 ? (
+              <p className="text-[11px] text-black/40">Aucune remarque du commercial.</p>
             ) : (
               <div className="space-y-1.5">
-                {confirmationRemarks(order).map((item) => (
+                {commercialRemarks(order).map((item) => (
                   <div key={item.id} className="rounded-lg bg-stone-50 px-2.5 py-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <PersonChip name={item.authorName} />

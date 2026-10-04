@@ -41,9 +41,11 @@ import { CrmDelivery } from "./CrmDelivery";
 import { CrmOrders } from "./CrmOrders";
 import { CrmPreparation } from "./CrmPreparation";
 import { CrmProduction } from "./CrmProduction";
+import { CrmConfirmedOrders } from "./CrmConfirmedOrders";
 import { CrmProposals } from "./CrmProposals";
 import { CrmSales } from "./CrmSales";
 import { CrmSettings } from "./CrmSettings";
+import { CrmStock } from "./CrmStock";
 import { CrmSidebar } from "./CrmSidebar";
 import { CrmTasks } from "./CrmTasks";
 import { CrmUsers } from "./CrmUsers";
@@ -1114,6 +1116,19 @@ export function CrmApp() {
             />
           )}
 
+          {canSeeActivePage && activePage === "confirmed_orders" && (
+            <CrmConfirmedOrders
+              onLoadOrder={loadOrderDetails}
+              onToast={setToast}
+              onCreateParcel={createParcel}
+              onSyncParcel={syncParcel}
+              userRoles={userRoles}
+              currentUserId={crmUser.id}
+              onOrderUpdated={applyOrderUpdate}
+              onMove={moveOrder}
+            />
+          )}
+
           {canSeeActivePage && activePage === "production" && (
             <CrmProduction
               orders={orders}
@@ -1167,6 +1182,14 @@ export function CrmApp() {
               currentUserId={crmUser.id}
               onOrderUpdated={applyOrderUpdate}
               onMove={moveOrder}
+              onToast={setToast}
+            />
+          )}
+
+          {canSeeActivePage && activePage === "stock" && (
+            <CrmStock
+              products={products}
+              canEdit={userRoles.includes("admin") || userRoles.includes("fabrication")}
               onToast={setToast}
             />
           )}
