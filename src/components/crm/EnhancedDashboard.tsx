@@ -125,9 +125,8 @@ export function EnhancedDashboard({
     amount: item.total,
   }));
   const funnel = stats.funnel || {};
-  const roleLine = (roles.includes("admin") ? ["admin"] : roles)
-    .map((role) => roleLabels[role] || role)
-    .join(" · ");
+  const shownRoles: CrmRole[] = roles.includes("admin") ? ["admin"] : roles;
+  const roleLine = shownRoles.map((role) => roleLabels[role]).join(" · ");
   const returnRate = kpis.orders.currentMonth
     ? (Number(kpis.orders.cancelled || 0) / Number(kpis.orders.currentMonth)) * 100
     : 0;

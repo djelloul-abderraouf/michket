@@ -76,7 +76,7 @@ const sectionCopy: Record<StockSection, { title: string; text: string }> = {
   },
   stock: {
     title: "Articles",
-    text: "Matières, composants, semi-finis et produits finis. La quantité n'est pas saisie à la main.",
+    text: "Créez une matière, un composant ou un produit, puis indiquez la quantité déjà en stock. Ce chiffre est une entrée de stock.",
   },
   movements: {
     title: "Mouvements",
@@ -349,9 +349,12 @@ function StockPanel({
   const [itemType, setItemType] = useState<StockItemType>("composant");
   const [unit, setUnit] = useState("pcs");
   const [minQuantity, setMinQuantity] = useState("0");
+  const [initialQuantity, setInitialQuantity] = useState("");
   const [catalogProductId, setCatalogProductId] = useState("");
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restockId, setRestockId] = useState<string | null>(null);
+  const [restockQty, setRestockQty] = useState("");
 
   function startCreate() {
     setEditing(null);
@@ -360,6 +363,7 @@ function StockPanel({
     setItemType("composant");
     setUnit("pcs");
     setMinQuantity("0");
+    setInitialQuantity("");
     setCatalogProductId("");
     setActive(true);
     setOpen(true);
@@ -380,6 +384,7 @@ function StockPanel({
   async function save() {
     setSaving(true);
     try {
+      const opening = Number(initialQuantity);
       const body = {
         name: name.trim(),
         category: category.trim(),
@@ -387,14 +392,28 @@ function StockPanel({
         unit: unit.trim() || "pcs",
         minQuantity: Number(minQuantity) || 0,
         catalogProductId: catalogProductId || null,
-        active,
       };
       if (editing) {
-        await crmStockApi.updateItem(editing.id, body);
+        await crmStockApi.updateItem(editing.id, { ...body, active });
         await onSaved("Article mis à jour.");
       } else {
-        await crmStockApi.createItem(body);
-        await onSaved("Article ajouté. La quantité reste à 0 jusqu'au premier mouvement.");
+        const created = await crmStockApi.createItem(body);
+        setOpen(false);
+        if (Number.isFinite(opening) && opening > 0) {
+          try {
+            await crmStockApi.createMovement({
+              itemId: created.id,
+              movementType: "restock",
+              quantity: opening,
+              note: "Quantité initiale",
+            });
+          } catch (error) {
+            await onSaved("Article créé. La quantité n'a pas été enregistrée : utilisez Ajouter du stock.");
+            onError(error);
+            return;
+          }
+        }
+        await onSaved(opening > 0 ? "Article ajouté avec sa quantité de départ." : "Article ajouté. Quantité à 0.");
       }
       setOpen(false);
     } catch (error) {
@@ -406,7 +425,17 @@ function StockPanel({
 
   return (
     <section className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-[1fr_180px_180px_auto]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-black/55">La quantité en vert, orange ou rouge est le stock réel de chaque article.</p>
+        {canEdit ? (
+          <button type="button" onClick={startCreate} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white">
+            Nouvel article
+          </button>
+        ) : (
+          <p className="text-xs text-black/45">Seuls l'admin et la fabrication peuvent ajouter un article.</p>
+        )}
+      </div>
+      <div className="grid gap-2 md:grid-cols-[1fr_180px_180px]">
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un article" className={fieldClass} />
         <CrmColorSelect
           ariaLabel="Filtrer par type d'article"
@@ -434,51 +463,94 @@ function StockPanel({
             })),
           ]}
         />
-        {canEdit ? (
-          <button type="button" onClick={startCreate} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white">
-            Ajouter un article
-          </button>
-        ) : <span />}
       </div>
 
       {open && canEdit && (
-        <div className="grid gap-2 rounded-xl border border-black/10 bg-white p-3 md:grid-cols-3">
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nom" className={fieldClass} />
-          <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Catégorie" className={fieldClass} />
-          <CrmColorSelect
-            ariaLabel="Type d'article"
-            value={itemType}
-            onChange={(value) => setItemType(value as StockItemType)}
-            options={Object.entries(itemTypeLabels).map(([value, label]) => ({
-              value,
-              label,
-              tone: itemTypeTones[value as StockItemType],
-            }))}
-          />
-          <input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="Unité" className={fieldClass} />
-          <input value={minQuantity} onChange={(event) => setMinQuantity(event.target.value)} type="number" min="0" step="0.001" placeholder="Stock minimum" className={fieldClass} />
-          <select value={catalogProductId} onChange={(event) => setCatalogProductId(event.target.value)} className={fieldClass}>
-            <option value="">Pas lié à un produit du catalogue</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>{product.name}</option>
-            ))}
-          </select>
-          {editing ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-              Actif
+        <form
+          className="space-y-4 rounded-xl border border-black/10 bg-white p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <div>
+            <h2 className="text-sm font-bold">{editing ? `Modifier ${editing.name}` : "Nouvel article"}</h2>
+            <p className="mt-1 text-xs text-black/55">
+              {editing
+                ? "Le nom, le type et le minimum se modifient ici. La quantité affichée vient des mouvements."
+                : "Indiquez la quantité déjà en stock. Elle est enregistrée comme une entrée, pas comme un chiffre saisi à la main."}
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block text-xs font-semibold text-black/60">
+              Nom
+              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Carte PCB Rouge" className={`${fieldClass} mt-1`} />
             </label>
-          ) : null}
-          <div className="flex gap-2 md:col-span-3">
-            <button type="button" disabled={saving || !name.trim()} onClick={() => void save()} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-40">
-              Enregistrer
+            <label className="block text-xs font-semibold text-black/60">
+              Catégorie
+              <input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Électronique" className={`${fieldClass} mt-1`} />
+            </label>
+            <label className="block text-xs font-semibold text-black/60">
+              Type
+              <div className="mt-1">
+                <CrmColorSelect
+                  ariaLabel="Type d'article"
+                  value={itemType}
+                  onChange={(value) => setItemType(value as StockItemType)}
+                  options={Object.entries(itemTypeLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                    tone: itemTypeTones[value as StockItemType],
+                  }))}
+                />
+              </div>
+            </label>
+            <label className="block text-xs font-semibold text-black/60">
+              Unité
+              <input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="pcs" className={`${fieldClass} mt-1`} />
+            </label>
+            {!editing ? (
+              <label className="block text-xs font-semibold text-black/60">
+                Quantité actuelle
+                <input value={initialQuantity} onChange={(event) => setInitialQuantity(event.target.value)} type="number" min="0" step="0.001" placeholder="0" className={`${fieldClass} mt-1`} />
+              </label>
+            ) : (
+              <div className="rounded-lg bg-black/[0.03] px-3 py-2">
+                <p className="text-xs font-semibold text-black/50">Quantité actuelle</p>
+                <p className={`mt-1 text-2xl font-bold tabular-nums ${editing.stockStatus === "out" ? "text-rose-700" : editing.stockStatus === "low" ? "text-amber-800" : "text-emerald-800"}`}>
+                  {formatQty(editing.currentQuantity)} <span className="text-sm font-medium text-black/45">{editing.unit}</span>
+                </p>
+              </div>
+            )}
+            <label className="block text-xs font-semibold text-black/60">
+              Stock minimum, pour l'alerte
+              <input value={minQuantity} onChange={(event) => setMinQuantity(event.target.value)} type="number" min="0" step="0.001" className={`${fieldClass} mt-1`} />
+            </label>
+            <label className="block text-xs font-semibold text-black/60 md:col-span-2">
+              Produit du catalogue, facultatif
+              <select value={catalogProductId} onChange={(event) => setCatalogProductId(event.target.value)} className={`${fieldClass} mt-1`}>
+                <option value="">Aucun. Utile seulement pour une vente.</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>{product.name}</option>
+                ))}
+              </select>
+            </label>
+            {editing ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
+                Actif
+              </label>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving || !name.trim()} className="h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-40">
+              {saving ? "Enregistrement…" : editing ? "Enregistrer" : "Créer l'article"}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-lg border border-black/15 px-4 text-sm">
-              Fermer
+              Annuler
             </button>
           </div>
-          <p className="text-xs text-black/45 md:col-span-3">Un article peut être une matière, un composant ou un produit. La quantité n'est pas saisie ici : elle vient des mouvements. Le lien catalogue sert seulement à retrouver l'article quand une commande est confirmée.</p>
-        </div>
+        </form>
       )}
 
       <div className="overflow-x-auto rounded-xl border border-black/10 bg-white">
@@ -488,7 +560,7 @@ function StockPanel({
               <th className="px-3 py-2">Article</th>
               <th className="px-3 py-2">Catégorie</th>
               <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Quantité</th>
+              <th className="px-3 py-2">Quantité en stock</th>
               <th className="px-3 py-2">Minimum</th>
               <th className="px-3 py-2">Statut</th>
               <th className="px-3 py-2" />
@@ -496,7 +568,7 @@ function StockPanel({
           </thead>
           <tbody>
             {items.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-black/40">Aucun article</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-black/40">Aucun article. Utilisez Nouvel article pour en créer un, avec sa quantité.</td></tr>
             ) : items.map((item) => (
               <tr key={item.id} className="border-b border-black/5">
                 <td className="px-3 py-2">
@@ -505,12 +577,47 @@ function StockPanel({
                 </td>
                 <td className="px-3 py-2 text-black/60">{item.category || "—"}</td>
                 <td className="px-3 py-2"><ColorChip label={itemTypeLabels[item.itemType]} tone={itemTypeTones[item.itemType]} /></td>
-                <td className="px-3 py-2 font-semibold">{formatQty(item.currentQuantity)} {item.unit}</td>
-                <td className="px-3 py-2">{formatQty(item.minQuantity)}</td>
+                <td className="px-3 py-2">
+                  <p className={cx(
+                    "text-xl font-bold tabular-nums leading-none",
+                    item.stockStatus === "out" ? "text-rose-700" : item.stockStatus === "low" ? "text-amber-800" : "text-emerald-800",
+                  )}>
+                    {formatQty(item.currentQuantity)}
+                    <span className="ml-1 text-xs font-medium text-black/45">{item.unit}</span>
+                  </p>
+                </td>
+                <td className="px-3 py-2 text-xs text-black/55">{formatQty(item.minQuantity)} {item.unit}</td>
                 <td className="px-3 py-2"><ColorChip label={statusLabels[item.stockStatus]} tone={statusTones[item.stockStatus]} /></td>
                 <td className="px-3 py-2 text-right">
                   {canEdit ? (
-                    <button type="button" onClick={() => startEdit(item)} className="text-xs font-semibold underline">Modifier</button>
+                    <div className="flex flex-col items-end gap-1">
+                      {restockId === item.id ? (
+                        <form
+                          className="flex items-center gap-1"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const quantity = Number(restockQty);
+                            if (!Number.isFinite(quantity) || quantity <= 0) {
+                              onError(new Error("Indiquez une quantité supérieure à 0."));
+                              return;
+                            }
+                            void crmStockApi.createMovement({ itemId: item.id, movementType: "restock", quantity })
+                              .then(() => onSaved(`+${formatQty(quantity)} ${item.unit} ajoutés à ${item.name}.`))
+                              .then(() => {
+                                setRestockId(null);
+                                setRestockQty("");
+                              })
+                              .catch(onError);
+                          }}
+                        >
+                          <input value={restockQty} onChange={(event) => setRestockQty(event.target.value)} type="number" min="0.001" step="0.001" placeholder="+ qté" className="h-8 w-20 rounded-lg border border-black/15 px-2 text-sm" />
+                          <button type="submit" className="h-8 rounded-lg bg-black px-2 text-xs font-semibold text-white">OK</button>
+                        </form>
+                      ) : (
+                        <button type="button" onClick={() => { setRestockId(item.id); setRestockQty(""); }} className="text-xs font-semibold text-emerald-800 underline">Ajouter du stock</button>
+                      )}
+                      <button type="button" onClick={() => startEdit(item)} className="text-xs font-semibold underline">Modifier</button>
+                    </div>
                   ) : null}
                 </td>
               </tr>

@@ -48,7 +48,8 @@ export function CrmDashboard({
   // Calculate average order value
   const billable = orders.filter((order) => !["annulee", "retour_echec"].includes(order.status));
   const avgOrderValue = billable.length > 0 ? billable.reduce((sum, order) => sum + order.total, 0) / billable.length : 0;
-  const roleLine = (roles.includes("admin") ? ["admin"] : roles).map((role) => roleLabels[role] || role).join(" · ");
+  const shownRoles: CrmRole[] = roles.includes("admin") ? ["admin"] : roles;
+  const roleLine = shownRoles.map((role) => roleLabels[role]).join(" · ");
 
   // Recent orders
   const recentOrders = [...orders]

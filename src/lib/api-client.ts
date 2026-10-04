@@ -652,6 +652,7 @@ export const crmStockApi = {
     itemType: StockItemType;
     unit?: string;
     minQuantity?: number;
+    initialQuantity?: number;
     catalogProductId?: string | null;
   }) => apiClient.post<StockItem>("/crm/stock/items", body),
   updateItem: (id: string, body: Partial<{
